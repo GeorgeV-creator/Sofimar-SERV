@@ -321,7 +321,7 @@ async function loadData() {
         await loadChatbotMessages();
         loadLocations();
         loadTikTokVideos();
-        loadCertificates();
+        await loadCertificates();
         await updateStatistics();
         console.log('All data loaded successfully');
     } catch (error) {
@@ -975,9 +975,14 @@ function deleteTikTokVideo(index) {
 }
 
 // Certificates Management
-function loadCertificates() {
-    const certificates = getCertificates();
+async function loadCertificates() {
+    const certificates = await getCertificates();
     const certificatesList = document.getElementById('certificatesList');
+    
+    if (!certificatesList) {
+        console.error('certificatesList element not found');
+        return;
+    }
     
     if (certificates.length === 0) {
         certificatesList.innerHTML = '<p class="empty-state">Nu există certificate adăugate. Folosește butonul "Adaugă Certificat" pentru a adăuga unul nou.</p>';
@@ -1007,7 +1012,20 @@ function loadCertificates() {
     }).join('');
 }
 
-function getCertificates() {
+async function getCertificates() {
+    try {
+        // Try to fetch from API server
+        const response = await fetch('http://localhost:8001/api/certificates');
+        if (response.ok) {
+            const certificates = await response.json();
+            console.log('Retrieved certificates from API:', certificates.length);
+            return Array.isArray(certificates) ? certificates : [];
+        }
+    } catch (error) {
+        console.warn('API server not available, loading from localStorage:', error);
+    }
+    
+    // Fallback to localStorage
     try {
         const certificates = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
         if (!certificates) {
@@ -1027,63 +1045,78 @@ function getCertificates() {
 }
 
 function saveCertificates(certificates) {
-    try {
-        // Ensure we're saving an array
-        if (!Array.isArray(certificates)) {
-            console.error('Attempted to save non-array certificates data');
-            return;
-        }
-        localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
-        console.log('Certificates saved:', certificates.length, 'certificates');
-    } catch (e) {
-        console.error('Error saving certificates:', e);
-    }
+    localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
 }
 
-function addCertificate(title, description, image) {
-    // Get current certificates
-    let certificates = getCertificates();
-    console.log('Current certificates before add:', certificates.length, certificates);
-    
-    // Ensure certificates is an array
-    if (!Array.isArray(certificates)) {
-        console.warn('Certificates is not an array, initializing new array');
-        certificates = [];
-    }
-    
+async function addCertificate(title, description, image) {
     // Create new certificate object
     const newCertificate = { title, description, image };
     console.log('Adding new certificate:', newCertificate);
     
-    // Add to array
-    certificates.push(newCertificate);
-    console.log('Current certificates after add:', certificates.length, certificates);
-    
-    // Save to localStorage
-    saveCertificates(certificates);
-    
-    // Verify save by reading back
-    const saved = getCertificates();
-    console.log('Verified saved certificates:', saved.length, saved);
-    
-    if (saved.length !== certificates.length) {
-        console.error('Certificate count mismatch! Saved:', saved.length, 'Expected:', certificates.length);
+    try {
+        // Try to save to API server
+        const response = await fetch('http://localhost:8001/api/certificates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newCertificate)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Certificate saved to API:', result);
+        } else {
+            throw new Error('API save failed');
+        }
+    } catch (error) {
+        // Fallback to localStorage
+        console.warn('API server not available, saving to localStorage:', error);
+        let certificates = await getCertificates();
+        
+        // Ensure certificates is an array
+        if (!Array.isArray(certificates)) {
+            console.warn('Certificates is not an array, initializing new array');
+            certificates = [];
+        }
+        
+        // Add to array
+        certificates.push(newCertificate);
+        saveCertificates(certificates);
     }
     
     // Reload display
-    loadCertificates();
+    await loadCertificates();
     updateStatistics();
     
     // Dispatch event to update certificate page if open
     window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
-function deleteCertificate(index) {
+async function deleteCertificate(index) {
     if (confirm('Ești sigur că vrei să ștergi acest certificat?')) {
-        const certificates = getCertificates();
+        const certificates = await getCertificates();
+        const certificate = certificates[index];
+        
+        if (certificate && certificate.id) {
+            // Try to delete from API server
+            try {
+                const response = await fetch(`http://localhost:8001/api/certificates?id=${certificate.id}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    console.log('Certificate deleted from API');
+                }
+            } catch (error) {
+                console.warn('API server not available, deleting from localStorage:', error);
+            }
+        }
+        
+        // Also delete from localStorage
         certificates.splice(index, 1);
         saveCertificates(certificates);
-        loadCertificates();
+        
+        await loadCertificates();
         updateStatistics();
         
         // Dispatch event to update certificate page if open
@@ -1096,7 +1129,7 @@ async function updateStatistics() {
     const messages = await getMessages();
     const chatbotMessages = await getChatbotMessages();
     const videos = getTikTokVideos();
-    const certificates = getCertificates();
+    const certificates = await getCertificates();
     const visits = await getVisits();
     
     // Count chatbot conversations (user messages)

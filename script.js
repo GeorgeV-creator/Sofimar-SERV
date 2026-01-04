@@ -510,7 +510,7 @@ window.addEventListener('locationsUpdated', () => {
 // Listen for certificate updates from admin panel
 window.addEventListener('certificatesUpdated', () => {
     if (document.getElementById('certificatesGrid')) {
-        loadCertificatesOnPage();
+        loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
     }
 });
 
@@ -718,31 +718,48 @@ function closeCertificateModal() {
     document.body.style.overflow = '';
 }
 
-// Load certificates from localStorage
-function loadCertificatesOnPage() {
+// Load certificates from localStorage or API
+async function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
     if (!certificatesGrid) {
         console.log('certificatesGrid not found');
         return;
     }
     
-    const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
     let certificates = [];
+    
     try {
-        const stored = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
-        if (stored) {
-            certificates = JSON.parse(stored);
+        // Try to fetch from API server
+        const response = await fetch('http://localhost:8001/api/certificates');
+        if (response.ok) {
+            certificates = await response.json();
+            console.log('Loading certificates from API:', certificates.length, 'certificates');
             if (!Array.isArray(certificates)) {
-                console.error('Certificates data is not an array');
+                console.error('Certificates data from API is not an array');
                 certificates = [];
             }
+        } else {
+            throw new Error('API response not OK');
         }
-    } catch (e) {
-        console.error('Error loading certificates:', e);
-        certificates = [];
+    } catch (error) {
+        // Fallback to localStorage
+        console.warn('API server not available, loading from localStorage:', error);
+        const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
+            if (stored) {
+                certificates = JSON.parse(stored);
+                if (!Array.isArray(certificates)) {
+                    console.error('Certificates data is not an array');
+                    certificates = [];
+                }
+            }
+        } catch (e) {
+            console.error('Error loading certificates:', e);
+            certificates = [];
+        }
+        console.log('Loading certificates from localStorage:', certificates.length, 'certificates');
     }
-    
-    console.log('Loading certificates from localStorage:', certificates.length, 'certificates');
     
     // Always replace certificates with those from localStorage (even if empty)
     // Clear existing certificates and load from localStorage
@@ -783,13 +800,13 @@ function loadCertificatesOnPage() {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('certificatesGrid')) {
-            loadCertificatesOnPage();
+            loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
         }
     });
 } else {
     // DOM already loaded
     if (document.getElementById('certificatesGrid')) {
-        loadCertificatesOnPage();
+        loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
     }
 }
 
