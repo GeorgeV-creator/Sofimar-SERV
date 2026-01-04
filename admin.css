@@ -229,11 +229,17 @@ body {
     align-items: center;
     gap: 1.5rem;
     transition: var(--transition);
+    user-select: none;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
+    background: var(--bg-light);
+}
+
+.stat-card[data-tab]:active {
+    transform: translateY(-2px);
 }
 
 .stat-icon {

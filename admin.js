@@ -227,6 +227,22 @@ function initializeEventListeners() {
         // emailjs.init('YOUR_PUBLIC_KEY');
         console.log('EmailJS library loaded. Remember to configure with your keys.');
     }
+
+    // Add click handlers to stat cards
+    const statCards = document.querySelectorAll('.stat-card[data-tab]');
+    statCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const tabName = card.getAttribute('data-tab');
+            if (tabName) {
+                switchTab(tabName);
+                // Scroll to tabs section
+                const tabsContainer = document.querySelector('.tabs-container');
+                if (tabsContainer) {
+                    tabsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    });
 }
 
 // Tab switching
@@ -988,12 +1004,22 @@ async function updateStatistics() {
 
     // Count chatbot conversations (user messages)
     const chatbotConversations = chatbotMessages.filter(msg => msg.type === 'user').length;
+    
+    // Count locations
+    const locations = getLocations();
+    const totalLocations = locations.length;
 
     document.getElementById('totalMessages').textContent = messages.length;
     document.getElementById('totalVideos').textContent = videos.length;
     document.getElementById('totalCertificates').textContent = certificates.length;
     document.getElementById('todayMessages').textContent = todayMessages;
     document.getElementById('totalChatbotMessages').textContent = chatbotConversations;
+    
+    // Update locations count if element exists
+    const totalLocationsEl = document.getElementById('totalLocations');
+    if (totalLocationsEl) {
+        totalLocationsEl.textContent = totalLocations;
+    }
 }
 
 // Modals
