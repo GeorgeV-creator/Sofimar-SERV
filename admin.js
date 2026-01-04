@@ -1008,25 +1008,69 @@ function loadCertificates() {
 }
 
 function getCertificates() {
-    const certificates = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
-    return certificates ? JSON.parse(certificates) : [];
+    try {
+        const certificates = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
+        if (!certificates) {
+            return [];
+        }
+        const parsed = JSON.parse(certificates);
+        // Ensure we always return an array
+        if (!Array.isArray(parsed)) {
+            console.error('Certificates data is not an array, resetting to empty array');
+            return [];
+        }
+        return parsed;
+    } catch (e) {
+        console.error('Error loading certificates:', e);
+        return [];
+    }
 }
 
 function saveCertificates(certificates) {
-    localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
+    try {
+        // Ensure we're saving an array
+        if (!Array.isArray(certificates)) {
+            console.error('Attempted to save non-array certificates data');
+            return;
+        }
+        localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
+        console.log('Certificates saved:', certificates.length, 'certificates');
+    } catch (e) {
+        console.error('Error saving certificates:', e);
+    }
 }
 
 function addCertificate(title, description, image) {
-    const certificates = getCertificates();
-    console.log('Current certificates before add:', certificates.length);
-    certificates.push({ title, description, image });
-    console.log('Current certificates after add:', certificates.length);
+    // Get current certificates
+    let certificates = getCertificates();
+    console.log('Current certificates before add:', certificates.length, certificates);
+    
+    // Ensure certificates is an array
+    if (!Array.isArray(certificates)) {
+        console.warn('Certificates is not an array, initializing new array');
+        certificates = [];
+    }
+    
+    // Create new certificate object
+    const newCertificate = { title, description, image };
+    console.log('Adding new certificate:', newCertificate);
+    
+    // Add to array
+    certificates.push(newCertificate);
+    console.log('Current certificates after add:', certificates.length, certificates);
+    
+    // Save to localStorage
     saveCertificates(certificates);
     
-    // Verify save
+    // Verify save by reading back
     const saved = getCertificates();
-    console.log('Saved certificates:', saved.length);
+    console.log('Verified saved certificates:', saved.length, saved);
     
+    if (saved.length !== certificates.length) {
+        console.error('Certificate count mismatch! Saved:', saved.length, 'Expected:', certificates.length);
+    }
+    
+    // Reload display
     loadCertificates();
     updateStatistics();
     

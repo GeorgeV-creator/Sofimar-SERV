@@ -727,7 +727,20 @@ function loadCertificatesOnPage() {
     }
     
     const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
-    const certificates = JSON.parse(localStorage.getItem(STORAGE_KEY_CERTIFICATES) || '[]');
+    let certificates = [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
+        if (stored) {
+            certificates = JSON.parse(stored);
+            if (!Array.isArray(certificates)) {
+                console.error('Certificates data is not an array');
+                certificates = [];
+            }
+        }
+    } catch (e) {
+        console.error('Error loading certificates:', e);
+        certificates = [];
+    }
     
     console.log('Loading certificates from localStorage:', certificates.length, 'certificates');
     
