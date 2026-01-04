@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Sofimar SERV</title>
+    <link rel="stylesheet" href="admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🔐 Admin Panel</h1>
+                <p>Sofimar SERV - Panou de Administrare</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Utilizator</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Parolă</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Conectează-te</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="admin-dashboard" style="display: none;">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="admin-header-content">
+                <h1>📊 Dashboard Admin</h1>
+                <div class="admin-header-actions">
+                    <a href="index.html" class="btn btn-secondary">← Înapoi la Site</a>
+                    <button id="logoutBtn" class="btn btn-danger">Deconectează-te</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Statistics Cards -->
+            <section class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📧</div>
+                        <div class="stat-info">
+                            <h3 id="totalMessages">0</h3>
+                            <p>Mesaje Contact</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎬</div>
+                        <div class="stat-info">
+                            <h3 id="totalVideos">0</h3>
+                            <p>Video-uri TikTok</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-info">
+                            <h3 id="totalCertificates">0</h3>
+                            <p>Certificate</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-info">
+                            <h3 id="todayMessages">0</h3>
+                            <p>Mesaje Astăzi</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💬</div>
+                        <div class="stat-info">
+                            <h3 id="totalChatbotMessages">0</h3>
+                            <p>Mesaje Chatbot</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tabs Navigation -->
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="messages">📧 Mesaje Contact</button>
+                <button class="tab-btn" data-tab="chatbot">💬 Mesaje Chatbot</button>
+                <button class="tab-btn" data-tab="locations">📍 Locații</button>
+                <button class="tab-btn" data-tab="tiktok">🎬 Video-uri TikTok</button>
+                <button class="tab-btn" data-tab="certificates">📄 Certificate</button>
+                <button class="tab-btn" data-tab="settings">⚙️ Setări</button>
+            </div>
+
+            <!-- Messages Tab -->
+            <div id="messagesTab" class="tab-content active">
+                <div class="tab-header">
+                    <h2>Mesaje de Contact</h2>
+                    <button id="clearMessagesBtn" class="btn btn-danger">Șterge Toate</button>
+                </div>
+                <div class="messages-list" id="messagesList">
+                    <p class="empty-state">Nu există mesaje.</p>
+                </div>
+            </div>
+
+            <!-- Chatbot Messages Tab -->
+            <div id="chatbotTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Mesaje Chatbot</h2>
+                    <button id="clearChatbotMessagesBtn" class="btn btn-danger">Șterge Toate</button>
+                </div>
+                <div class="chatbot-conversations" id="chatbotConversations">
+                    <p class="empty-state">Nu există conversații.</p>
+                </div>
+            </div>
+
+            <!-- TikTok Videos Tab -->
+            <div id="tiktokTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Gestionare Video-uri TikTok</h2>
+                    <button id="addVideoBtn" class="btn btn-primary">+ Adaugă Video</button>
+                </div>
+                <div class="videos-list" id="videosList">
+                    <!-- Videos will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Locations Tab -->
+            <div id="locationsTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Gestionare Locații</h2>
+                    <button id="addLocationBtn" class="btn btn-primary">+ Adaugă Locație</button>
+                </div>
+                <div class="locations-list" id="locationsList">
+                    <!-- Locations will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Certificates Tab -->
+            <div id="certificatesTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Gestionare Certificate</h2>
+                    <button id="addCertificateBtn" class="btn btn-primary">+ Adaugă Certificat</button>
+                </div>
+                <div class="certificates-list" id="certificatesList">
+                    <!-- Certificates will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settingsTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Setări</h2>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-section">
+                        <h3>Schimbă Parola</h3>
+                        <form id="changePasswordForm" class="settings-form">
+                            <div class="form-group">
+                                <label for="currentPassword">Parola Curentă</label>
+                                <input type="password" id="currentPassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">Parola Nouă</label>
+                                <input type="password" id="newPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirmă Parola</label>
+                                <input type="password" id="confirmPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Schimbă Parola</button>
+                            <div id="passwordError" class="error-message"></div>
+                            <div id="passwordSuccess" class="success-message"></div>
+                        </form>
+                    </div>
+                    <div class="setting-section">
+                        <h3>Export Date</h3>
+                        <p>Exportă toate mesajele de contact într-un fișier JSON.</p>
+                        <button id="exportDataBtn" class="btn btn-secondary">Exportă Mesaje</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Adding TikTok Video -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Adaugă Video TikTok</h2>
+            <form id="addVideoForm">
+                <div class="form-group">
+                    <label for="videoId">ID Video TikTok</label>
+                    <input type="text" id="videoId" placeholder="Ex: 7567003645250702614" required>
+                    <small>ID-ul se găsește în URL-ul video-ului după /video/</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Adaugă</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Replying to Message -->
+    <div id="replyModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Răspunde la Mesaj</h2>
+            <div class="reply-message-info" id="replyMessageInfo">
+                <!-- Message info will be loaded here -->
+            </div>
+            <form id="replyForm">
+                <div class="form-group">
+                    <label for="replySubject">Subiect</label>
+                    <input type="text" id="replySubject" placeholder="Ex: Răspuns la mesajul dumneavoastră" required>
+                </div>
+                <div class="form-group">
+                    <label for="replyMessage">Mesaj</label>
+                    <textarea id="replyMessage" rows="8" placeholder="Scrieți răspunsul aici..." required></textarea>
+                </div>
+                <input type="hidden" id="replyToEmail" value="">
+                <input type="hidden" id="replyToName" value="">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeReplyModal()">Anulează</button>
+                    <button type="submit" class="btn btn-primary">Trimite Email</button>
+                </div>
+                <div id="replyError" class="error-message"></div>
+                <div id="replySuccess" class="success-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Adding/Editing Location -->
+    <div id="locationModal" class="modal">
+        <div class="modal-content modal-content-large">
+            <span class="modal-close">&times;</span>
+            <h2 id="locationModalTitle">Adaugă Locație</h2>
+            <form id="addLocationForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="locationName">Nume Locație</label>
+                        <input type="text" id="locationName" placeholder="Ex: București" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="locationDescription">Descriere</label>
+                        <input type="text" id="locationDescription" placeholder="Ex: Sediu Central" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="locationAddress">Adresă</label>
+                    <input type="text" id="locationAddress" placeholder="Ex: București, România" required>
+                </div>
+                <div class="form-group">
+                    <label for="locationPhone">Telefon</label>
+                    <input type="text" id="locationPhone" placeholder="Ex: 021 XXX XXXX" required>
+                </div>
+                
+                <div class="map-picker-section">
+                    <label>Selectează Locația pe Hartă</label>
+                    <p class="map-instruction">Fă click pe hartă pentru a selecta locația. Marker-ul se va muta automat.</p>
+                    <div id="locationMapPicker" class="location-map-picker"></div>
+                    <div class="coordinates-display">
+                        <div class="coordinate-item">
+                            <label>Latitudine:</label>
+                            <input type="number" id="locationLatitude" step="any" readonly>
+                        </div>
+                        <div class="coordinate-item">
+                            <label>Longitudine:</label>
+                            <input type="number" id="locationLongitude" step="any" readonly>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="locationEditIndex" value="">
+                <button type="submit" class="btn btn-primary">Salvează</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Adding Certificate -->
+    <div id="certificateModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Adaugă Certificat</h2>
+            <form id="addCertificateForm">
+                <div class="form-group">
+                    <label for="certTitle">Titlu Certificat</label>
+                    <input type="text" id="certTitle" placeholder="Ex: Certificat ISO 16.636" required>
+                </div>
+                <div class="form-group">
+                    <label for="certDescription">Descriere</label>
+                    <textarea id="certDescription" rows="3" placeholder="Descriere certificat"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="certImage">URL Imagine</label>
+                    <input type="text" id="certImage" placeholder="Ex: images/certificate-1.jpg" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Adaugă</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="admin.js"></script>
+</body>
+</html>
+

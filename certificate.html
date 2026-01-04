@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate - Sofimar SERV | Protecție Profesională Certificată</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1><a href="index.html" style="text-decoration: none; color: inherit;">Sofimar SERV</a></h1>
+            </div>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-menu">
+                <li><a href="index.html#acasa">Acasă</a></li>
+                <li><a href="index.html#servicii">Servicii</a></li>
+                <li><a href="index.html#garantie">Garanție</a></li>
+                <li><a href="index.html#tiktok">TikTok</a></li>
+                <li><a href="certificate.html">Certificate</a></li>
+                <li><a href="index.html#contact">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Certificates Section -->
+    <section class="certificates-section" style="padding-top: 120px;">
+        <div class="container">
+            <div class="section-header">
+                <h2>Certificate și Acreditări</h2>
+                <p>Standardele de calitate și certificările care dovedesc profesionalismul nostru</p>
+            </div>
+            
+            <div class="certificates-grid" id="certificatesGrid">
+                <!-- Certificate items will be added here -->
+                <!-- Example structure for certificates -->
+                <div class="certificate-item">
+                    <div class="certificate-image-wrapper">
+                        <img src="images/certificate-1.jpg" alt="Certificat ISO 16.636" class="certificate-image">
+                        <div class="certificate-overlay">
+                            <button class="certificate-view-btn" onclick="openCertificateModal('images/certificate-1.jpg', 'Certificat ISO 16.636')">
+                                Vezi Detalii
+                            </button>
+                        </div>
+                    </div>
+                    <div class="certificate-info">
+                        <h3>Certificat ISO 16.636</h3>
+                        <p>CEPA Certified® - Standard European de Calitate</p>
+                    </div>
+                </div>
+                
+                <div class="certificate-item">
+                    <div class="certificate-image-wrapper">
+                        <img src="images/certificate-2.jpg" alt="Certificat CEPA" class="certificate-image">
+                        <div class="certificate-overlay">
+                            <button class="certificate-view-btn" onclick="openCertificateModal('images/certificate-2.jpg', 'Certificat CEPA')">
+                                Vezi Detalii
+                            </button>
+                        </div>
+                    </div>
+                    <div class="certificate-info">
+                        <h3>Certificat CEPA</h3>
+                        <p>Certificare Europeană pentru Controlul Dăunătorilor</p>
+                    </div>
+                </div>
+                
+                <!-- Add more certificate items as needed -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Certificate Modal -->
+    <div class="certificate-modal" id="certificateModal">
+        <div class="certificate-modal-content">
+            <span class="certificate-modal-close" onclick="closeCertificateModal()">&times;</span>
+            <img id="modalCertificateImage" src="" alt="Certificat">
+            <h3 id="modalCertificateTitle"></h3>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>Sofimar SERV</h3>
+                    <p>Protecție Profesională Certificată</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Link-uri Rapide</h4>
+                    <ul>
+                        <li><a href="index.html#acasa">Acasă</a></li>
+                        <li><a href="index.html#servicii">Servicii</a></li>
+                        <li><a href="index.html#garantie">Garanție</a></li>
+                        <li><a href="certificate.html">Certificate</a></li>
+                        <li><a href="index.html#contact">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-certifications">
+                    <h4>Certificări</h4>
+                    <p>ISO 16.636</p>
+                    <p>CEPA Certified®</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Sofimar SERV. Toate drepturile rezervate.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

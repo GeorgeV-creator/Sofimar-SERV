@@ -1,0 +1,41 @@
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Video files (too large for git)
+videos/*.mp4
+videos/*.webm
+videos/*.mov
+videos/*.avi
+
+# Keep videos folder but ignore content
+!videos/.gitkeep
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Database files (contain user data)
+messages.json
+chatbot_messages.json
+
+# API server with credentials (contains sensitive data)
+api_server.py
+test_yahoo_smtp.py
+
