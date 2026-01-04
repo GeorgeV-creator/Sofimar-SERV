@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""
+Simple API server for handling contact messages and chatbot messages.
+Saves data to JSON files for persistence.
+"""
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
+import json
+import os
+from datetime import datetime
+import cgi
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.header import Header
+
+# File paths
+MESSAGES_FILE = 'messages.json'
+CHATBOT_FILE = 'chatbot_messages.json'
+
+# Ensure files exist
+if not os.path.exists(MESSAGES_FILE):
+    with open(MESSAGES_FILE, 'w') as f:
+        json.dump([], f)
+
+if not os.path.exists(CHATBOT_FILE):
+    with open(CHATBOT_FILE, 'w') as f:
+        json.dump([], f)
+
+# Yahoo Mail SMTP Configuration
+# Set these environment variables or update directly (not recommended for production)
+YAHOO_USER = os.environ.get('YAHOO_USER', 'your-email@yahoo.com')
+YAHOO_PASSWORD = os.environ.get('YAHOO_PASSWORD', 'your-app-password')
+# For Yahoo, you need to use an App Password, not your regular password
+# Get it from: https://login.yahoo.com/account/security
+
+# ... rest of the file content would be here ...
+# This is a template - copy to api_server.py and add your credentials
