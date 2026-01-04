@@ -38,6 +38,6 @@ visits.json
 certificates.json
 
 # API server with credentials (contains sensitive data)
-api_server.py
-test_yahoo_smtp.py
+# Note: api_server.py is now tracked but should not contain real credentials in production
+# test_yahoo_smtp.py
 
