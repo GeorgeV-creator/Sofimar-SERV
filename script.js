@@ -694,6 +694,8 @@ function openCertificateModal(imageSrc, title) {
     const modalImage = document.getElementById('modalCertificateImage');
     const modalTitle = document.getElementById('modalCertificateTitle');
     
+    if (!modal || !modalImage || !modalTitle) return;
+    
     modalImage.src = imageSrc;
     modalImage.alt = title;
     modalTitle.textContent = title;
@@ -704,8 +706,62 @@ function openCertificateModal(imageSrc, title) {
 
 function closeCertificateModal() {
     const modal = document.getElementById('certificateModal');
+    if (!modal) return;
     modal.classList.remove('active');
     document.body.style.overflow = '';
+}
+
+// Load certificates from localStorage
+function loadCertificatesOnPage() {
+    const certificatesGrid = document.getElementById('certificatesGrid');
+    if (!certificatesGrid) return;
+    
+    const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
+    const certificates = JSON.parse(localStorage.getItem(STORAGE_KEY_CERTIFICATES) || '[]');
+    
+    if (certificates.length === 0) {
+        // Keep default certificates if no custom ones
+        return;
+    }
+    
+    // Clear existing certificates and load from localStorage
+    certificatesGrid.innerHTML = certificates.map(cert => {
+        const isBase64 = cert.image && cert.image.startsWith('data:image');
+        const imageSrc = isBase64 ? cert.image : cert.image;
+        const escapedTitle = escapeHtml(cert.title);
+        const escapedImageSrc = imageSrc.replace(/'/g, "\\'");
+        
+        return `
+            <div class="certificate-item">
+                <div class="certificate-image-wrapper">
+                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image">
+                    <div class="certificate-overlay">
+                        <button class="certificate-view-btn" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitle}')">
+                            Vezi Detalii
+                        </button>
+                    </div>
+                </div>
+                <div class="certificate-info">
+                    <h3>${escapedTitle}</h3>
+                    ${cert.description ? `<p>${escapeHtml(cert.description)}</p>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Initialize certificates when page loads (if on certificate page)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        if (document.getElementById('certificatesGrid')) {
+            loadCertificatesOnPage();
+        }
+    });
+} else {
+    // DOM already loaded
+    if (document.getElementById('certificatesGrid')) {
+        loadCertificatesOnPage();
+    }
 }
 
 // Close modal when clicking outside
