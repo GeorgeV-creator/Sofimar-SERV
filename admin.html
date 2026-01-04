@@ -87,11 +87,11 @@
                             <p>Certificate</p>
                         </div>
                     </div>
-                    <div class="stat-card" data-tab="messages" style="cursor: pointer;" title="Click pentru a deschide Mesaje Contact">
-                        <div class="stat-icon">📅</div>
+                    <div class="stat-card" data-tab="visits" style="cursor: pointer;" title="Click pentru a deschide Vizite">
+                        <div class="stat-icon">👁️</div>
                         <div class="stat-info">
-                            <h3 id="todayMessages">0</h3>
-                            <p>Mesaje Astăzi</p>
+                            <h3 id="totalVisits">0</h3>
+                            <p>Vizite Total</p>
                         </div>
                     </div>
                 </div>
@@ -104,6 +104,7 @@
                 <button class="tab-btn" data-tab="locations">📍 Locații</button>
                 <button class="tab-btn" data-tab="tiktok">🎬 Video-uri TikTok</button>
                 <button class="tab-btn" data-tab="certificates">📄 Certificate</button>
+                <button class="tab-btn" data-tab="visits">👁️ Vizite</button>
                 <button class="tab-btn" data-tab="settings">⚙️ Setări</button>
             </div>
 
@@ -214,35 +215,6 @@
         </div>
     </div>
 
-    <!-- Modal for Replying to Message -->
-    <div id="replyModal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h2>Răspunde la Mesaj</h2>
-            <div class="reply-message-info" id="replyMessageInfo">
-                <!-- Message info will be loaded here -->
-            </div>
-            <form id="replyForm">
-                <div class="form-group">
-                    <label for="replySubject">Subiect</label>
-                    <input type="text" id="replySubject" placeholder="Ex: Răspuns la mesajul dumneavoastră" required>
-                </div>
-                <div class="form-group">
-                    <label for="replyMessage">Mesaj</label>
-                    <textarea id="replyMessage" rows="8" placeholder="Scrieți răspunsul aici..." required></textarea>
-                </div>
-                <input type="hidden" id="replyToEmail" value="">
-                <input type="hidden" id="replyToName" value="">
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeReplyModal()">Anulează</button>
-                    <button type="submit" class="btn btn-primary">Trimite Email</button>
-                </div>
-                <div id="replyError" class="error-message"></div>
-                <div id="replySuccess" class="success-message"></div>
-            </form>
-        </div>
-    </div>
-
     <!-- Modal for Adding/Editing Location -->
     <div id="locationModal" class="modal">
         <div class="modal-content modal-content-large">
@@ -292,7 +264,7 @@
 
     <!-- Modal for Adding Certificate -->
     <div id="certificateModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-content-large">
             <span class="modal-close">&times;</span>
             <h2>Adaugă Certificat</h2>
             <form id="addCertificateForm">
@@ -304,10 +276,32 @@
                     <label for="certDescription">Descriere</label>
                     <textarea id="certDescription" rows="3" placeholder="Descriere certificat"></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="certImage">URL Imagine</label>
-                    <input type="text" id="certImage" placeholder="Ex: images/certificate-1.jpg" required>
+                
+                <div class="image-upload-section">
+                    <label>Imagine Certificat</label>
+                    <div class="image-upload-options">
+                        <label class="upload-option-label">
+                            <input type="radio" name="imageSource" value="upload" checked> Încarcă din calculator
+                        </label>
+                        <label class="upload-option-label">
+                            <input type="radio" name="imageSource" value="url"> Folosește URL
+                        </label>
+                    </div>
+                    
+                    <!-- File Upload Option -->
+                    <div id="uploadImageSection" class="image-source-section">
+                        <input type="file" id="certImageFile" accept="image/*" required>
+                        <small>Formate acceptate: JPG, PNG, GIF (max 5MB)</small>
+                        <div id="imagePreview" class="image-preview"></div>
+                    </div>
+                    
+                    <!-- URL Option -->
+                    <div id="urlImageSection" class="image-source-section" style="display: none;">
+                        <input type="text" id="certImageUrl" placeholder="Ex: images/certificate-1.jpg">
+                        <small>Introdu URL-ul imaginii</small>
+                    </div>
                 </div>
+                
                 <button type="submit" class="btn btn-primary">Adaugă</button>
             </form>
         </div>
