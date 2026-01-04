@@ -507,6 +507,13 @@ window.addEventListener('locationsUpdated', () => {
     }
 });
 
+// Listen for certificate updates from admin panel
+window.addEventListener('certificatesUpdated', () => {
+    if (document.getElementById('certificatesGrid')) {
+        loadCertificatesOnPage();
+    }
+});
+
 // Romania Map with Office Locations
 function initRomaniaMap() {
     const mapContainer = document.getElementById('romaniaMap');
@@ -719,24 +726,22 @@ function loadCertificatesOnPage() {
     const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
     const certificates = JSON.parse(localStorage.getItem(STORAGE_KEY_CERTIFICATES) || '[]');
     
-    if (certificates.length === 0) {
-        // Keep default certificates if no custom ones
-        return;
-    }
-    
+    // Always replace certificates with those from localStorage (even if empty)
     // Clear existing certificates and load from localStorage
     certificatesGrid.innerHTML = certificates.map(cert => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = isBase64 ? cert.image : cert.image;
         const escapedTitle = escapeHtml(cert.title);
-        const escapedImageSrc = imageSrc.replace(/'/g, "\\'");
+        // Escape quotes and backslashes for onclick attribute
+        const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const escapedTitleForOnclick = escapedTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
         return `
             <div class="certificate-item">
                 <div class="certificate-image-wrapper">
                     <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image">
                     <div class="certificate-overlay">
-                        <button class="certificate-view-btn" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitle}')">
+                        <button class="certificate-view-btn" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
                             Vezi Detalii
                         </button>
                     </div>

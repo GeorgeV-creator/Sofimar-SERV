@@ -1022,6 +1022,9 @@ function addCertificate(title, description, image) {
     saveCertificates(certificates);
     loadCertificates();
     updateStatistics();
+    
+    // Dispatch event to update certificate page if open
+    window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
 function deleteCertificate(index) {
@@ -1031,6 +1034,9 @@ function deleteCertificate(index) {
         saveCertificates(certificates);
         loadCertificates();
         updateStatistics();
+        
+        // Dispatch event to update certificate page if open
+        window.dispatchEvent(new CustomEvent('certificatesUpdated'));
     }
 }
 
