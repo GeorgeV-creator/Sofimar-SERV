@@ -442,8 +442,43 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Track page visits
+function trackPageVisit() {
+    const STORAGE_KEY_VISITS = 'sofimar_page_visits';
+    const today = new Date();
+    const dateKey = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    
+    try {
+        // Try to save to API server first
+        fetch('http://localhost:8001/api/visits', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                date: dateKey,
+                timestamp: today.toISOString()
+            })
+        }).catch(error => {
+            // Fallback to localStorage
+            console.warn('API server not available, saving visit to localStorage:', error);
+            const visits = JSON.parse(localStorage.getItem(STORAGE_KEY_VISITS) || '{}');
+            visits[dateKey] = (visits[dateKey] || 0) + 1;
+            localStorage.setItem(STORAGE_KEY_VISITS, JSON.stringify(visits));
+        });
+    } catch (error) {
+        // Fallback to localStorage
+        const visits = JSON.parse(localStorage.getItem(STORAGE_KEY_VISITS) || '{}');
+        visits[dateKey] = (visits[dateKey] || 0) + 1;
+        localStorage.setItem(STORAGE_KEY_VISITS, JSON.stringify(visits));
+    }
+}
+
 // TikTok Embed Loader with Autoplay
 document.addEventListener('DOMContentLoaded', () => {
+    // Track page visit
+    trackPageVisit();
+    
     loadTikTokVideos();
     // Initialize Romania map - wait for everything to load
     function tryInitMap() {

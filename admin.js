@@ -9,6 +9,7 @@ const STORAGE_KEY_MESSAGES = 'sofimar_contact_messages';
 const STORAGE_KEY_CHATBOT_MESSAGES = 'sofimar_chatbot_messages';
 const STORAGE_KEY_VIDEOS = 'sofimar_tiktok_videos';
 const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
+const STORAGE_KEY_VISITS = 'sofimar_page_visits';
 const STORAGE_KEY_LOCATIONS = 'sofimar_office_locations';
 const STORAGE_KEY_AUTH = 'sofimar_admin_auth';
 const STORAGE_KEY_PASSWORD = 'sofimar_admin_password';
@@ -164,16 +165,74 @@ function initializeEventListeners() {
     // Certificate form
     const addCertificateForm = document.getElementById('addCertificateForm');
     if (addCertificateForm) {
-        addCertificateForm.addEventListener('submit', (e) => {
+        addCertificateForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const title = document.getElementById('certTitle').value.trim();
             const description = document.getElementById('certDescription').value.trim();
-            const image = document.getElementById('certImage').value.trim();
+            
+            const imageSource = document.querySelector('input[name="imageSource"]:checked').value;
+            let image = '';
+            
+            if (imageSource === 'upload') {
+                const fileInput = document.getElementById('certImageFile');
+                if (fileInput.files && fileInput.files[0]) {
+                    image = await convertImageToBase64(fileInput.files[0]);
+                } else {
+                    alert('Te rugăm să selectezi o imagine!');
+                    return;
+                }
+            } else {
+                image = document.getElementById('certImageUrl').value.trim();
+                if (!image) {
+                    alert('Te rugăm să introduci un URL pentru imagine!');
+                    return;
+                }
+            }
+            
             if (title && image) {
                 addCertificate(title, description, image);
                 closeCertificateModal();
             }
         });
+        
+        // Toggle between upload and URL options
+        const imageSourceRadios = document.querySelectorAll('input[name="imageSource"]');
+        imageSourceRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const uploadSection = document.getElementById('uploadImageSection');
+                const urlSection = document.getElementById('urlImageSection');
+                const fileInput = document.getElementById('certImageFile');
+                const urlInput = document.getElementById('certImageUrl');
+                
+                if (radio.value === 'upload') {
+                    uploadSection.style.display = 'block';
+                    urlSection.style.display = 'none';
+                    fileInput.required = true;
+                    urlInput.required = false;
+                } else {
+                    uploadSection.style.display = 'none';
+                    urlSection.style.display = 'block';
+                    fileInput.required = false;
+                    urlInput.required = true;
+                }
+            });
+        });
+        
+        // Image preview on file selection
+        const fileInput = document.getElementById('certImageFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('Imaginea este prea mare! Maxim 5MB.');
+                        e.target.value = '';
+                        return;
+                    }
+                    previewImage(file);
+                }
+            });
+        }
     }
 
     // Modal close buttons
@@ -183,7 +242,6 @@ function initializeEventListeners() {
             closeVideoModal();
             closeLocationModal();
             closeCertificateModal();
-            closeReplyModal();
         });
     });
 
@@ -195,7 +253,6 @@ function initializeEventListeners() {
                 closeVideoModal();
                 closeLocationModal();
                 closeCertificateModal();
-                closeReplyModal();
             }
         });
     });
@@ -213,19 +270,6 @@ function initializeEventListeners() {
     const exportDataBtn = document.getElementById('exportDataBtn');
     if (exportDataBtn) {
         exportDataBtn.addEventListener('click', exportMessages);
-    }
-
-    // Reply form
-    const replyForm = document.getElementById('replyForm');
-    if (replyForm) {
-        replyForm.addEventListener('submit', sendReplyEmail);
-    }
-
-    // Initialize EmailJS when page loads
-    if (typeof emailjs !== 'undefined') {
-        // Initialize EmailJS - you need to set your public key
-        // emailjs.init('YOUR_PUBLIC_KEY');
-        console.log('EmailJS library loaded. Remember to configure with your keys.');
     }
 
     // Add click handlers to stat cards
@@ -322,7 +366,6 @@ async function loadMessages() {
                         <div class="message-date">📅 ${dateStr}</div>
                     </div>
                     <div class="message-actions">
-                        <button class="btn btn-secondary btn-reply" onclick="openReplyModal(${index})">✉️ Răspunde</button>
                         <button class="message-delete" onclick="deleteMessage(${index})">Șterge</button>
                     </div>
                 </div>
@@ -942,13 +985,18 @@ function loadCertificates() {
     }
 
     certificatesList.innerHTML = certificates.map((cert, index) => {
+        const isBase64 = cert.image.startsWith('data:image');
+        const imageDisplay = isBase64 
+            ? `<div class="certificate-image-preview"><img src="${cert.image}" alt="${escapeHtml(cert.title)}"></div>`
+            : `<div class="certificate-image-url">📷 ${escapeHtml(cert.image)}</div>`;
+        
         return `
             <div class="certificate-item">
                 <div class="certificate-item-header">
                     <div>
                         <div class="certificate-title">${escapeHtml(cert.title)}</div>
                         ${cert.description ? `<div class="certificate-description">${escapeHtml(cert.description)}</div>` : ''}
-                        <div class="certificate-image-url">📷 ${escapeHtml(cert.image)}</div>
+                        ${imageDisplay}
                     </div>
                 </div>
                 <div class="certificate-actions">
@@ -992,33 +1040,33 @@ async function updateStatistics() {
     const chatbotMessages = await getChatbotMessages();
     const videos = getTikTokVideos();
     const certificates = getCertificates();
+    const visits = await getVisits();
     
-    // Count today's messages
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayMessages = messages.filter(msg => {
-        const msgDate = new Date(msg.timestamp);
-        msgDate.setHours(0, 0, 0, 0);
-        return msgDate.getTime() === today.getTime();
-    }).length;
-
     // Count chatbot conversations (user messages)
     const chatbotConversations = chatbotMessages.filter(msg => msg.type === 'user').length;
     
     // Count locations
     const locations = getLocations();
     const totalLocations = locations.length;
+    
+    // Count total visits
+    const totalVisitsCount = Object.values(visits).reduce((sum, count) => sum + count, 0);
 
     document.getElementById('totalMessages').textContent = messages.length;
     document.getElementById('totalVideos').textContent = videos.length;
     document.getElementById('totalCertificates').textContent = certificates.length;
-    document.getElementById('todayMessages').textContent = todayMessages;
     document.getElementById('totalChatbotMessages').textContent = chatbotConversations;
     
     // Update locations count if element exists
     const totalLocationsEl = document.getElementById('totalLocations');
     if (totalLocationsEl) {
         totalLocationsEl.textContent = totalLocations;
+    }
+    
+    // Update visits count if element exists
+    const totalVisitsEl = document.getElementById('totalVisits');
+    if (totalVisitsEl) {
+        totalVisitsEl.textContent = totalVisitsCount;
     }
 }
 
@@ -1038,13 +1086,49 @@ function openCertificateModal() {
     document.getElementById('certificateModal').classList.add('active');
     document.getElementById('certTitle').value = '';
     document.getElementById('certDescription').value = '';
-    document.getElementById('certImage').value = '';
+    document.getElementById('certImageFile').value = '';
+    document.getElementById('certImageUrl').value = '';
+    
+    // Reset to upload option
+    document.querySelector('input[name="imageSource"][value="upload"]').checked = true;
+    document.getElementById('uploadImageSection').style.display = 'block';
+    document.getElementById('urlImageSection').style.display = 'none';
+    document.getElementById('imagePreview').innerHTML = '';
+    
     document.getElementById('certTitle').focus();
 }
 
 function closeCertificateModal() {
     document.getElementById('certificateModal').classList.remove('active');
     document.getElementById('addCertificateForm').reset();
+    document.getElementById('imagePreview').innerHTML = '';
+}
+
+// Convert image file to base64
+function convertImageToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Preview uploaded image
+function previewImage(file) {
+    const reader = new FileReader();
+    const previewDiv = document.getElementById('imagePreview');
+    
+    reader.onload = (e) => {
+        previewDiv.innerHTML = `
+            <div class="preview-image-container">
+                <img src="${e.target.result}" alt="Preview">
+                <p class="preview-info">${file.name} (${(file.size / 1024).toFixed(2)} KB)</p>
+            </div>
+        `;
+    };
+    
+    reader.readAsDataURL(file);
 }
 
 // Change Password
@@ -1089,6 +1173,114 @@ function changePassword() {
     }, 3000);
 }
 
+// Visits Management
+async function getVisits() {
+    try {
+        // Try to fetch from API server
+        const response = await fetch('http://localhost:8001/api/visits');
+        if (response.ok) {
+            const visits = await response.json();
+            console.log('Retrieved visits from API:', visits);
+            return visits;
+        }
+    } catch (error) {
+        console.warn('API server not available, loading from localStorage:', error);
+    }
+    
+    // Fallback to localStorage
+    try {
+        const visits = localStorage.getItem(STORAGE_KEY_VISITS);
+        return visits ? JSON.parse(visits) : {};
+    } catch (e) {
+        console.error('Error loading visits:', e);
+        return {};
+    }
+}
+
+function saveVisits(visits) {
+    localStorage.setItem(STORAGE_KEY_VISITS, JSON.stringify(visits));
+}
+
+async function loadVisits() {
+    const visits = await getVisits();
+    const visitsList = document.getElementById('visitsList');
+    
+    if (!visitsList) return;
+    
+    if (Object.keys(visits).length === 0) {
+        visitsList.innerHTML = '<p class="empty-state">Nu există date de vizite.</p>';
+        updateVisitsSummary(visits);
+        return;
+    }
+    
+    // Get last 30 days
+    const today = new Date();
+    const last30Days = [];
+    for (let i = 29; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateKey = date.toISOString().split('T')[0];
+        last30Days.push({
+            date: dateKey,
+            displayDate: date.toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+            count: visits[dateKey] || 0
+        });
+    }
+    
+    // Update summary
+    updateVisitsSummary(visits);
+    
+    // Display visits
+    visitsList.innerHTML = last30Days.map(day => {
+        const maxCount = Math.max(...last30Days.map(d => d.count), 1);
+        const percentage = day.count > 0 ? (day.count / maxCount) * 100 : 0;
+        
+        return `
+            <div class="visit-day-item">
+                <div class="visit-day-header">
+                    <span class="visit-date">${escapeHtml(day.displayDate)}</span>
+                    <span class="visit-count">${day.count} ${day.count === 1 ? 'vizită' : 'vizite'}</span>
+                </div>
+                <div class="visit-bar">
+                    <div class="visit-bar-fill" style="width: ${percentage}%"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateVisitsSummary(visits) {
+    const today = new Date();
+    const todayKey = today.toISOString().split('T')[0];
+    const todayVisits = visits[todayKey] || 0;
+    const totalVisits = Object.values(visits).reduce((sum, count) => sum + count, 0);
+    const daysWithVisits = Object.keys(visits).length;
+    
+    const todayVisitsEl = document.getElementById('todayVisits');
+    const totalVisitsCountEl = document.getElementById('totalVisitsCount');
+    const daysWithVisitsEl = document.getElementById('daysWithVisits');
+    
+    if (todayVisitsEl) todayVisitsEl.textContent = todayVisits;
+    if (totalVisitsCountEl) totalVisitsCountEl.textContent = totalVisits;
+    if (daysWithVisitsEl) daysWithVisitsEl.textContent = daysWithVisits;
+}
+
+async function clearVisits() {
+    if (confirm('Ești sigur că vrei să ștergi toate datele de vizite?')) {
+        try {
+            // Try to delete from API server
+            await fetch('http://localhost:8001/api/visits?all=1', {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            console.warn('API server not available, clearing from localStorage:', error);
+        }
+        saveVisits({});
+        await loadVisits();
+        updateStatistics();
+    }
+}
+
 // Export Messages
 async function exportMessages() {
     const messages = await getMessages();
@@ -1109,170 +1301,8 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Reply to Message Functions
-async function openReplyModal(index) {
-    const messages = await getMessages();
-    const message = messages[index];
-    
-    if (!message) {
-        alert('Mesajul nu a fost găsit!');
-        return;
-    }
-    
-    const modal = document.getElementById('replyModal');
-    const infoDiv = document.getElementById('replyMessageInfo');
-    const replyToEmail = document.getElementById('replyToEmail');
-    const replyToName = document.getElementById('replyToName');
-    const replySubject = document.getElementById('replySubject');
-    const replyMessage = document.getElementById('replyMessage');
-    
-    // Populate message info
-    const date = new Date(message.timestamp);
-    const dateStr = date.toLocaleString('ro-RO', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    infoDiv.innerHTML = `
-        <div class="reply-info-card">
-            <h4>Mesaj de la: ${escapeHtml(message.name)}</h4>
-            <p><strong>Email:</strong> ${escapeHtml(message.email)}</p>
-            <p><strong>Telefon:</strong> ${escapeHtml(message.phone)}</p>
-            <p><strong>Data:</strong> ${dateStr}</p>
-            <div class="original-message">
-                <strong>Mesaj original:</strong>
-                <p>${escapeHtml(message.message)}</p>
-            </div>
-        </div>
-    `;
-    
-    // Set hidden fields
-    replyToEmail.value = message.email;
-    replyToName.value = message.name;
-    
-    // Set default subject
-    replySubject.value = `Răspuns la mesajul dumneavoastră - Sofimar SERV`;
-    
-    // Clear previous message
-    replyMessage.value = '';
-    
-    // Clear errors/success
-    document.getElementById('replyError').classList.remove('show');
-    document.getElementById('replySuccess').classList.remove('show');
-    
-    modal.classList.add('active');
-}
-
-function closeReplyModal() {
-    const modal = document.getElementById('replyModal');
-    modal.classList.remove('active');
-    document.getElementById('replyForm').reset();
-    document.getElementById('replyError').classList.remove('show');
-    document.getElementById('replySuccess').classList.remove('show');
-}
-
-// Initialize EmailJS (you'll need to set your public key)
-function initEmailJS() {
-    if (typeof emailjs !== 'undefined') {
-        // Initialize EmailJS with your public key
-        // Get this from https://www.emailjs.com/
-        emailjs.init('YOUR_PUBLIC_KEY'); // Replace with your EmailJS public key
-        console.log('EmailJS initialized');
-    } else {
-        console.warn('EmailJS not loaded');
-    }
-}
-
-// Send reply email
-async function sendReplyEmail(e) {
-    e.preventDefault();
-    
-    const errorDiv = document.getElementById('replyError');
-    const successDiv = document.getElementById('replySuccess');
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    
-    errorDiv.classList.remove('show');
-    successDiv.classList.remove('show');
-    
-    const toEmail = document.getElementById('replyToEmail').value;
-    const toName = document.getElementById('replyToName').value;
-    const subject = document.getElementById('replySubject').value;
-    const message = document.getElementById('replyMessage').value;
-    
-    if (!toEmail || !subject || !message) {
-        errorDiv.textContent = 'Te rugăm să completezi toate câmpurile!';
-        errorDiv.classList.add('show');
-        return;
-    }
-    
-    // Disable submit button
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Se trimite...';
-    
-    try {
-        console.log('Sending email to:', toEmail);
-        // Send email via API server
-        const response = await fetch('http://localhost:8001/api/send-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                to_email: toEmail,
-                to_name: toName,
-                subject: subject,
-                message: message,
-                from_name: 'Sofimar SERV',
-                reply_to: 'contact@sofimarserv.ro'
-            })
-        });
-        
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API error response:', errorText);
-            throw new Error(`Server error: ${response.status} - ${errorText}`);
-        }
-        
-        const result = await response.json();
-        console.log('Email send result:', result);
-        
-        if (result.success) {
-            successDiv.textContent = 'Email trimis cu succes!';
-            successDiv.classList.add('show');
-            
-            // Close modal after 2 seconds
-            setTimeout(() => {
-                closeReplyModal();
-            }, 2000);
-        } else {
-            throw new Error(result.error || 'Failed to send email');
-        }
-    } catch (error) {
-        console.error('Error sending email:', error);
-        let errorMessage = `Eroare: ${error.message}`;
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            errorMessage += '. Verifică dacă API server-ul rulează pe portul 8001.';
-        } else {
-            errorMessage += '. Verifică dacă API server-ul rulează și dacă Yahoo Mail este configurat.';
-        }
-        errorDiv.textContent = errorMessage;
-        errorDiv.classList.add('show');
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-    }
-}
-
 // Make functions available globally for onclick handlers
 window.deleteMessage = deleteMessage;
-window.openReplyModal = openReplyModal;
-window.closeReplyModal = closeReplyModal;
 window.deleteChatbotConversation = deleteChatbotConversation;
 window.editLocation = editLocation;
 window.deleteLocation = deleteLocation;

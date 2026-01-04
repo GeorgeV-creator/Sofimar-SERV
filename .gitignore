@@ -34,6 +34,7 @@ npm-debug.log*
 # Database files (contain user data)
 messages.json
 chatbot_messages.json
+visits.json
 
 # API server with credentials (contains sensitive data)
 api_server.py
