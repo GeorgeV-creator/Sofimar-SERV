@@ -32,10 +32,11 @@ npm-debug.log*
 *.temp
 
 # Database files (contain user data)
-messages.json
-chatbot_messages.json
-visits.json
-certificates.json
+# Note: JSON files are now tracked in repository
+# messages.json
+# chatbot_messages.json
+# visits.json
+# certificates.json
 
 # API server with credentials (contains sensitive data)
 # Note: api_server.py is now tracked but should not contain real credentials in production
