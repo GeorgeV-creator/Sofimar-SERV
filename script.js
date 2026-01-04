@@ -721,13 +721,24 @@ function closeCertificateModal() {
 // Load certificates from localStorage
 function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
-    if (!certificatesGrid) return;
+    if (!certificatesGrid) {
+        console.log('certificatesGrid not found');
+        return;
+    }
     
     const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
     const certificates = JSON.parse(localStorage.getItem(STORAGE_KEY_CERTIFICATES) || '[]');
     
+    console.log('Loading certificates from localStorage:', certificates.length, 'certificates');
+    
     // Always replace certificates with those from localStorage (even if empty)
     // Clear existing certificates and load from localStorage
+    if (certificates.length === 0) {
+        // If no certificates, keep the grid empty or show default
+        certificatesGrid.innerHTML = '';
+        return;
+    }
+    
     certificatesGrid.innerHTML = certificates.map(cert => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = isBase64 ? cert.image : cert.image;

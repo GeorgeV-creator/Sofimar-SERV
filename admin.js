@@ -1018,8 +1018,15 @@ function saveCertificates(certificates) {
 
 function addCertificate(title, description, image) {
     const certificates = getCertificates();
+    console.log('Current certificates before add:', certificates.length);
     certificates.push({ title, description, image });
+    console.log('Current certificates after add:', certificates.length);
     saveCertificates(certificates);
+    
+    // Verify save
+    const saved = getCertificates();
+    console.log('Saved certificates:', saved.length);
+    
     loadCertificates();
     updateStatistics();
     
