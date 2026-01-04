@@ -778,18 +778,12 @@ async function loadCertificatesOnPage() {
         const escapedTitleForOnclick = escapedTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
         return `
-            <div class="certificate-item">
+            <div class="certificate-item" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
                 <div class="certificate-image-wrapper">
-                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image">
+                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" loading="lazy">
                     <div class="certificate-overlay">
-                        <button class="certificate-view-btn" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
-                            Vezi Detalii
-                        </button>
+                        <div class="certificate-title-overlay">${escapedTitle}</div>
                     </div>
-                </div>
-                <div class="certificate-info">
-                    <h3>${escapedTitle}</h3>
-                    ${cert.description ? `<p>${escapeHtml(cert.description)}</p>` : ''}
                 </div>
             </div>
         `;

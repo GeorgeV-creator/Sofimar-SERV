@@ -990,22 +990,26 @@ async function loadCertificates() {
     }
 
     certificatesList.innerHTML = certificates.map((cert, index) => {
-        const isBase64 = cert.image.startsWith('data:image');
-        const imageDisplay = isBase64 
-            ? `<div class="certificate-image-preview"><img src="${cert.image}" alt="${escapeHtml(cert.title)}"></div>`
-            : `<div class="certificate-image-url">📷 ${escapeHtml(cert.image)}</div>`;
+        const certId = cert.id || `temp-${index}`;
+        const isBase64 = cert.image && cert.image.startsWith('data:image');
+        const imageSrc = cert.image || '';
         
         return `
-            <div class="certificate-item">
-                <div class="certificate-item-header">
-                    <div>
-                        <div class="certificate-title">${escapeHtml(cert.title)}</div>
-                        ${cert.description ? `<div class="certificate-description">${escapeHtml(cert.description)}</div>` : ''}
-                        ${imageDisplay}
-                    </div>
+            <div class="certificate-item-admin">
+                <div class="certificate-image-wrapper-admin">
+                    ${isBase64 
+                        ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail">`
+                        : imageSrc 
+                            ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine%3C/text%3E%3C/svg%3E'">`
+                            : `<div class="certificate-no-image">📷 Fără imagine</div>`
+                    }
                 </div>
-                <div class="certificate-actions">
-                    <button class="certificate-delete" onclick="deleteCertificate(${index})">Șterge</button>
+                <div class="certificate-info-admin">
+                    <div class="certificate-title-admin">${escapeHtml(cert.title || 'Certificat fără titlu')}</div>
+                    ${cert.description ? `<div class="certificate-description-admin">${escapeHtml(cert.description)}</div>` : ''}
+                    <button class="btn-certificate-delete" onclick="deleteCertificate('${certId}', ${index})" title="Șterge certificat">
+                        🗑️ Șterge
+                    </button>
                 </div>
             </div>
         `;
@@ -1093,35 +1097,44 @@ async function addCertificate(title, description, image) {
     window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
-async function deleteCertificate(index) {
-    if (confirm('Ești sigur că vrei să ștergi acest certificat?')) {
-        const certificates = await getCertificates();
-        const certificate = certificates[index];
-        
-        if (certificate && certificate.id) {
-            // Try to delete from API server
-            try {
-                const response = await fetch(`http://localhost:8001/api/certificates?id=${certificate.id}`, {
-                    method: 'DELETE'
-                });
-                if (response.ok) {
-                    console.log('Certificate deleted from API');
-                }
-            } catch (error) {
-                console.warn('API server not available, deleting from localStorage:', error);
+async function deleteCertificate(certId, index) {
+    if (!confirm('Ești sigur că vrei să ștergi acest certificat?')) {
+        return;
+    }
+    
+    const certificates = await getCertificates();
+    
+    // Try to delete from API server if ID exists
+    if (certId && !certId.startsWith('temp-')) {
+        try {
+            const response = await fetch(`http://localhost:8001/api/certificates?id=${certId}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                console.log('Certificate deleted from API');
             }
+        } catch (error) {
+            console.warn('API server not available, deleting from localStorage:', error);
         }
-        
-        // Also delete from localStorage
+    }
+    
+    // Also delete from localStorage
+    if (index >= 0 && index < certificates.length) {
         certificates.splice(index, 1);
         saveCertificates(certificates);
-        
-        await loadCertificates();
-        updateStatistics();
-        
-        // Dispatch event to update certificate page if open
-        window.dispatchEvent(new CustomEvent('certificatesUpdated'));
+    } else {
+        // Fallback: delete by ID if index fails
+        const filtered = certificates.filter(cert => cert.id !== certId);
+        if (filtered.length < certificates.length) {
+            saveCertificates(filtered);
+        }
     }
+    
+    await loadCertificates();
+    updateStatistics();
+    
+    // Dispatch event to update certificate page if open
+    window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
 // Statistics
