@@ -1,3 +1,6 @@
+// API Base URL - use current hostname instead of localhost for mobile access
+const API_BASE_URL = `http://${window.location.hostname}:8001`;
+
 // Mobile Menu Toggle
 const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
 const navMenu = document.querySelector('.nav-menu');
@@ -32,17 +35,56 @@ navLinks.forEach(link => {
     });
 });
 
-// Smooth scrolling for anchor links
+// Enhanced smooth scrolling for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
+        const targetId = this.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId);
+        
         if (target) {
-            const offsetTop = target.offsetTop - 80; // Account for fixed navbar
-            window.scrollTo({
-                top: offsetTop,
-                behavior: 'smooth'
-            });
+            // Get navbar height
+            const navbar = document.querySelector('.navbar');
+            const navbarHeight = navbar ? navbar.offsetHeight : 80;
+            
+            // Calculate target position
+            const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+            
+            // Smooth scroll with easing (10% faster)
+            const startPosition = window.pageYOffset;
+            const distance = targetPosition - startPosition;
+            const duration = Math.min(Math.abs(distance) / 2.2, 900); // 10% faster: divided by 2.2 instead of 2, max 900ms instead of 1000ms
+            let start = null;
+            
+            function easeInOutCubic(t) {
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            }
+            
+            function animation(currentTime) {
+                if (start === null) start = currentTime;
+                const timeElapsed = currentTime - start;
+                const progress = Math.min(timeElapsed / duration, 1);
+                
+                window.scrollTo(0, startPosition + distance * easeInOutCubic(progress));
+                
+                if (timeElapsed < duration) {
+                    requestAnimationFrame(animation);
+                }
+            }
+            
+            requestAnimationFrame(animation);
+            
+            // Close mobile menu if open
+            const navMenu = document.querySelector('.nav-menu');
+            if (navMenu && navMenu.classList.contains('active')) {
+                navMenu.classList.remove('active');
+                const spans = document.querySelector('.mobile-menu-toggle')?.querySelectorAll('span');
+                if (spans) {
+                    spans[0].style.transform = 'none';
+                    spans[1].style.opacity = '1';
+                    spans[2].style.transform = 'none';
+                }
+            }
         }
     });
 });
@@ -82,7 +124,7 @@ if (contactForm) {
         try {
             // Try to save to API server first
             console.log('Sending message to API:', data);
-            const response = await fetch('http://localhost:8001/api/messages', {
+            const response = await fetch(`${API_BASE_URL}/api/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -271,7 +313,7 @@ function sendMessage() {
     };
     
     // Try to save to API server
-    fetch('http://localhost:8001/api/chatbot', {
+    fetch(`${API_BASE_URL}/api/chatbot`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -302,7 +344,7 @@ function sendMessage() {
         };
         
         // Try to save to API server
-        fetch('http://localhost:8001/api/chatbot', {
+        fetch(`${API_BASE_URL}/api/chatbot`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -407,7 +449,7 @@ function loadTikTokVideos() {
             if (window.tiktokEmbed) {
                 window.tiktokEmbed.lib.render();
                 
-                // Try to enable autoplay after videos load
+                // Try to enable autoplay and loop after videos load
                 setTimeout(() => {
                     const tiktokIframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
                     tiktokIframes.forEach((iframe) => {
@@ -416,7 +458,10 @@ function loadTikTokVideos() {
                                 const url = new URL(iframe.src);
                                 url.searchParams.set('autoplay', '1');
                                 url.searchParams.set('mute', '1');
+                                url.searchParams.set('loop', '1');
                                 iframe.src = url.toString();
+                                // Disable pointer events on iframe
+                                iframe.style.pointerEvents = 'none';
                             } catch (e) {
                                 console.log('Could not modify iframe URL');
                             }
@@ -450,7 +495,7 @@ function trackPageVisit() {
     
     try {
         // Try to save to API server first
-        fetch('http://localhost:8001/api/visits', {
+        fetch(`${API_BASE_URL}/api/visits`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -511,6 +556,12 @@ window.addEventListener('locationsUpdated', () => {
 window.addEventListener('certificatesUpdated', () => {
     if (document.getElementById('certificatesGrid')) {
         loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+    }
+});
+
+window.addEventListener('partnersUpdated', () => {
+    if (document.getElementById('partnersGrid')) {
+        loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
     }
 });
 
@@ -699,13 +750,11 @@ function initRomaniaMap() {
 function openCertificateModal(imageSrc, title) {
     const modal = document.getElementById('certificateModal');
     const modalImage = document.getElementById('modalCertificateImage');
-    const modalTitle = document.getElementById('modalCertificateTitle');
     
-    if (!modal || !modalImage || !modalTitle) return;
+    if (!modal || !modalImage) return;
     
     modalImage.src = imageSrc;
     modalImage.alt = title;
-    modalTitle.textContent = title;
     
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -716,6 +765,70 @@ function closeCertificateModal() {
     if (!modal) return;
     modal.classList.remove('active');
     document.body.style.overflow = '';
+}
+
+// Load partners from localStorage or API
+async function loadPartnersOnPage() {
+    const partnersGrid = document.getElementById('partnersGrid');
+    if (!partnersGrid) {
+        console.log('partnersGrid not found');
+        return;
+    }
+    
+    let partners = [];
+    
+    try {
+        // Try to fetch from API server
+        const response = await fetch(`${API_BASE_URL}/api/partners`);
+        if (response.ok) {
+            partners = await response.json();
+            console.log('Loading partners from API:', partners.length, 'partners');
+            if (!Array.isArray(partners)) {
+                console.error('Partners data from API is not an array');
+                partners = [];
+            }
+        } else {
+            throw new Error('API response not OK');
+        }
+    } catch (error) {
+        // Fallback to localStorage
+        console.warn('API server not available, loading from localStorage:', error);
+        const STORAGE_KEY_PARTNERS = 'sofimar_partners';
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_PARTNERS);
+            if (stored) {
+                partners = JSON.parse(stored);
+                if (!Array.isArray(partners)) {
+                    console.error('Partners data is not an array');
+                    partners = [];
+                }
+            }
+        } catch (e) {
+            console.error('Error loading partners:', e);
+            partners = [];
+        }
+        console.log('Loading partners from localStorage:', partners.length, 'partners');
+    }
+    
+    // Clear existing partners
+    if (partners.length === 0) {
+        partnersGrid.innerHTML = '<p style="text-align: center; color: var(--text-light); grid-column: 1 / -1;">Nu există parteneri adăugați momentan.</p>';
+        return;
+    }
+    
+    partnersGrid.innerHTML = partners.map(partner => {
+        const isBase64 = partner.image && partner.image.startsWith('data:image');
+        const imageSrc = isBase64 ? partner.image : partner.image;
+        const title = partner.title || 'Partner';
+        const escapedTitle = escapeHtml(title);
+        const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
+        return `
+            <div class="partner-item">
+                <img src="${escapedImageSrc}" alt="${escapedTitle}" loading="lazy" style="width: 5cm; height: 5cm; object-fit: contain;">
+            </div>
+        `;
+    }).join('');
 }
 
 // Load certificates from localStorage or API
@@ -730,7 +843,7 @@ async function loadCertificatesOnPage() {
     
     try {
         // Try to fetch from API server
-        const response = await fetch('http://localhost:8001/api/certificates');
+        const response = await fetch(`${API_BASE_URL}/api/certificates`);
         if (response.ok) {
             certificates = await response.json();
             console.log('Loading certificates from API:', certificates.length, 'certificates');
@@ -772,35 +885,463 @@ async function loadCertificatesOnPage() {
     certificatesGrid.innerHTML = certificates.map(cert => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = isBase64 ? cert.image : cert.image;
-        const escapedTitle = escapeHtml(cert.title);
-        // Escape quotes and backslashes for onclick attribute
+        const title = cert.title || 'Certificat fără titlu';
+        const escapedTitle = escapeHtml(title);
         const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const escapedTitleForOnclick = escapedTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
         return `
-            <div class="certificate-item" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
-                <div class="certificate-image-wrapper">
+            <div class="certificate-item">
+                <h3 class="certificate-title">${escapedTitle}</h3>
+                <div class="certificate-image-container" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
                     <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" loading="lazy">
-                    <div class="certificate-overlay">
-                        <div class="certificate-title-overlay">${escapedTitle}</div>
-                    </div>
                 </div>
             </div>
         `;
     }).join('');
 }
 
-// Initialize certificates when page loads (if on certificate page)
+// Convert service text format back to HTML
+// Format: "Description text\n\n--- FEATURE 1 ---\nTitle\nText\n\n--- FEATURE 2 ---\n..."
+// Also accepts: "--- FEATURE ---\nTitle\nText" (without number)
+function convertServiceTextToHTML(text) {
+    if (!text) return '';
+    
+    // Check if it's already HTML (contains tags)
+    if (text.includes('<') && text.includes('>')) {
+        return text; // Already HTML, return as is
+    }
+    
+    // Check if text contains feature markers (with or without number)
+    const hasFeatures = /--- FEATURE/.test(text);
+    
+    if (!hasFeatures) {
+        // Simple text without features - just return as description paragraph
+        // Replace newlines with spaces for better formatting
+        const cleanText = text.trim().replace(/\n+/g, ' ').replace(/\s+/g, ' ');
+        return `<p class="service-description">${escapeHtml(cleanText)}</p>`;
+    }
+    
+    // Split by feature markers (accepts both "--- FEATURE 1 ---" and "--- FEATURE ---")
+    const parts = text.split(/--- FEATURE(?:\s+\d+)?\s*---/);
+    let html = '';
+    
+    // First part is the main description
+    if (parts[0]) {
+        const desc = parts[0].trim();
+        if (desc) {
+            // Replace newlines with spaces for description
+            const cleanDesc = desc.replace(/\n+/g, ' ').replace(/\s+/g, ' ');
+            html += `<p class="service-description">${escapeHtml(cleanDesc)}</p>\n                        \n`;
+        }
+    }
+    
+    // Process each feature
+    for (let i = 1; i < parts.length; i++) {
+        const featureText = parts[i].trim();
+        if (featureText) {
+            const lines = featureText.split('\n').filter(line => line.trim());
+            if (lines.length >= 2) {
+                const title = lines[0].trim();
+                // Join remaining lines as description, replacing multiple spaces/newlines with single space
+                const description = lines.slice(1).join(' ').replace(/\s+/g, ' ').trim();
+                html += `                        <div class="service-feature">\n                            <h4>${escapeHtml(title)}</h4>\n                            <p>${escapeHtml(description)}</p>\n                        </div>\n\n`;
+            } else if (lines.length === 1) {
+                // Only title, no description - still create feature
+                const title = lines[0].trim();
+                html += `                        <div class="service-feature">\n                            <h4>${escapeHtml(title)}</h4>\n                        </div>\n\n`;
+            }
+        }
+    }
+    
+    return html.trim();
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Load site texts and update page content
+async function loadSiteTexts() {
+    let texts = {};
+    
+    try {
+        // Try to fetch from API server
+        const response = await fetch(`${API_BASE_URL}/api/site-texts`);
+        if (response.ok) {
+            texts = await response.json();
+            console.log('Loaded texts from API:', texts);
+        } else {
+            throw new Error('API response not OK');
+        }
+    } catch (error) {
+        // Fallback to localStorage
+        console.warn('API server not available, loading from localStorage:', error);
+        try {
+            const stored = localStorage.getItem('sofimar_site_texts');
+            if (stored) {
+                texts = JSON.parse(stored);
+                console.log('Loaded texts from localStorage:', texts);
+            } else {
+                console.log('No texts found in localStorage');
+            }
+        } catch (e) {
+            console.error('Error loading site texts:', e);
+        }
+    }
+    
+    // Only update if we have texts
+    if (!texts || Object.keys(texts).length === 0) {
+        console.log('⚠ No texts to update - texts object is empty');
+        return;
+    }
+    
+    console.log('🔄 Updating page with texts...');
+    console.log('📝 Available text keys:', Object.keys(texts));
+    console.log('📄 Sample values:', {
+        heroTitle: texts.heroTitle?.substring(0, 30) + '...',
+        service1Title: texts.service1Title,
+        guarantee1Title: texts.guarantee1Title
+    });
+    
+    // Update page elements if texts exist
+    // Force update even if text is empty (to clear old values)
+    const heroTitleEl = document.querySelector('.hero-title');
+    if (heroTitleEl) {
+        if (texts.heroTitle !== undefined) {
+            heroTitleEl.textContent = texts.heroTitle;
+            console.log('✓ Updated hero title:', texts.heroTitle);
+        } else {
+            console.warn('⚠ heroTitle not in texts object');
+        }
+    } else {
+        console.warn('✗ Hero title element (.hero-title) not found in DOM');
+    }
+    
+    const heroSubtitleEl = document.querySelector('.hero-subtitle');
+    if (heroSubtitleEl) {
+        if (texts.heroSubtitle !== undefined) {
+            heroSubtitleEl.textContent = texts.heroSubtitle;
+            console.log('✓ Updated hero subtitle:', texts.heroSubtitle);
+        }
+    } else {
+        console.warn('✗ Hero subtitle element not found');
+    }
+    
+    const heroDescriptionEl = document.querySelector('.hero-description');
+    if (heroDescriptionEl) {
+        if (texts.heroDescription !== undefined) {
+            heroDescriptionEl.textContent = texts.heroDescription;
+            console.log('✓ Updated hero description');
+        }
+    } else {
+        console.warn('✗ Hero description element not found');
+    }
+    
+    const heroButtonEl = document.querySelector('.btn-hero');
+    if (heroButtonEl) {
+        if (texts.heroButtonText !== undefined) {
+            heroButtonEl.textContent = texts.heroButtonText;
+            console.log('✓ Updated hero button:', texts.heroButtonText);
+        }
+    } else {
+        console.warn('✗ Hero button element not found');
+    }
+    
+    // Update section headers
+    const sectionHeaders = document.querySelectorAll('.section-header');
+    sectionHeaders.forEach(header => {
+        const h2 = header.querySelector('h2');
+        const p = header.querySelector('p');
+        
+        if (h2) {
+            const headerText = h2.textContent.trim();
+            if (headerText === 'Serviciile Noastre' && texts.servicesTitle) {
+                h2.textContent = texts.servicesTitle;
+            } else if (headerText === 'Urmăriți-ne pe TikTok' && texts.tiktokTitle) {
+                h2.textContent = texts.tiktokTitle;
+            } else if (headerText === 'Contactați-ne' && texts.contactTitle) {
+                h2.textContent = texts.contactTitle;
+            } else if (headerText === 'Punctele Noastre de Lucru' && texts.locationsTitle) {
+                h2.textContent = texts.locationsTitle;
+            }
+        }
+        
+        if (p) {
+            const subtitleText = p.textContent.trim();
+            if (subtitleText.includes('Trei piloni') && texts.servicesSubtitle) {
+                p.textContent = texts.servicesSubtitle;
+            } else if (subtitleText.includes('Descoperiți serviciile') && texts.tiktokSubtitle) {
+                p.textContent = texts.tiktokSubtitle;
+            } else if (subtitleText.includes('Suntem aici') && texts.contactSubtitle) {
+                p.textContent = texts.contactSubtitle;
+            } else if (subtitleText.includes('Găsiți cel mai apropiat') && texts.locationsSubtitle) {
+                p.textContent = texts.locationsSubtitle;
+            }
+        }
+    });
+    
+    // Update individual service cards
+    // Service 1
+    const service1Card = document.querySelector('.service-card[data-service="1"]');
+    if (service1Card) {
+        if (texts.service1Title !== undefined) {
+            const titleEl = service1Card.querySelector('.service-title');
+            if (titleEl) {
+                titleEl.textContent = texts.service1Title;
+                console.log('✓ Updated service1 title:', texts.service1Title);
+            } else {
+                console.warn('✗ .service-title not found in service1 card');
+            }
+        }
+        if (texts.service1Subtitle !== undefined) {
+            const subtitleEl = service1Card.querySelector('.service-subtitle');
+            if (subtitleEl) {
+                subtitleEl.textContent = texts.service1Subtitle;
+                console.log('✓ Updated service1 subtitle:', texts.service1Subtitle);
+            }
+        }
+        if (texts.service1Description !== undefined) {
+            // Convert text format back to HTML
+            const contentEl = service1Card.querySelector('.service-content');
+            if (contentEl) {
+                const html = convertServiceTextToHTML(texts.service1Description);
+                contentEl.innerHTML = html;
+                console.log('✓ Updated service1 description (full content with features)');
+            } else {
+                // Fallback to just .service-description if .service-content not found
+                const descEl = service1Card.querySelector('.service-description');
+                if (descEl) {
+                    descEl.textContent = texts.service1Description;
+                    console.log('✓ Updated service1 description (description only)');
+                }
+            }
+        }
+    } else {
+        console.warn('✗ Service1 card not found');
+    }
+    
+    // Service 2
+    const service2Card = document.querySelector('.service-card[data-service="2"]');
+    if (service2Card) {
+        if (texts.service2Title !== undefined) {
+            const titleEl = service2Card.querySelector('.service-title');
+            if (titleEl) {
+                titleEl.textContent = texts.service2Title;
+                console.log('✓ Updated service2 title:', texts.service2Title);
+            }
+        }
+        if (texts.service2Subtitle !== undefined) {
+            const subtitleEl = service2Card.querySelector('.service-subtitle');
+            if (subtitleEl) {
+                subtitleEl.textContent = texts.service2Subtitle;
+                console.log('✓ Updated service2 subtitle:', texts.service2Subtitle);
+            }
+        }
+        if (texts.service2Description !== undefined) {
+            // Convert text format back to HTML
+            const contentEl = service2Card.querySelector('.service-content');
+            if (contentEl) {
+                const html = convertServiceTextToHTML(texts.service2Description);
+                contentEl.innerHTML = html;
+                console.log('✓ Updated service2 description (full content with features)');
+            } else {
+                // Fallback to just .service-description if .service-content not found
+                const descEl = service2Card.querySelector('.service-description');
+                if (descEl) {
+                    descEl.textContent = texts.service2Description;
+                    console.log('✓ Updated service2 description (description only)');
+                }
+            }
+        }
+    } else {
+        console.warn('✗ Service2 card not found');
+    }
+    
+    // Service 3
+    const service3Card = document.querySelector('.service-card[data-service="3"]');
+    if (service3Card) {
+        if (texts.service3Title !== undefined) {
+            const titleEl = service3Card.querySelector('.service-title');
+            if (titleEl) {
+                titleEl.textContent = texts.service3Title;
+                console.log('✓ Updated service3 title:', texts.service3Title);
+            }
+        }
+        if (texts.service3Subtitle !== undefined) {
+            const subtitleEl = service3Card.querySelector('.service-subtitle');
+            if (subtitleEl) {
+                subtitleEl.textContent = texts.service3Subtitle;
+                console.log('✓ Updated service3 subtitle:', texts.service3Subtitle);
+            }
+        }
+        if (texts.service3Description !== undefined) {
+            // Convert text format back to HTML
+            const contentEl = service3Card.querySelector('.service-content');
+            if (contentEl) {
+                const html = convertServiceTextToHTML(texts.service3Description);
+                contentEl.innerHTML = html;
+                console.log('✓ Updated service3 description (full content with features)');
+            } else {
+                // Fallback to just .service-description if .service-content not found
+                const descEl = service3Card.querySelector('.service-description');
+                if (descEl) {
+                    descEl.textContent = texts.service3Description;
+                    console.log('✓ Updated service3 description (description only)');
+                }
+            }
+        }
+    } else {
+        console.warn('✗ Service3 card not found');
+    }
+    
+    // Update TikTok button
+    if (texts.tiktokButtonText) {
+        const tiktokBtn = document.querySelector('.tiktok-cta .btn');
+        if (tiktokBtn) {
+            tiktokBtn.textContent = texts.tiktokButtonText;
+        }
+    }
+    
+    // Update guarantee section
+    const guaranteeHeader = document.querySelector('.guarantee-header h2');
+    if (guaranteeHeader) {
+        if (texts.guaranteeTitle !== undefined) {
+            guaranteeHeader.textContent = texts.guaranteeTitle;
+            console.log('✓ Updated guarantee header:', texts.guaranteeTitle);
+        }
+    } else {
+        console.warn('✗ Guarantee header not found');
+    }
+    
+    // Update individual guarantee cards
+    const guarantee1Card = document.querySelector('.guarantee-card[data-guarantee="1"]');
+    if (guarantee1Card) {
+        if (texts.guarantee1Title !== undefined) {
+            const titleEl = guarantee1Card.querySelector('.guarantee-title');
+            if (titleEl) {
+                titleEl.textContent = texts.guarantee1Title;
+                console.log('✓ Updated guarantee1 title:', texts.guarantee1Title);
+            } else {
+                console.warn('✗ .guarantee-title not found in guarantee1 card');
+            }
+        }
+        if (texts.guarantee1Description !== undefined) {
+            const descEl = guarantee1Card.querySelector('.guarantee-description');
+            if (descEl) {
+                descEl.innerHTML = texts.guarantee1Description;
+                console.log('✓ Updated guarantee1 description');
+            } else {
+                console.warn('✗ .guarantee-description not found in guarantee1 card');
+            }
+        }
+    } else {
+        console.warn('✗ Guarantee1 card not found');
+    }
+    
+    const guarantee2Card = document.querySelector('.guarantee-card[data-guarantee="2"]');
+    if (guarantee2Card) {
+        if (texts.guarantee2Title !== undefined) {
+            const titleEl = guarantee2Card.querySelector('.guarantee-title');
+            if (titleEl) {
+                titleEl.textContent = texts.guarantee2Title;
+                console.log('✓ Updated guarantee2 title:', texts.guarantee2Title);
+            }
+        }
+        if (texts.guarantee2Description !== undefined) {
+            const descEl = guarantee2Card.querySelector('.guarantee-description');
+            if (descEl) {
+                descEl.innerHTML = texts.guarantee2Description;
+                console.log('✓ Updated guarantee2 description');
+            }
+        }
+    } else {
+        console.warn('✗ Guarantee2 card not found');
+    }
+    
+    const guarantee3Card = document.querySelector('.guarantee-card[data-guarantee="3"]');
+    if (guarantee3Card) {
+        if (texts.guarantee3Title !== undefined) {
+            const titleEl = guarantee3Card.querySelector('.guarantee-title');
+            if (titleEl) {
+                titleEl.textContent = texts.guarantee3Title;
+                console.log('✓ Updated guarantee3 title:', texts.guarantee3Title);
+            }
+        }
+        if (texts.guarantee3Description !== undefined) {
+            const descEl = guarantee3Card.querySelector('.guarantee-description');
+            if (descEl) {
+                descEl.innerHTML = texts.guarantee3Description;
+                console.log('✓ Updated guarantee3 description');
+            }
+        }
+    } else {
+        console.warn('✗ Guarantee3 card not found');
+    }
+    
+    console.log('✅ Finished updating page texts');
+    console.log('📊 Summary - Texts loaded:', Object.keys(texts).length, 'keys');
+}
+
+// Listen for site texts updates
+window.addEventListener('siteTextsUpdated', () => {
+    console.log('Site texts updated event received');
+    // Force reload from localStorage immediately
+    setTimeout(() => {
+        loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+    }, 50);
+});
+
+// Also listen for storage events (cross-tab communication)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'sofimar_site_texts') {
+        console.log('Site texts storage event received', e.newValue);
+        loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+    }
+});
+
+// Also poll localStorage periodically when page is visible (for same-tab updates)
+if (document.visibilityState !== 'hidden') {
+    let lastTextsHash = '';
+    setInterval(() => {
+        try {
+            const stored = localStorage.getItem('sofimar_site_texts');
+            if (stored) {
+                const currentHash = stored;
+                if (currentHash !== lastTextsHash) {
+                    console.log('Detected texts change in localStorage');
+                    lastTextsHash = currentHash;
+                    loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+                }
+            }
+        } catch (e) {
+            // Ignore errors
+        }
+    }, 500); // Check every 500ms
+}
+
+// Initialize certificates and partners when page loads
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
         if (document.getElementById('certificatesGrid')) {
             loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+        }
+        if (document.getElementById('partnersGrid')) {
+            loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
         }
     });
 } else {
     // DOM already loaded
+    loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
     if (document.getElementById('certificatesGrid')) {
         loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+    }
+    if (document.getElementById('partnersGrid')) {
+        loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
     }
 }
 

@@ -29,15 +29,16 @@
                 <li><a href="#garantie">Garanție</a></li>
                 <li><a href="#tiktok">TikTok</a></li>
                 <li><a href="certificate.html">Certificate</a></li>
-                <li><a href="#contact">Contact</a></li>
                 <li><a href="#locations">Locații</a></li>
+                <li><a href="#parteneri">Parteneri</a></li>
+                <li><a href="#contact">Contact</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section id="acasa" class="hero">
-        <video class="hero-video" autoplay muted loop playsinline>
+        <video class="hero-video" autoplay muted loop playsinline disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" preload="auto">
             <source src="videos/cinematic.mp4" type="video/mp4">
             <!-- Fallback pentru browsere care nu suportă video -->
         </video>
@@ -68,12 +69,12 @@
 
             <div class="services-grid">
                 <!-- Service 1: Dezinsecție -->
-                <div class="service-card">
+                <div class="service-card" data-service="1">
                     <div class="service-icon">🪲</div>
-                    <h3>1. Dezinsecție</h3>
+                    <h3 class="service-title">1. Dezinsecție</h3>
                     <p class="service-subtitle">Eliminarea Avansată a Insectelor</p>
                     <div class="service-content">
-                        <p>Folosim tehnici profesionale de dezinsecție pentru a elimina dăunătorii precum gândacii, ploșnițele, furnicile și puricii – mulți dintre aceștia fiind purtători de milioane de germeni.</p>
+                        <p class="service-description">Folosim tehnici profesionale de dezinsecție pentru a elimina dăunătorii precum gândacii, ploșnițele, furnicile și puricii – mulți dintre aceștia fiind purtători de milioane de germeni.</p>
                         
                         <div class="service-feature">
                             <h4>Tratament de Precizie</h4>
@@ -93,12 +94,12 @@
                 </div>
 
                 <!-- Service 2: Deratizare -->
-                <div class="service-card">
+                <div class="service-card" data-service="2">
                     <div class="service-icon">🐭</div>
-                    <h3>2. Deratizare</h3>
+                    <h3 class="service-title">2. Deratizare</h3>
                     <p class="service-subtitle">Controlul Securizat al Rozătoarelor</p>
                     <div class="service-content">
-                        <p>Rozătoarele (șoarecii și șobolanii) sunt vectori majori de boli (ex: Salmonela, Leptospiroză) și cauzează daune structurale. Deratizarea noastră rezidențială este discretă, sigură și eficientă.</p>
+                        <p class="service-description">Rozătoarele (șoarecii și șobolanii) sunt vectori majori de boli (ex: Salmonela, Leptospiroză) și cauzează daune structurale. Deratizarea noastră rezidențială este discretă, sigură și eficientă.</p>
                         
                         <div class="service-feature">
                             <h4>Stații Sigure de Momeală</h4>
@@ -118,12 +119,12 @@
                 </div>
 
                 <!-- Service 3: Dezinfecție -->
-                <div class="service-card">
+                <div class="service-card" data-service="3">
                     <div class="service-icon">🧹</div>
-                    <h3>3. Dezinfecție</h3>
+                    <h3 class="service-title">3. Dezinfecție</h3>
                     <p class="service-subtitle">Igienizare Profundă a Locuinței</p>
                     <div class="service-content">
-                        <p>Ideală pentru recuperarea post-îmbolnăvire, curățenia de sezon sau după o infestare cu dăunători, dezinfecția noastră neutralizează agenții patogeni (viruși, bacterii, fungi) din aer și de pe suprafețe.</p>
+                        <p class="service-description">Ideală pentru recuperarea post-îmbolnăvire, curățenia de sezon sau după o infestare cu dăunători, dezinfecția noastră neutralizează agenții patogeni (viruși, bacterii, fungi) din aer și de pe suprafețe.</p>
                         
                         <div class="service-feature">
                             <h4>Nebulizare Avansată</h4>
@@ -154,22 +155,22 @@
                 </div>
                 
                 <div class="guarantee-grid">
-                    <div class="guarantee-card">
+                    <div class="guarantee-card" data-guarantee="1">
                         <div class="guarantee-icon">🏆</div>
-                        <h3>Profesioniști Certificați</h3>
-                        <p>Suntem prima firmă din România certificată cu standardul european de calitate <strong>ISO 16.636 (CEPA Certified®)</strong>, ceea ce înseamnă că procedurile noastre sunt recunoscute la nivel internațional ca fiind cele mai bune practici.</p>
+                        <h3 class="guarantee-title">Profesioniști Certificați</h3>
+                        <p class="guarantee-description">Suntem prima firmă din România certificată cu standardul european de calitate <strong>ISO 16.636 (CEPA Certified®)</strong>, ceea ce înseamnă că procedurile noastre sunt recunoscute la nivel internațional ca fiind cele mai bune practici.</p>
                     </div>
 
-                    <div class="guarantee-card highlight">
+                    <div class="guarantee-card highlight" data-guarantee="2">
                         <div class="guarantee-icon">300%</div>
-                        <h3>GARANȚIE 300%</h3>
-                        <p>Garanția noastră triplă oferă proprietarilor o liniște și un angajament de neegalat pentru o soluție permanentă.</p>
+                        <h3 class="guarantee-title">GARANȚIE 300%</h3>
+                        <p class="guarantee-description">Garanția noastră triplă oferă proprietarilor o liniște și un angajament de neegalat pentru o soluție permanentă.</p>
                     </div>
 
-                    <div class="guarantee-card">
+                    <div class="guarantee-card" data-guarantee="3">
                         <div class="guarantee-icon">⚡</div>
-                        <h3>Intervenție Rapidă</h3>
-                        <p>Oferim intervenție în maximum <strong>24 de ore</strong> pentru probleme urgente în zonele noastre de acoperire națională.</p>
+                        <h3 class="guarantee-title">Intervenție Rapidă</h3>
+                        <p class="guarantee-description">Oferim intervenție în maximum <strong>24 de ore</strong> pentru probleme urgente în zonele noastre de acoperire națională.</p>
                     </div>
                 </div>
             </div>
@@ -192,6 +193,34 @@
                 <a href="https://www.tiktok.com/@sofimar_serv.srl" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
                     Urmărește-ne pe TikTok
                 </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Office Locations Section -->
+    <section id="locations" class="locations-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Punctele Noastre de Lucru</h2>
+                <p>Găsiți cel mai apropiat punct de lucru pentru serviciile noastre</p>
+            </div>
+            
+            <div class="map-section">
+                <div id="romaniaMap" class="romania-map"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partners Section -->
+    <section id="parteneri" class="partners-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Partenerii Noștri</h2>
+                <p>Colaborăm cu parteneri de încredere pentru servicii de calitate</p>
+            </div>
+            
+            <div class="partners-grid" id="partnersGrid">
+                <!-- Partners will be loaded dynamically here -->
             </div>
         </div>
     </section>
@@ -251,20 +280,6 @@
                         <button type="submit" class="btn btn-primary">Trimite Mesajul</button>
                     </form>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Office Locations Section -->
-    <section id="locations" class="locations-section">
-        <div class="container">
-            <div class="section-header">
-                <h2>Punctele Noastre de Lucru</h2>
-                <p>Găsiți cel mai apropiat punct de lucru pentru serviciile noastre</p>
-            </div>
-            
-            <div class="map-section">
-                <div id="romaniaMap" class="romania-map"></div>
             </div>
         </div>
     </section>

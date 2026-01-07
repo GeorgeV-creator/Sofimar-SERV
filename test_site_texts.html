@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Site Texts</title>
+</head>
+<body>
+    <h1>Test Site Texts Functionality</h1>
+    <button onclick="testLocalStorage()">Test LocalStorage</button>
+    <button onclick="testSave()">Test Save</button>
+    <button onclick="testLoad()">Test Load</button>
+    <button onclick="testFetchHTML()">Test Fetch HTML</button>
+    <div id="results" style="margin-top: 20px; padding: 10px; background: #f0f0f0; white-space: pre-wrap;"></div>
+
+    <script>
+        const STORAGE_KEY_SITE_TEXTS = 'sofimar_site_texts';
+        const results = document.getElementById('results');
+
+        function log(message) {
+            console.log(message);
+            results.textContent += message + '\n';
+        }
+
+        function testLocalStorage() {
+            log('=== Test LocalStorage ===');
+            try {
+                localStorage.setItem('test', 'test123');
+                const value = localStorage.getItem('test');
+                if (value === 'test123') {
+                    log('✓ LocalStorage works!');
+                } else {
+                    log('✗ LocalStorage failed - wrong value');
+                }
+                localStorage.removeItem('test');
+            } catch (e) {
+                log('✗ LocalStorage error: ' + e.message);
+            }
+        }
+
+        function testSave() {
+            log('\n=== Test Save ===');
+            const testTexts = {
+                heroTitle: 'Test Hero Title',
+                heroSubtitle: 'Test Hero Subtitle',
+                service1Title: 'Test Service 1'
+            };
+            
+            try {
+                localStorage.setItem(STORAGE_KEY_SITE_TEXTS, JSON.stringify(testTexts));
+                log('✓ Saved test texts');
+                
+                const verify = localStorage.getItem(STORAGE_KEY_SITE_TEXTS);
+                if (verify) {
+                    const parsed = JSON.parse(verify);
+                    log('✓ Verified: ' + JSON.stringify(parsed));
+                } else {
+                    log('✗ Verification failed - nothing in localStorage');
+                }
+            } catch (e) {
+                log('✗ Save error: ' + e.message);
+            }
+        }
+
+        function testLoad() {
+            log('\n=== Test Load ===');
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY_SITE_TEXTS);
+                if (stored) {
+                    const texts = JSON.parse(stored);
+                    log('✓ Loaded texts: ' + JSON.stringify(texts, null, 2));
+                } else {
+                    log('✗ No texts found in localStorage');
+                }
+            } catch (e) {
+                log('✗ Load error: ' + e.message);
+            }
+        }
+
+        async function testFetchHTML() {
+            log('\n=== Test Fetch HTML ===');
+            const paths = ['/index.html', 'index.html', './index.html'];
+            
+            for (const path of paths) {
+                try {
+                    log(`Trying: ${path}`);
+                    const response = await fetch(path);
+                    if (response.ok) {
+                        const html = await response.text();
+                        log(`✓ Successfully fetched ${path} (${html.length} bytes)`);
+                        
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const heroTitle = doc.querySelector('.hero-title');
+                        if (heroTitle) {
+                            log(`✓ Found .hero-title: "${heroTitle.textContent.trim()}"`);
+                        } else {
+                            log('✗ .hero-title not found in HTML');
+                        }
+                        return;
+                    } else {
+                        log(`✗ ${path} returned status: ${response.status}`);
+                    }
+                } catch (e) {
+                    log(`✗ ${path} error: ${e.message}`);
+                }
+            }
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            log('Page loaded. Click buttons to run tests.');
+        });
+    </script>
+</body>
+</html>

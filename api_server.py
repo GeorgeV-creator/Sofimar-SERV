@@ -15,6 +15,8 @@ MESSAGES_FILE = 'messages.json'
 CHATBOT_FILE = 'chatbot_messages.json'
 VISITS_FILE = 'visits.json'
 CERTIFICATES_FILE = 'certificates.json'
+PARTNERS_FILE = 'partners.json'
+SITE_TEXTS_FILE = 'site_texts.json'
 
 # Ensure files exist
 if not os.path.exists(MESSAGES_FILE):
@@ -32,6 +34,14 @@ if not os.path.exists(VISITS_FILE):
 if not os.path.exists(CERTIFICATES_FILE):
     with open(CERTIFICATES_FILE, 'w') as f:
         json.dump([], f)
+
+if not os.path.exists(PARTNERS_FILE):
+    with open(PARTNERS_FILE, 'w') as f:
+        json.dump([], f)
+
+if not os.path.exists(SITE_TEXTS_FILE):
+    with open(SITE_TEXTS_FILE, 'w') as f:
+        json.dump({}, f)
 
 
 class APIHandler(BaseHTTPRequestHandler):
@@ -76,6 +86,55 @@ class APIHandler(BaseHTTPRequestHandler):
             with open(CERTIFICATES_FILE, 'r', encoding='utf-8') as f:
                 certificates = json.load(f)
             self.wfile.write(json.dumps(certificates).encode('utf-8'))
+        elif path == '/api/partners':
+            # Return all partners
+            try:
+                if os.path.exists(PARTNERS_FILE):
+                    with open(PARTNERS_FILE, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:
+                            partners = json.loads(content)
+                            # Ensure it's a list
+                            if isinstance(partners, list):
+                                self.wfile.write(json.dumps(partners).encode('utf-8'))
+                            else:
+                                # Invalid content, return empty array
+                                self.wfile.write(json.dumps([]).encode('utf-8'))
+                        else:
+                            # Empty file, return empty array
+                            self.wfile.write(json.dumps([]).encode('utf-8'))
+                else:
+                    # File doesn't exist, return empty array
+                    self.wfile.write(json.dumps([]).encode('utf-8'))
+            except Exception as e:
+                # On any error, return empty array
+                print(f'Error loading partners: {e}')
+                self.wfile.write(json.dumps([]).encode('utf-8'))
+        
+        elif path == '/api/site-texts':
+            # Return site texts
+            try:
+                if os.path.exists(SITE_TEXTS_FILE):
+                    with open(SITE_TEXTS_FILE, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:
+                            texts = json.loads(content)
+                            # Ensure it's a dict, not error object
+                            if isinstance(texts, dict) and 'error' not in texts:
+                                self.wfile.write(json.dumps(texts).encode('utf-8'))
+                            else:
+                                # Invalid content, return empty
+                                self.wfile.write(json.dumps({}).encode('utf-8'))
+                        else:
+                            # Empty file, return empty object
+                            self.wfile.write(json.dumps({}).encode('utf-8'))
+                else:
+                    # File doesn't exist, return empty object
+                    self.wfile.write(json.dumps({}).encode('utf-8'))
+            except Exception as e:
+                # On any error, return empty object instead of error
+                print(f'Error loading site-texts: {e}')
+                self.wfile.write(json.dumps({}).encode('utf-8'))
 
         else:
             self.wfile.write(json.dumps({'error': 'Not found'}).encode('utf-8'))
@@ -182,6 +241,61 @@ class APIHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({'success': True, 'id': data['id']}).encode('utf-8'))
             except Exception as e:
                 self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+        
+        elif path == '/api/partners':
+            # Save partner
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                data['timestamp'] = datetime.now().isoformat()
+                data['id'] = datetime.now().strftime('%Y%m%d%H%M%S%f')
+
+                # Read existing partners
+                if os.path.exists(PARTNERS_FILE):
+                    with open(PARTNERS_FILE, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:
+                            partners = json.loads(content)
+                            # Ensure partners is a list
+                            if not isinstance(partners, list):
+                                partners = []
+                        else:
+                            partners = []
+                else:
+                    partners = []
+
+                # Add new partner
+                partners.append(data)
+
+                # Save back to file
+                with open(PARTNERS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(partners, f, ensure_ascii=False, indent=2)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'id': data['id']}).encode('utf-8'))
+            except Exception as e:
+                print(f'Error saving partner: {e}')
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+        
+        elif path == '/api/site-texts':
+            # Save site texts
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                data['lastUpdated'] = datetime.now().isoformat()
+                
+                # Save to file
+                with open(SITE_TEXTS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+            except Exception as e:
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
 
         else:
             self.wfile.write(json.dumps({'error': 'Not found'}).encode('utf-8'))
@@ -240,6 +354,30 @@ class APIHandler(BaseHTTPRequestHandler):
                 with open(CERTIFICATES_FILE, 'w', encoding='utf-8') as f:
                     json.dump(certificates, f, ensure_ascii=False, indent=2)
                 self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+        
+        elif path == '/api/partners':
+            # Delete all partners or specific partner
+            if 'all' in query:
+                with open(PARTNERS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump([], f)
+                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+            elif 'id' in query:
+                partner_id = query['id'][0]
+                if os.path.exists(PARTNERS_FILE):
+                    with open(PARTNERS_FILE, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:
+                            partners = json.loads(content)
+                            if not isinstance(partners, list):
+                                partners = []
+                        else:
+                            partners = []
+                else:
+                    partners = []
+                partners = [p for p in partners if p.get('id') != partner_id]
+                with open(PARTNERS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(partners, f, ensure_ascii=False, indent=2)
+                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
 
     def log_message(self, format, *args):
         """Override to reduce log noise"""
@@ -254,6 +392,7 @@ def run(server_class=HTTPServer, handler_class=APIHandler, port=8001):
     print(f'💬 Chatbot API: http://localhost:{port}/api/chatbot')
     print(f'👁️  Visits API: http://localhost:{port}/api/visits')
     print(f'📄 Certificates API: http://localhost:{port}/api/certificates')
+    print(f'🤝 Partners API: http://localhost:{port}/api/partners')
     print('⏹️  Press Ctrl+C to stop')
     try:
         httpd.serve_forever()

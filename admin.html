@@ -87,13 +87,6 @@
                             <p>Certificate</p>
                         </div>
                     </div>
-                    <div class="stat-card" data-tab="visits" style="cursor: pointer;" title="Click pentru a deschide Vizite">
-                        <div class="stat-icon">👁️</div>
-                        <div class="stat-info">
-                            <h3 id="totalVisits">0</h3>
-                            <p>Vizite Total</p>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -104,7 +97,7 @@
                 <button class="tab-btn" data-tab="locations">📍 Locații</button>
                 <button class="tab-btn" data-tab="tiktok">🎬 Video-uri TikTok</button>
                 <button class="tab-btn" data-tab="certificates">📄 Certificate</button>
-                <button class="tab-btn" data-tab="visits">👁️ Vizite</button>
+                <button class="tab-btn" data-tab="partners">🤝 Parteneri</button>
                 <button class="tab-btn" data-tab="settings">⚙️ Setări</button>
             </div>
 
@@ -158,8 +151,19 @@
                     <h2>Gestionare Certificate</h2>
                     <button id="addCertificateBtn" class="btn btn-primary">+ Adaugă Certificat</button>
                 </div>
-                <div class="certificates-list" id="certificatesList">
+                <div class="certificates-grid" id="certificatesGrid">
                     <!-- Certificates will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Partners Tab -->
+            <div id="partnersTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Gestionare Parteneri</h2>
+                    <button id="addPartnerBtn" class="btn btn-primary">+ Adaugă Partner</button>
+                </div>
+                <div class="partners-grid" id="partnersGrid">
+                    <!-- Partners will be loaded here -->
                 </div>
             </div>
 
@@ -193,6 +197,188 @@
                         <h3>Export Date</h3>
                         <p>Exportă toate mesajele de contact într-un fișier JSON.</p>
                         <button id="exportDataBtn" class="btn btn-secondary">Exportă Mesaje</button>
+                    </div>
+                    <div class="setting-section">
+                        <h3>Editare Texte Site</h3>
+                        <p>Modifică toate textele afișate pe pagina principală (index.html)</p>
+                        <form id="siteTextsForm" class="settings-form">
+                            <!-- Hero Section -->
+                            <div class="form-section">
+                                <h4>Secțiunea Hero (Acasă)</h4>
+                                <div class="form-group">
+                                    <label for="heroTitle">Titlu Principal</label>
+                                    <input type="text" id="heroTitle" placeholder="Ex: Sofimar SERV">
+                                </div>
+                                <div class="form-group">
+                                    <label for="heroSubtitle">Subtitlu</label>
+                                    <input type="text" id="heroSubtitle" placeholder="Ex: Protecție Profesională Certificată...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="heroDescription">Descriere</label>
+                                    <textarea id="heroDescription" rows="4" placeholder="Descrierea principală..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="heroButtonText">Text Buton</label>
+                                    <input type="text" id="heroButtonText" placeholder="Ex: Descoperă Serviciile">
+                                </div>
+                            </div>
+
+                            <!-- Services Section -->
+                            <div class="form-section">
+                                <h4>Secțiunea Servicii</h4>
+                                <div class="form-group">
+                                    <label for="servicesTitle">Titlu Secțiune</label>
+                                    <input type="text" id="servicesTitle" placeholder="Ex: Serviciile Noastre">
+                                </div>
+                                <div class="form-group">
+                                    <label for="servicesSubtitle">Subtitlu Secțiune</label>
+                                    <input type="text" id="servicesSubtitle" placeholder="Ex: Trei piloni fundamentali...">
+                                </div>
+                                
+                                <div class="services-edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2rem;">
+                                    <!-- Service 1: Dezinsecție -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">1. Dezinsecție</h5>
+                                        <div class="form-group">
+                                            <label for="service1Title">Titlu</label>
+                                            <input type="text" id="service1Title" placeholder="Ex: 1. Dezinsecție">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service1Subtitle">Subtitlu</label>
+                                            <input type="text" id="service1Subtitle" placeholder="Ex: Eliminarea Avansată a Insectelor">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service1Description">Descriere</label>
+                                            <textarea id="service1Description" rows="15" placeholder="Scrie descrierea principală aici...
+
+Pentru a adăuga feature-uri (subsectiuni), folosește formatul:
+--- FEATURE 1 ---
+Titlu Feature 1
+Textul feature-ului 1
+
+--- FEATURE 2 ---
+Titlu Feature 2
+Textul feature-ului 2"></textarea>
+                                            <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                                💡 <strong>Format corect:</strong> Scrie descrierea principală (opțional). Apoi pentru fiecare feature: pe o linie nouă scrie exact <strong>"--- FEATURE 1 ---"</strong> (sau 2, 3, etc.), pe linia următoare titlul, pe linia următoare textul. Lasă o linie goală între feature-uri.
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Service 2: Deratizare -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">2. Deratizare</h5>
+                                        <div class="form-group">
+                                            <label for="service2Title">Titlu</label>
+                                            <input type="text" id="service2Title" placeholder="Ex: 2. Deratizare">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service2Subtitle">Subtitlu</label>
+                                            <input type="text" id="service2Subtitle" placeholder="Ex: Controlul Securizat al Rozătoarelor">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service2Description">Descriere</label>
+                                            <textarea id="service2Description" rows="15" placeholder="Scrie descrierea principală aici...
+
+Pentru a adăuga feature-uri (subsectiuni), folosește formatul:
+--- FEATURE 1 ---
+Titlu Feature 1
+Textul feature-ului 1
+
+--- FEATURE 2 ---
+Titlu Feature 2
+Textul feature-ului 2"></textarea>
+                                            <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                                💡 <strong>Format corect:</strong> Scrie descrierea principală (opțional). Apoi pentru fiecare feature: pe o linie nouă scrie exact <strong>"--- FEATURE 1 ---"</strong> (sau 2, 3, etc.), pe linia următoare titlul, pe linia următoare textul. Lasă o linie goală între feature-uri.
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Service 3: Dezinfecție -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">3. Dezinfecție</h5>
+                                        <div class="form-group">
+                                            <label for="service3Title">Titlu</label>
+                                            <input type="text" id="service3Title" placeholder="Ex: 3. Dezinfecție">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service3Subtitle">Subtitlu</label>
+                                            <input type="text" id="service3Subtitle" placeholder="Ex: Igienizare Profundă a Locuinței">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="service3Description">Descriere</label>
+                                            <textarea id="service3Description" rows="15" placeholder="Scrie descrierea principală aici...
+
+Pentru a adăuga feature-uri (subsectiuni), folosește formatul:
+--- FEATURE 1 ---
+Titlu Feature 1
+Textul feature-ului 1
+
+--- FEATURE 2 ---
+Titlu Feature 2
+Textul feature-ului 2"></textarea>
+                                            <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                                💡 <strong>Format corect:</strong> Scrie descrierea principală (opțional). Apoi pentru fiecare feature: pe o linie nouă scrie exact <strong>"--- FEATURE 1 ---"</strong> (sau 2, 3, etc.), pe linia următoare titlul, pe linia următoare textul. Lasă o linie goală între feature-uri.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Guarantee Section -->
+                            <div class="form-section">
+                                <h4>Secțiunea Garanție</h4>
+                                <div class="form-group">
+                                    <label for="guaranteeTitle">Titlu Secțiune</label>
+                                    <input type="text" id="guaranteeTitle" placeholder="Ex: Încredere și Garanție">
+                                </div>
+                                
+                                <div class="services-edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2rem;">
+                                    <!-- Guarantee 1: Profesioniști Certificați -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">1. Profesioniști Certificați</h5>
+                                        <div class="form-group">
+                                            <label for="guarantee1Title">Titlu</label>
+                                            <input type="text" id="guarantee1Title" placeholder="Ex: Profesioniști Certificați">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="guarantee1Description">Descriere</label>
+                                            <textarea id="guarantee1Description" rows="4" placeholder="Descriere..."></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Guarantee 2: Garanție 300% -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">2. Garanție 300%</h5>
+                                        <div class="form-group">
+                                            <label for="guarantee2Title">Titlu</label>
+                                            <input type="text" id="guarantee2Title" placeholder="Ex: GARANȚIE 300%">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="guarantee2Description">Descriere</label>
+                                            <textarea id="guarantee2Description" rows="4" placeholder="Descriere..."></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Guarantee 3: Intervenție Rapidă -->
+                                    <div class="service-edit-column">
+                                        <h5 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">3. Intervenție Rapidă</h5>
+                                        <div class="form-group">
+                                            <label for="guarantee3Title">Titlu</label>
+                                            <input type="text" id="guarantee3Title" placeholder="Ex: Intervenție Rapidă">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="guarantee3Description">Descriere</label>
+                                            <textarea id="guarantee3Description" rows="4" placeholder="Descriere..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Salvează Modificările</button>
+                            <div id="siteTextsSuccess" class="success-message" style="display: none;"></div>
+                            <div id="siteTextsError" class="error-message" style="display: none;"></div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -298,6 +484,47 @@
                     <!-- URL Option -->
                     <div id="urlImageSection" class="image-source-section" style="display: none;">
                         <input type="text" id="certImageUrl" placeholder="Ex: images/certificate-1.jpg">
+                        <small>Introdu URL-ul imaginii</small>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Adaugă</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Partner Modal -->
+    <div id="partnerModal" class="modal">
+        <div class="modal-content modal-content-large">
+            <span class="modal-close">&times;</span>
+            <h2>Adaugă Partner</h2>
+            <form id="addPartnerForm">
+                <div class="form-group">
+                    <label for="partnerTitle">Nume Partner (opțional)</label>
+                    <input type="text" id="partnerTitle" placeholder="Ex: Partner 1">
+                </div>
+                
+                <div class="form-group">
+                    <label>Imagine Partner</label>
+                    <div class="image-upload-options">
+                        <label class="upload-option-label">
+                            <input type="radio" name="partnerImageSource" value="upload" checked> Încarcă din calculator
+                        </label>
+                        <label class="upload-option-label">
+                            <input type="radio" name="partnerImageSource" value="url"> Folosește URL
+                        </label>
+                    </div>
+                    
+                    <!-- File Upload Option -->
+                    <div id="uploadPartnerImageSection" class="image-source-section">
+                        <input type="file" id="partnerImageFile" accept="image/*" required>
+                        <small>Formate acceptate: JPG, PNG, GIF (max 5MB)</small>
+                        <div id="partnerImagePreview" class="image-preview"></div>
+                    </div>
+                    
+                    <!-- URL Option -->
+                    <div id="urlPartnerImageSection" class="image-source-section" style="display: none;">
+                        <input type="text" id="partnerImageUrl" placeholder="Ex: images/partner-1.jpg">
                         <small>Introdu URL-ul imaginii</small>
                     </div>
                 </div>

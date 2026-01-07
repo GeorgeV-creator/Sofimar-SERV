@@ -627,10 +627,12 @@ body {
 }
 
 /* Certificates Gallery List */
-.certificates-list {
+.certificates-list,
+.certificates-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 1.5rem;
+    margin-top: 1.5rem;
 }
 
 .certificate-item-admin {
@@ -677,6 +679,90 @@ body {
     align-items: center;
     justify-content: center;
     background: var(--bg-light);
+}
+
+/* Partners Admin Styles */
+.partner-item-admin {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.partner-item-admin:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.partner-image-wrapper-admin {
+    width: 100%;
+    height: 200px;
+    background: var(--bg-light);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.partner-thumbnail {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.partner-item-admin:hover .partner-thumbnail {
+    transform: scale(1.1);
+}
+
+.partner-no-image {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-light);
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.partner-info-admin {
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.partner-title-admin {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 1rem;
+}
+
+.btn-partner-delete {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s ease;
+}
+
+.btn-partner-delete:hover {
+    background: #c0392b;
+}
+
+.partners-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
     color: var(--text-light);
     font-size: 3rem;
 }
@@ -968,6 +1054,55 @@ body {
     gap: 1rem;
 }
 
+.form-section {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.form-section h4 {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.services-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.service-edit-column {
+    background: var(--bg-light);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.service-edit-column h5 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+@media (max-width: 1024px) {
+    .services-edit-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Modal */
 .modal {
     display: none;
@@ -1137,6 +1272,7 @@ body {
 
     .videos-list,
     .certificates-list,
+    .certificates-grid,
     .locations-list {
         grid-template-columns: 1fr;
     }
