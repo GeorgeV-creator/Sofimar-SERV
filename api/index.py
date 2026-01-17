@@ -1118,87 +1118,90 @@ def handler(request):
             'body': json.dumps({'error': str(e)}, ensure_ascii=False)
         }
 
-# Vercel serverless function entry point
-def main(request):
-    """Vercel serverless function entry point"""
-    try:
-        # Vercel Python provides request as an HttpRequest object
-        method = request.method if hasattr(request, 'method') else 'GET'
-        
-        # Get path from request URL
-        url = getattr(request, 'url', '/')
-        if url and isinstance(url, str):
-            parsed = urlparse(url)
-            path = parsed.path
-        else:
-            # Try to get from request path attribute
-            path = getattr(request, 'path', '/')
-        
-        # Remove /api/ prefix from path
-        if path.startswith('/api/'):
-            path = path[5:]
-        elif path.startswith('api/'):
-            path = path[4:]
-        
-        # Handle empty path
-        if not path or path == '/':
-            path = 'test'
-        
-        # Parse query string
-        if hasattr(request, 'args'):
-            query = dict(request.args) if hasattr(request.args, 'items') else {}
-        else:
-            parsed = urlparse(url) if url else urlparse('/')
-            query_params = parse_qs(parsed.query) if parsed.query else {}
-            query = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query_params.items()}
-        
-        # Get body
-        body = ''
-        if hasattr(request, 'json') and request.json:
-            body = request.json
-        elif hasattr(request, 'body'):
-            body_str = request.body
-            if isinstance(body_str, (bytes, bytearray)):
-                body_str = body_str.decode('utf-8')
-            if body_str:
-                try:
-                    body = json.loads(body_str)
-                except:
-                    body = body_str
-        elif hasattr(request, 'data'):
-            body = request.data
-        
-        # Call handler
-        result = handler({
-            'method': method,
-            'path': path,
-            'query': query,
-            'body': body
-        })
-        
-        return result
-        
-    except Exception as e:
-        # Error response with detailed info
-        import traceback
-        error_info = {
-            'error': str(e),
-            'error_type': type(e).__name__,
-            'request_type': str(type(request)),
-            'request_attrs': [attr for attr in dir(request) if not attr.startswith('_')] if hasattr(request, '__dict__') else []
-        }
-        
-        # Include traceback only in development
-        if os.environ.get('VERCEL_ENV') != 'production':
-            error_info['traceback'] = traceback.format_exc()
-        
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps(error_info, ensure_ascii=False, indent=2)
-        }
+# Vercel serverless function entry point - Vercel Python uses HttpRequest
+from http.server import BaseHTTPRequestHandler
+
+class handler(BaseHTTPRequestHandler):
+    """Vercel Python serverless function handler"""
+    
+    def do_GET(self):
+        self._handle_request('GET')
+    
+    def do_POST(self):
+        self._handle_request('POST')
+    
+    def do_DELETE(self):
+        self._handle_request('DELETE')
+    
+    def do_OPTIONS(self):
+        self._handle_request('OPTIONS')
+    
+    def _handle_request(self, method):
+        try:
+            # Parse path from self.path
+            path = self.path
+            if path.startswith('/api/'):
+                path = path[5:]
+            elif path.startswith('api/'):
+                path = path[4:]
+            
+            if not path or path == '/':
+                path = 'test'
+            
+            # Parse query string
+            if '?' in path:
+                path, query_str = path.split('?', 1)
+                query_params = parse_qs(query_str)
+                query = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+            else:
+                query = {}
+            
+            # Get body for POST
+            body = ''
+            if method in ['POST', 'PUT', 'PATCH']:
+                content_length = int(self.headers.get('Content-Length', 0))
+                if content_length > 0:
+                    body_str = self.rfile.read(content_length).decode('utf-8')
+                    try:
+                        body = json.loads(body_str)
+                    except:
+                        body = body_str
+            
+            # Call handler
+            result = handler_internal({
+                'method': method,
+                'path': path,
+                'query': query,
+                'body': body
+            })
+            
+            # Send response
+            status_code = result.get('statusCode', 200)
+            headers = result.get('headers', {})
+            response_body = result.get('body', '')
+            
+            self.send_response(status_code)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(response_body.encode('utf-8'))
+            
+        except Exception as e:
+            import traceback
+            error_info = {
+                'error': str(e),
+                'error_type': type(e).__name__
+            }
+            if os.environ.get('VERCEL_ENV') != 'production':
+                error_info['traceback'] = traceback.format_exc()
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(error_info, ensure_ascii=False).encode('utf-8'))
+
+def handler_internal(request):
+    """Internal handler - renamed from handler to avoid conflict"""
 
 
