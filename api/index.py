@@ -58,10 +58,28 @@ def handle_api_request(path, method, query, body_data):
         # GET endpoints
         if method == 'GET':
             if path == 'test' or path == 'health':
+                # Test database connection
+                db_status = {'connected': False, 'error': None}
+                try:
+                    db = get_db_connection()
+                    # Try a simple query
+                    cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                    cur.execute("SELECT 1 as test")
+                    cur.fetchone()
+                    db['conn'].close()
+                    db_status['connected'] = True
+                    db_status['type'] = db['type']
+                except Exception as e:
+                    db_status['error'] = str(e)
+                
                 return 200, headers, json.dumps({
                     'status': 'ok',
                     'use_supabase': USE_SUPABASE,
-                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite'
+                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite',
+                    'has_supabase_url': bool(SUPABASE_URL),
+                    'has_supabase_key': bool(SUPABASE_KEY),
+                    'has_supabase_db_url': bool(SUPABASE_DB_URL),
+                    'database': db_status
                 }, ensure_ascii=False)
             
             elif path == 'messages':
