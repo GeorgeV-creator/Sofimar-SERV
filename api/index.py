@@ -62,87 +62,8 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None}
 
-def init_supabase_tables(conn):
-    """Initialize Supabase PostgreSQL tables"""
-    cur = conn.cursor()
-    
-    # Create all tables with explicit error handling
-    tables = [
-        ("messages", "CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
-        ("chatbot_messages", "CREATE TABLE IF NOT EXISTS chatbot_messages (id SERIAL PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
-        ("visits", "CREATE TABLE IF NOT EXISTS visits (date TEXT PRIMARY KEY, count INTEGER NOT NULL)"),
-        ("certificates", "CREATE TABLE IF NOT EXISTS certificates (id TEXT PRIMARY KEY, data TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'certificat', timestamp TEXT NOT NULL)"),
-        ("partners", "CREATE TABLE IF NOT EXISTS partners (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
-        ("site_texts", "CREATE TABLE IF NOT EXISTS site_texts (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)"),
-        ("admin_password", "CREATE TABLE IF NOT EXISTS admin_password (id INTEGER PRIMARY KEY CHECK (id = 1), password TEXT NOT NULL, last_updated TEXT NOT NULL)"),
-        ("tiktok_videos", "CREATE TABLE IF NOT EXISTS tiktok_videos (id INTEGER PRIMARY KEY CHECK (id = 1), videos TEXT NOT NULL, last_updated TEXT NOT NULL)"),
-        ("locations", "CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)"),
-        ("reviews", "CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, author TEXT NOT NULL, rating INTEGER NOT NULL, text TEXT NOT NULL, date TEXT NOT NULL, timestamp TEXT NOT NULL)"),
-        ("chatbot_responses", "CREATE TABLE IF NOT EXISTS chatbot_responses (keyword TEXT PRIMARY KEY, response TEXT NOT NULL, timestamp TEXT NOT NULL)")
-    ]
-    
-    for table_name, sql in tables:
-        try:
-            cur.execute(sql)
-            conn.commit()
-            print(f"  ✅ Table '{table_name}' created/verified")
-        except Exception as e:
-            error_msg = str(e)
-            if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
-                print(f"  ℹ️  Table '{table_name}' already exists")
-            else:
-                print(f"  ❌ Error creating table '{table_name}': {error_msg[:100]}")
-                import traceback
-                print(traceback.format_exc())
-    
-    # Create indexes for better performance
-    indexes = [
-        ("idx_messages_timestamp", "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)"),
-        ("idx_chatbot_messages_timestamp", "CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp)"),
-        ("idx_certificates_timestamp", "CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp)"),
-        ("idx_reviews_timestamp", "CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp)")
-    ]
-    
-    for index_name, sql in indexes:
-        try:
-            cur.execute(sql)
-            conn.commit()
-            print(f"  ✅ Index '{index_name}' created/verified")
-        except Exception as e:
-            print(f"  ⚠️  Index '{index_name}' creation skipped: {str(e)[:50]}")
-    
-    cur.close()
-
-def init_sqlite_tables(conn):
-    """Initialize SQLite tables"""
-    cur = conn.cursor()
-    tables = [
-        "CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS chatbot_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS visits (date TEXT PRIMARY KEY, count INTEGER NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS certificates (id TEXT PRIMARY KEY, data TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'certificat', timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS partners (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS site_texts (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS admin_password (id INTEGER PRIMARY KEY CHECK (id = 1), password TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS tiktok_videos (id INTEGER PRIMARY KEY CHECK (id = 1), videos TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, author TEXT NOT NULL, rating INTEGER NOT NULL, text TEXT NOT NULL, date TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS chatbot_responses (keyword TEXT PRIMARY KEY, response TEXT NOT NULL, timestamp TEXT NOT NULL)"
-    ]
-    for sql in tables:
-        cur.execute(sql)
-    
-    # Add type column if not exists
-    try:
-        cur.execute("ALTER TABLE certificates ADD COLUMN type TEXT DEFAULT 'certificat'")
-    except:
-        pass
-    cur.close()
-
 def handle_api_request(path, method, query, body_data):
     """Handle API request and return response"""
-    # Initialize database on first request
-    init_database()
     
     headers = {
         'Access-Control-Allow-Origin': '*',
@@ -166,7 +87,8 @@ def handle_api_request(path, method, query, body_data):
             if path == 'test' or path == 'health':
                 return 200, headers, json.dumps({
                     'status': 'ok',
-                    'db_initialized': _db_initialized
+                    'use_supabase': USE_SUPABASE,
+                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite'
                 }, ensure_ascii=False)
             
             elif path == 'messages':
