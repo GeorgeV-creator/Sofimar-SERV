@@ -11,19 +11,130 @@ from urllib.parse import urlparse, parse_qs
 import urllib.request
 import urllib.parse
 
-# Database file path - use /tmp for Vercel (writable filesystem)
+# Database configuration
+USE_SUPABASE = os.environ.get('SUPABASE_URL') and os.environ.get('SUPABASE_SERVICE_KEY')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
+# Supabase PostgreSQL connection string (alternative method)
+SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
+
+class DBWrapper:
+    """Wrapper to make Supabase and SQLite connections compatible"""
+    def __init__(self, conn, db_type):
+        self.conn = conn
+        self.db_type = db_type
+        self._cursor = None
+    
+    def execute(self, query, params=None):
+        """Execute query and return cursor"""
+        # Convert SQLite ? placeholders to PostgreSQL $1, $2, etc. if needed
+        if self.db_type == 'supabase' and params:
+            # For PostgreSQL, use %s placeholders
+            if '?' in query:
+                # Simple replacement - may need more sophisticated handling
+                query = query.replace('?', '%s')
+        
+        if self.db_type == 'supabase':
+            from psycopg2.extras import RealDictCursor
+            self._cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            self._cursor = self.conn.cursor()
+        
+        if params:
+            self._cursor.execute(query, params)
+        else:
+            self._cursor.execute(query)
+        return self._cursor
+    
+    def commit(self):
+        if self.conn:
+            self.conn.commit()
+    
+    def close(self):
+        if self._cursor:
+            self._cursor.close()
+        if self.conn:
+            self.conn.close()
+
 def get_db():
-    """Get database connection"""
+    """Get database connection - Supabase PostgreSQL or SQLite"""
+    # Check if we should use Supabase
+    if USE_SUPABASE and SUPABASE_DB_URL:
+        try:
+            import psycopg2
+            conn = psycopg2.connect(SUPABASE_DB_URL)
+            return DBWrapper(conn, 'supabase')
+        except ImportError:
+            # psycopg2 not available, fallback to SQLite
+            print("psycopg2 not available, using SQLite")
+            pass
+        except Exception as e:
+            # Connection failed, fallback to SQLite
+            print(f"Supabase connection error: {e}, using SQLite fallback")
+            pass
+    
+    # Fallback to SQLite
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
-    return conn
+    return DBWrapper(conn, 'sqlite')
+
+def execute_query(query, params=None, fetch=True):
+    """Execute query on Supabase or SQLite"""
+    if USE_SUPABASE and SUPABASE_DB_URL:
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            conn = psycopg2.connect(SUPABASE_DB_URL)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute(query, params)
+            if fetch:
+                result = cursor.fetchall()
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return result
+            else:
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return cursor.rowcount
+        except Exception as e:
+            print(f"Supabase query error: {e}")
+            # Fallback to SQLite
+            pass
+    
+    # SQLite fallback
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    if params:
+        cursor.execute(query, params)
+    else:
+        cursor.execute(query)
+    if fetch:
+        result = cursor.fetchall()
+        conn.commit()
+        conn.close()
+        return result
+    else:
+        conn.commit()
+        rowcount = cursor.rowcount
+        conn.close()
+        return rowcount
 
 def init_db():
-    """Initialize database tables"""
-    conn = get_db()
-    cur = conn.cursor()
+    """Initialize database tables - only for SQLite (Supabase tables created via SQL)"""
+    db = get_db()
+    if db.db_type == 'supabase':
+        # Tables should be created via SQL in Supabase dashboard
+        # No need to initialize here
+        db.close()
+        return
+    
+    # SQLite initialization
+    cur = db
 
     # Messages table
     cur.execute("""
@@ -61,11 +172,12 @@ def init_db():
         )
     """)
     
-    # Add type column if it doesn't exist (migration)
-    try:
-        cur.execute("ALTER TABLE certificates ADD COLUMN type TEXT DEFAULT 'certificat'")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # Add type column if it doesn't exist (migration) - SQLite only
+    if db.db_type == 'sqlite':
+        try:
+            cur.execute("ALTER TABLE certificates ADD COLUMN type TEXT DEFAULT 'certificat'")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
     # Partners table
     cur.execute("""
@@ -133,11 +245,12 @@ def init_db():
         )
     """)
 
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
 
-# Initialize database on first import
-init_db()
+# Initialize database on first import (only SQLite)
+if not USE_SUPABASE:
+    init_db()
 
 def sync_google_reviews(place_id=None, api_key=None):
     """Sync reviews from Google Places API"""
