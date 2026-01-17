@@ -447,6 +447,44 @@ def handler(request):
     try:
         # GET endpoints
         if method == 'GET':
+            # Test endpoint for debugging
+            if path == 'test' or path == 'health':
+                test_info = {
+                    'status': 'ok',
+                    'vercel': bool(os.environ.get('VERCEL')),
+                    'use_supabase': USE_SUPABASE,
+                    'has_supabase_url': bool(SUPABASE_URL),
+                    'has_supabase_key': bool(SUPABASE_KEY),
+                    'has_supabase_db_url': bool(SUPABASE_DB_URL),
+                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite'
+                }
+                
+                # Test database connection
+                try:
+                    db = get_db()
+                    if db.db_type == 'supabase':
+                        # Test query
+                        cursor = db.execute("SELECT 1 as test")
+                        result = cursor.fetchone()
+                        test_info['db_connection'] = '✅ Working'
+                        test_info['db_test_query'] = '✅ Success'
+                    else:
+                        # SQLite test
+                        cursor = db.execute("SELECT 1 as test")
+                        result = cursor.fetchone()
+                        test_info['db_connection'] = '✅ Working (SQLite)'
+                        test_info['db_test_query'] = '✅ Success'
+                    db.close()
+                except Exception as e:
+                    test_info['db_connection'] = f'❌ Error: {str(e)}'
+                    test_info['error'] = str(e)
+                
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps(test_info, ensure_ascii=False, indent=2)
+                }
+            
             if path == 'messages':
                 conn = get_db()
                 rows = conn.execute("SELECT data FROM messages ORDER BY timestamp DESC").fetchall()
@@ -482,13 +520,24 @@ def handler(request):
             
             elif path == 'certificates':
                 conn = get_db()
-                rows = conn.execute("SELECT id, data, type FROM certificates ORDER BY timestamp DESC").fetchall()
+                try:
+                    rows = conn.execute("SELECT id, data, type FROM certificates ORDER BY timestamp DESC").fetchall()
+                    certificates = []
+                    for row in rows:
+                        # Handle both dict-like (Supabase) and row-like (SQLite) objects
+                        row_data = row['data'] if hasattr(row, '__getitem__') else getattr(row, 'data', '{}')
+                        row_type = row.get('type', 'certificat') if hasattr(row, 'get') else (getattr(row, 'type', 'certificat') if hasattr(row, 'type') else 'certificat')
+                        cert_data = json.loads(row_data)
+                        cert_data['type'] = row_type
+                        certificates.append(cert_data)
+                except Exception as e:
+                    conn.close()
+                    return {
+                        'statusCode': 500,
+                        'headers': headers,
+                        'body': json.dumps({'error': f'Database error: {str(e)}'}, ensure_ascii=False)
+                    }
                 conn.close()
-                certificates = []
-                for row in rows:
-                    cert_data = json.loads(row['data'])
-                    cert_data['type'] = row.get('type', 'certificat')
-                    certificates.append(cert_data)
                 return {
                     'statusCode': 200,
                     'headers': headers,
