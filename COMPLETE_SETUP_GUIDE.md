@@ -83,9 +83,9 @@
 
 ### Pasul 2.3: Verifică Credențialele
 Ai nevoie de 3 valori:
-1. ✅ `SUPABASE_URL` - ex: `https://xxxxx.supabase.co`
-2. ✅ `SUPABASE_SERVICE_KEY` - ex: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (lung)
-3. ✅ `SUPABASE_DB_URL` - ex: `postgresql://postgres.xxxxx:PASSWORD@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`
+1. ✅ `SUPABASE_URL` - ex: `https://awqahhtpjwsncidcsiar.supabase.co`
+2. ✅ `SUPABASE_SERVICE_KEY` - ex: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3cWFoaHRwandzbmNpZGNzaWFyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODY3NTM2OSwiZXhwIjoyMDg0MjUxMzY5fQ.hDhfeyzJTzMeq-8OAaPu5GmX75U_s_XqPw25cwU_ars` (lung)
+3. ✅ `SUPABASE_DB_URL` - ex: `postgresql://postgres:nugdi4-Sushuf-fiwpiq@db.awqahhtpjwsncidcsiar.supabase.co:5432/postgres`
 
 **Salvează-le undeva sigur (temporar) pentru următorul pas!**
 
