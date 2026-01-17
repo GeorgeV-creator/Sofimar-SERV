@@ -24,23 +24,33 @@ DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 _db_initialized = False
 
 def init_database():
-    """Initialize database tables - called once"""
+    """Initialize database tables - called once, works for both Supabase and SQLite"""
     global _db_initialized
     if _db_initialized:
         return
     
-    db = get_db_connection()
     try:
-        if db['type'] == 'supabase':
-            init_supabase_tables(db['conn'])
-        else:
-            init_sqlite_tables(db['conn'])
-        db['conn'].commit()
-        _db_initialized = True
+        db = get_db_connection()
+        try:
+            if db['type'] == 'supabase':
+                print("🔧 Initializing Supabase database tables...")
+                init_supabase_tables(db['conn'])
+                db['conn'].commit()
+                print("✅ Supabase tables initialized successfully")
+            else:
+                print("🔧 Initializing SQLite database tables...")
+                init_sqlite_tables(db['conn'])
+                db['conn'].commit()
+                print("✅ SQLite tables initialized successfully")
+            _db_initialized = True
+        except Exception as e:
+            print(f"⚠️ Database init error: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            db['conn'].close()
     except Exception as e:
-        print(f"Database init error: {e}")
-    finally:
-        db['conn'].close()
+        print(f"❌ Database connection error during init: {e}")
 
 def get_db_connection():
     """Get database connection"""
@@ -58,9 +68,11 @@ def get_db_connection():
     return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None}
 
 def init_supabase_tables(conn):
-    """Initialize Supabase tables"""
+    """Initialize Supabase PostgreSQL tables"""
     cur = conn.cursor()
-    tables = [
+    
+    # Create all tables
+    tables_sql = [
         "CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS chatbot_messages (id SERIAL PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS visits (date TEXT PRIMARY KEY, count INTEGER NOT NULL)",
@@ -73,11 +85,28 @@ def init_supabase_tables(conn):
         "CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, author TEXT NOT NULL, rating INTEGER NOT NULL, text TEXT NOT NULL, date TEXT NOT NULL, timestamp TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS chatbot_responses (keyword TEXT PRIMARY KEY, response TEXT NOT NULL, timestamp TEXT NOT NULL)"
     ]
-    for sql in tables:
+    
+    for sql in tables_sql:
+        try:
+            cur.execute(sql)
+            print(f"  ✅ Table created/verified: {sql.split('(')[0].split()[-1]}")
+        except Exception as e:
+            print(f"  ⚠️ Table creation skipped (may already exist): {str(e)[:50]}")
+    
+    # Create indexes for better performance
+    indexes_sql = [
+        "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp)"
+    ]
+    
+    for sql in indexes_sql:
         try:
             cur.execute(sql)
         except:
             pass
+    
     cur.close()
 
 def init_sqlite_tables(conn):
