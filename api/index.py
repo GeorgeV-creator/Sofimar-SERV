@@ -20,33 +20,6 @@ SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY and SUPABASE_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
-def init_database():
-    """Initialize database tables - checks and creates if needed (works in serverless)"""
-    try:
-        db = get_db_connection()
-        try:
-            if db['type'] == 'supabase':
-                print("🔧 Checking/Initializing Supabase database tables...")
-                print(f"🔍 USE_SUPABASE={USE_SUPABASE}, SUPABASE_DB_URL={'✅' if SUPABASE_DB_URL else '❌'}")
-                init_supabase_tables(db['conn'])
-                db['conn'].commit()
-                print("✅ Supabase tables check/initialization completed")
-            else:
-                print("🔧 Checking/Initializing SQLite database tables...")
-                init_sqlite_tables(db['conn'])
-                db['conn'].commit()
-                print("✅ SQLite tables check/initialization completed")
-        except Exception as e:
-            print(f"⚠️ Database init error: {e}")
-            import traceback
-            print(traceback.format_exc())
-        finally:
-            db['conn'].close()
-    except Exception as e:
-        print(f"❌ Database connection error during init: {e}")
-        import traceback
-        print(traceback.format_exc())
-
 def get_db_connection():
     """Get database connection"""
     if USE_SUPABASE and SUPABASE_DB_URL:
