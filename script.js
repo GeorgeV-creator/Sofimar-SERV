@@ -1,5 +1,7 @@
-// API Base URL - use current hostname instead of localhost for mobile access
-const API_BASE_URL = `http://${window.location.hostname}:8001`;
+// API Base URL - detect Vercel or local
+const API_BASE_URL = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost') === false
+    ? `${window.location.protocol}//${window.location.hostname}/api`
+    : `http://${window.location.hostname}:8001/api`;
 
 // Mobile Menu Toggle
 const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
@@ -124,7 +126,7 @@ if (contactForm) {
         try {
             // Try to save to API server first
             console.log('Sending message to API:', data);
-            const response = await fetch(`${API_BASE_URL}/api/messages`, {
+            const response = await fetch(`${API_BASE_URL}/messages`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,7 +237,7 @@ let chatbotResponses = {};
 // Load chatbot responses from API
 async function loadChatbotResponses() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`);
+        const response = await fetch(`${API_BASE_URL}/chatbot-responses`);
         if (response.ok) {
             chatbotResponses = await response.json();
             console.log('Chatbot responses loaded:', Object.keys(chatbotResponses).length, 'responses');
@@ -298,7 +300,7 @@ function sendMessage() {
     };
     
     // Try to save to API server
-    fetch(`${API_BASE_URL}/api/chatbot`, {
+    fetch(`${API_BASE_URL}/chatbot`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -326,7 +328,7 @@ function sendMessage() {
         };
         
         // Try to save to API server
-        fetch(`${API_BASE_URL}/api/chatbot`, {
+        fetch(`${API_BASE_URL}/chatbot`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -370,7 +372,7 @@ const DEFAULT_TIKTOK_VIDEO_IDS = [
 // Load videos from API or use default
 async function getTikTokVideoIds() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`);
+        const response = await fetch(`${API_BASE_URL}/tiktok-videos`);
         if (response.ok) {
             const videos = await response.json();
             return Array.isArray(videos) && videos.length > 0 ? videos : DEFAULT_TIKTOK_VIDEO_IDS;
@@ -551,7 +553,7 @@ function trackPageVisit() {
     
     try {
         // Try to save to API server first
-        fetch(`${API_BASE_URL}/api/visits`, {
+        fetch(`${API_BASE_URL}/visits`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -671,7 +673,7 @@ async function initRomaniaMap() {
     let officeLocations = [];
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/locations`);
+        const response = await fetch(`${API_BASE_URL}/locations`);
         if (response.ok) {
             officeLocations = await response.json();
             console.log('Loaded locations from API:', officeLocations.length);
@@ -829,7 +831,7 @@ async function loadPartnersOnPage() {
     
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/partners`);
+        const response = await fetch(`${API_BASE_URL}/partners`);
         if (response.ok) {
             partners = await response.json();
             console.log('Loading partners from API:', partners.length, 'partners');
@@ -883,7 +885,7 @@ async function loadCertificatesOnPage() {
     
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/certificates`);
+        const response = await fetch(`${API_BASE_URL}/certificates`);
         if (response.ok) {
             certificates = await response.json();
             console.log('Loading certificates from API:', certificates.length, 'certificates');
@@ -1015,7 +1017,7 @@ async function loadSiteTexts() {
     
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/site-texts`);
+        const response = await fetch(`${API_BASE_URL}/site-texts`);
         if (response.ok) {
             texts = await response.json();
             console.log('Loaded texts from API:', texts);
@@ -1372,7 +1374,7 @@ async function loadReviews() {
 
     try {
         // Load all reviews from API
-        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        const response = await fetch(`${API_BASE_URL}/reviews`);
         
         if (!response.ok) {
             const errorText = await response.text();

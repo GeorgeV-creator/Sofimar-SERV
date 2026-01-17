@@ -1,7 +1,9 @@
 // Admin Panel JavaScript
 
-// API Base URL - use current hostname instead of localhost for mobile access
-const API_BASE_URL = `http://${window.location.hostname}:8001`;
+// API Base URL - detect Vercel or local
+const API_BASE_URL = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost') === false
+    ? `${window.location.protocol}//${window.location.hostname}/api`
+    : `http://${window.location.hostname}:8001/api`;
 
 // Default credentials (în producție, ar trebui să fie pe server)
 const DEFAULT_USERNAME = 'admin';
@@ -54,7 +56,7 @@ async function login(username, password) {
     
     try {
         // Try to get password from API
-        const response = await fetch(`${API_BASE_URL}/api/admin-password`);
+        const response = await fetch(`${API_BASE_URL}/admin-password`);
         if (response.ok) {
             const result = await response.json();
             const storedPassword = result.password || DEFAULT_PASSWORD;
@@ -530,7 +532,7 @@ async function getMessages() {
     try {
         // Try to fetch from API server
         console.log('Fetching messages from API...');
-        const response = await fetch(`${API_BASE_URL}/api/messages`);
+        const response = await fetch(`${API_BASE_URL}/messages`);
         if (response.ok) {
             const messages = await response.json();
             console.log('Messages loaded from API:', messages.length);
@@ -552,7 +554,7 @@ async function saveMessages(messages) {
 async function clearMessages() {
     try {
         // Try to delete from API server
-        await fetch(`${API_BASE_URL}/api/messages?all=1`, {
+        await fetch(`${API_BASE_URL}/messages?all=1`, {
             method: 'DELETE'
         });
     } catch (error) {
@@ -664,7 +666,7 @@ async function loadChatbotMessages() {
 async function getChatbotMessages() {
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/chatbot`);
+        const response = await fetch(`${API_BASE_URL}/chatbot`);
         if (response.ok) {
             const messages = await response.json();
             console.log('Retrieved chatbot messages from API:', messages);
@@ -680,7 +682,7 @@ async function getChatbotMessages() {
 async function clearChatbotMessages() {
     try {
         // Try to delete from API server
-        await fetch(`${API_BASE_URL}/api/chatbot?all=1`, {
+        await fetch(`${API_BASE_URL}/chatbot?all=1`, {
             method: 'DELETE'
         });
     } catch (error) {
@@ -787,7 +789,7 @@ async function loadLocations() {
 
 async function getLocations() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/locations`);
+        const response = await fetch(`${API_BASE_URL}/locations`);
         if (response.ok) {
             const locations = await response.json();
             if (Array.isArray(locations) && locations.length > 0) {
@@ -857,7 +859,7 @@ function getDefaultLocations() {
 
 async function saveLocations(locations) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/locations`, {
+        const response = await fetch(`${API_BASE_URL}/locations`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1113,7 +1115,7 @@ async function loadTikTokVideos() {
 
 async function getTikTokVideos() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`);
+        const response = await fetch(`${API_BASE_URL}/tiktok-videos`);
         if (response.ok) {
             const videos = await response.json();
             return Array.isArray(videos) ? videos : [];
@@ -1127,7 +1129,7 @@ async function getTikTokVideos() {
 
 async function saveTikTokVideos(videos) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`, {
+        const response = await fetch(`${API_BASE_URL}/tiktok-videos`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1225,7 +1227,7 @@ async function loadCertificates() {
 async function getCertificates() {
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/certificates`);
+        const response = await fetch(`${API_BASE_URL}/certificates`);
         if (response.ok) {
             const certificates = await response.json();
             console.log('Retrieved certificates from API:', certificates.length);
@@ -1250,7 +1252,7 @@ async function addCertificate(title, description, image, type = 'certificat') {
     
     try {
         // Try to save to API server
-        const response = await fetch(`${API_BASE_URL}/api/certificates`, {
+        const response = await fetch(`${API_BASE_URL}/certificates`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1354,7 +1356,7 @@ async function loadPartners() {
 async function getPartners() {
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/partners`);
+        const response = await fetch(`${API_BASE_URL}/partners`);
         if (response.ok) {
             const partners = await response.json();
             console.log('Retrieved partners from API:', partners);
@@ -1394,7 +1396,7 @@ async function addPartner(title, image) {
     try {
         // Try to save to API server
         console.log('📡 Attempting to save partner to API...');
-        const response = await fetch(`${API_BASE_URL}/api/partners`, {
+        const response = await fetch(`${API_BASE_URL}/partners`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1618,7 +1620,7 @@ async function changePassword() {
 
     try {
         // Get current password from API
-        const getResponse = await fetch(`${API_BASE_URL}/api/admin-password`);
+        const getResponse = await fetch(`${API_BASE_URL}/admin-password`);
         if (!getResponse.ok) {
             throw new Error('Failed to get current password');
         }
@@ -1632,7 +1634,7 @@ async function changePassword() {
         }
 
         // Save new password to API
-        const saveResponse = await fetch(`${API_BASE_URL}/api/admin-password`, {
+        const saveResponse = await fetch(`${API_BASE_URL}/admin-password`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1679,7 +1681,7 @@ async function getSiteTexts() {
     
     try {
         // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/api/site-texts`);
+        const response = await fetch(`${API_BASE_URL}/site-texts`);
         if (response.ok) {
             const texts = await response.json();
             console.log('📡 Got texts from API:', texts);
@@ -1739,7 +1741,7 @@ function saveSiteTexts() {
     }
     
     // Save to API
-    fetch(`${API_BASE_URL}/api/site-texts`, {
+    fetch(`${API_BASE_URL}/site-texts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -2331,7 +2333,7 @@ setInterval(() => {
 // Reviews Management
 async function loadReviewsAdmin() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        const response = await fetch(`${API_BASE_URL}/reviews`);
         if (!response.ok) {
             throw new Error('Failed to load reviews');
         }
@@ -2381,7 +2383,7 @@ async function loadReviewsAdmin() {
 
 async function getReviews() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        const response = await fetch(`${API_BASE_URL}/reviews`);
         if (response.ok) {
             const reviews = await response.json();
             return Array.isArray(reviews) ? reviews : [];
@@ -2450,7 +2452,7 @@ async function saveReview() {
             reviewData.id = editId;
         }
         
-        const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+        const response = await fetch(`${API_BASE_URL}/reviews`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2538,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusDiv.textContent = 'Se sincronizează recenziile de pe Google...';
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/sync-google-reviews`, {
+                const response = await fetch(`${API_BASE_URL}/sync-google-reviews`, {
                     method: 'GET'
                 });
                 
@@ -2612,7 +2614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Chatbot Responses Management Functions
 async function loadChatbotResponsesAdmin() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`);
+        const response = await fetch(`${API_BASE_URL}/chatbot-responses`);
         if (!response.ok) {
             throw new Error('Failed to load chatbot responses');
         }
@@ -2657,7 +2659,7 @@ function openChatbotResponseModal(keyword = null) {
     const title = document.getElementById('chatbotResponseModalTitle');
     
     if (keyword) {
-        fetch(`${API_BASE_URL}/api/chatbot-responses`)
+        fetch(`${API_BASE_URL}/chatbot-responses`)
             .then(response => response.json())
             .then(responses => {
                 if (responses[keyword]) {
@@ -2693,7 +2695,7 @@ async function saveChatbotResponse() {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`, {
+        const response = await fetch(`${API_BASE_URL}/chatbot-responses`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
