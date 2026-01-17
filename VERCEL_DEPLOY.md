@@ -30,11 +30,32 @@
      - `GOOGLE_PLACES_API_KEY` - API key-ul tău Google Places
      - `GOOGLE_PLACE_ID` - Place ID-ul locației tale
 
-## Notă importantă:
+## ⚠️ PROBLEMĂ IMPORTANTĂ - SQLite pe Vercel:
 
-- Baza de date SQLite (`site.db`) va fi stocată în `/tmp` pe Vercel
-- Datele se vor reseta la fiecare redeploy (Vercel are filesystem efemer)
-- Pentru persistență permanentă, recomand să folosești un serviciu extern de bază de date (ex: Supabase, PlanetScale, etc.)
+**SQLite NU funcționează persistent pe Vercel** pentru că:
+- Filesystem-ul `/tmp` se resetează la fiecare invocation/serverless call
+- Datele nu persistă între invocations
+- Baza de date va fi goală de fiecare dată când se face un request
+
+### Soluții pentru persistență:
+
+**Opțiunea 1: Vercel KV (RECOMANDAT - GRATUIT)**
+- Mergi la Vercel Dashboard > Storage > Create > KV
+- Creează un store KV
+- Instalează: `npm install @vercel/kv`
+- Adaptează codul să folosească KV în loc de SQLite
+
+**Opțiunea 2: Supabase (GRATUIT)**
+- Creează un cont gratuit pe https://supabase.com
+- Conectează baza de date PostgreSQL
+- Adaptează codul să folosească Supabase
+
+**Opțiunea 3: Servicii Cloud**
+- PlanetScale (MySQL) - plan gratuit disponibil
+- MongoDB Atlas - plan gratuit disponibil
+- PostgreSQL pe Railway/Render - planuri gratuite
+
+**PENTRU TESTARE LOCALĂ**: Codul funcționează perfect cu SQLite local.
 
 ## Structura API:
 

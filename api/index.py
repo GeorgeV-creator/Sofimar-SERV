@@ -856,17 +856,56 @@ def handler(request):
 # Vercel serverless function entry point
 def main(request):
     """Vercel serverless function entry point"""
-    # Parse request
-    method = request.get('method', 'GET')
-    path = request.get('path', '')
-    query = request.get('query', {})
-    body = request.get('body', '')
-    
-    return handler({
-        'method': method,
-        'path': path,
-        'query': query,
-        'body': body
-    })
+    # Vercel Python passes request as an object with method, url, json, etc.
+    try:
+        # Get method
+        method = getattr(request, 'method', 'GET')
+        
+        # Get path from URL
+        url = getattr(request, 'url', '/')
+        parsed = urlparse(url)
+        path = parsed.path
+        
+        # Parse query string
+        query_params = parse_qs(parsed.query) if parsed.query else {}
+        query = {k: v if isinstance(v, list) and len(v) > 1 else v[0] if isinstance(v, list) and len(v) == 1 else v 
+                for k, v in query_params.items()}
+        
+        # Get body
+        body = ''
+        if hasattr(request, 'json') and request.json:
+            body = request.json
+        elif hasattr(request, 'body'):
+            try:
+                body = json.loads(request.body) if isinstance(request.body, str) else request.body
+            except:
+                body = request.body if isinstance(request.body, dict) else ''
+        
+        # Remove /api/ prefix if present
+        if path.startswith('/api/'):
+            path = path[5:]
+        elif path.startswith('api/'):
+            path = path[4:]
+        
+        return handler({
+            'method': method,
+            'path': path,
+            'query': query,
+            'body': body
+        })
+    except Exception as e:
+        # Fallback for debugging
+        import traceback
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, ensure_ascii=False)
+        }
 
 
