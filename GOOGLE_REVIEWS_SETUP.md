@@ -62,3 +62,4 @@ python3 api_server.py &
 - Recenziile se sincronizează manual prin butonul din admin
 - Poți configura un cron job pentru sincronizare automată periodică
 
+

@@ -51,3 +51,4 @@ Dacă primești erori "server not available":
 2. Verifică că `vercel.json` este configurat corect
 3. Verifică logs-urile în Vercel Dashboard > Functions
 
+
