@@ -1120,37 +1120,50 @@ def handler(request):
 
 # Vercel serverless function entry point
 def main(request):
-    """Vercel serverless function entry point"""
-    # Vercel Python passes request as an object with method, url, json, etc.
+    """Vercel serverless function entry point - handles both request object and dict"""
     try:
-        # Get method
-        method = getattr(request, 'method', 'GET')
+        # Handle Vercel Python request format
+        if hasattr(request, 'method'):
+            # Vercel Python request object
+            method = request.method or 'GET'
+            url = request.url if hasattr(request, 'url') else '/'
+            parsed = urlparse(url)
+            path = parsed.path
+            
+            # Parse query
+            query_params = parse_qs(parsed.query) if parsed.query else {}
+            query = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query_params.items()}
+            
+            # Get body
+            body = ''
+            if hasattr(request, 'json') and request.json:
+                body = request.json
+            elif hasattr(request, 'body'):
+                try:
+                    body = json.loads(request.body) if isinstance(request.body, str) else request.body
+                except:
+                    body = request.body if isinstance(request.body, dict) else ''
+        else:
+            # Dict format (fallback)
+            method = request.get('method', 'GET')
+            path = request.get('path', '')
+            query = request.get('query', {})
+            body = request.get('body', '')
         
-        # Get path from URL
-        url = getattr(request, 'url', '/')
-        parsed = urlparse(url)
-        path = parsed.path
+        # Extract path from URL if needed
+        if not path and hasattr(request, 'url'):
+            parsed = urlparse(request.url)
+            path = parsed.path
         
-        # Parse query string
-        query_params = parse_qs(parsed.query) if parsed.query else {}
-        query = {k: v if isinstance(v, list) and len(v) > 1 else v[0] if isinstance(v, list) and len(v) == 1 else v 
-                for k, v in query_params.items()}
-        
-        # Get body
-        body = ''
-        if hasattr(request, 'json') and request.json:
-            body = request.json
-        elif hasattr(request, 'body'):
-            try:
-                body = json.loads(request.body) if isinstance(request.body, str) else request.body
-            except:
-                body = request.body if isinstance(request.body, dict) else ''
-        
-        # Remove /api/ prefix if present
+        # Remove /api/ prefix
         if path.startswith('/api/'):
             path = path[5:]
         elif path.startswith('api/'):
             path = path[4:]
+        
+        # Handle root path
+        if path == '' or path == '/':
+            path = 'test'  # Default to test endpoint
         
         return handler({
             'method': method,
@@ -1159,18 +1172,21 @@ def main(request):
             'body': body
         })
     except Exception as e:
-        # Fallback for debugging
+        # Error response
         import traceback
+        error_details = {
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'traceback': traceback.format_exc() if os.environ.get('VERCEL_ENV') != 'production' else 'Hidden in production'
+        }
+        
         return {
             'statusCode': 500,
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({
-                'error': str(e),
-                'traceback': traceback.format_exc()
-            }, ensure_ascii=False)
+            'body': json.dumps(error_details, ensure_ascii=False)
         }
 
 
