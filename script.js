@@ -144,19 +144,8 @@ if (contactForm) {
                 throw new Error('Server error: ' + response.status);
             }
         } catch (error) {
-            // Fallback to localStorage if API is not available
-            console.warn('API server not available, saving to localStorage:', error);
-            const STORAGE_KEY_MESSAGES = 'sofimar_contact_messages';
-            const messages = JSON.parse(localStorage.getItem(STORAGE_KEY_MESSAGES) || '[]');
-            const messageWithTimestamp = {
-                ...data,
-                timestamp: new Date().toISOString()
-            };
-            messages.push(messageWithTimestamp);
-            localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
-            console.log('Message saved to localStorage:', messageWithTimestamp);
-            alert('Mulțumim pentru mesaj! Vă vom contacta în cel mai scurt timp.');
-            contactForm.reset();
+            console.error('API server not available, message not saved:', error);
+            alert('Eroare: serverul nu este disponibil. Mesajul nu a fost trimis.');
         } finally {
             // Re-enable submit button
             submitBtn.disabled = false;
@@ -240,22 +229,30 @@ if (chatbotClose) {
     });
 }
 
-// Chatbot responses based on keywords
-const chatbotResponses = {
-    'dezinsecție': 'Dezinsecția noastră elimină eficient gândacii, ploșnițele, furnicile și puricii folosind insecticide profesionale cu miros redus. Tratamentul este sigur pentru familie și animalele de companie, fiind efectuat de tehnicieni certificați CEPA. Pentru ploșnițe, garantăm tratament în două etape (18-21 zile) pentru a elimina complet ciclul reproductiv.',
-    'gândaci': 'Folosim metode profesionale de dezinsecție pentru eliminarea gândacilor. Tratamentul vizăm strict locurile de ascunzătoare (crăpături, goluri) pentru eficiență maximă și siguranță. Toate intervențiile sunt efectuate de tehnicieni certificați.',
-    'ploșnițe': 'Pentru ploșnițe, oferim tratament garantat în minim două etape la interval de 18-21 de zile. Acest protocol este esențial pentru a rupe ciclul reproductiv și a elimina larvele nou-eclozate. Utilizăm produse profesionale, sigure pentru familie.',
-    'deratizare': 'Deratizarea noastră este discretă, sigură și eficientă. Folosim momeli anticoagulante profesionale, securizate în stații rezistente la deschidere accidentală, prevenind accesul copiilor și animalelor. Identificăm și tratăm punctele de acces exterioare pentru o apărare perimetrală completă.',
-    'șoareci': 'Pentru eliminarea șoarecilor, implementăm stații sigure de momeală și ținem cont de neofobie (frica rozătoarelor de obiecte noi). Protocoalele noastre asigură consumul momelei și eliminarea eficientă a populației de rozătoare.',
-    'șobolani': 'Șobolanii sunt vectori majori de boli (Salmonela, Leptospiroză) și cauzează daune structurale. Deratizarea noastră rezidențială folosește momeli profesionale securizate și crează o barieră protectoare în jurul proprietății.',
-    'dezinfecție': 'Dezinfecția noastră utilizează tehnologia de Nebulizare Uscată (sistemul Nocospray cu Peroxid de Hidrogen H₂O₂) care ajunge la 100% din volumul aerului și suprafețelor, inclusiv în spatele mobilierului. Formulă non-corozivă care se descompune natural în apă și oxigen, fără reziduuri toxice.',
-    'preț': 'Prețurile variază în funcție de tipul de serviciu și dimensiunea locuinței. Oferim consultație gratuită și estimare de preț personalizată. Contactați-ne pentru un devis detaliat.',
-    'garanție': 'Oferim GARANȚIE 300% - o garanție triplă care oferă proprietarilor liniște și un angajament de neegalat pentru o soluție permanentă.',
-    'certificat': 'Suntem prima firmă din România certificată cu standardul european de calitate ISO 16.636 (CEPA Certified®). Procedurile noastre sunt recunoscute la nivel internațional ca fiind cele mai bune practici.',
-    'timp': 'Oferim intervenție rapidă în maximum 24 de ore pentru probleme urgente în zonele noastre de acoperire națională.',
-    'contact': 'Ne puteți contacta prin email la contact@sofimarserv.ro sau prin formularul de contact de pe site. Suntem disponibili pentru consultații și intervenții urgente.',
-    'default': 'Vă mulțumim pentru întrebare! Pentru informații detaliate despre serviciile noastre de deratizare, dezinsecție sau dezinfecție, vă rugăm să ne contactați direct. Oferim consultație gratuită și intervenție rapidă în 24 de ore pentru probleme urgente.'
-};
+// Chatbot responses - loaded from API
+let chatbotResponses = {};
+
+// Load chatbot responses from API
+async function loadChatbotResponses() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`);
+        if (response.ok) {
+            chatbotResponses = await response.json();
+            console.log('Chatbot responses loaded:', Object.keys(chatbotResponses).length, 'responses');
+        } else {
+            console.error('Failed to load chatbot responses, using defaults');
+            // Fallback to default responses if API fails
+            chatbotResponses = {
+                'default': 'Vă mulțumim pentru întrebare! Pentru informații detaliate despre serviciile noastre de deratizare, dezinsecție sau dezinfecție, vă rugăm să ne contactați direct. Oferim consultație gratuită și intervenție rapidă în 24 de ore pentru probleme urgente.'
+            };
+        }
+    } catch (error) {
+        console.error('Error loading chatbot responses:', error);
+        chatbotResponses = {
+            'default': 'Vă mulțumim pentru întrebare! Pentru informații detaliate despre serviciile noastre de deratizare, dezinsecție sau dezinfecție, vă rugăm să ne contactați direct. Oferim consultație gratuită și intervenție rapidă în 24 de ore pentru probleme urgente.'
+        };
+    }
+}
 
 function getChatbotResponse(userMessage) {
     const message = userMessage.toLowerCase();
@@ -267,16 +264,8 @@ function getChatbotResponse(userMessage) {
         }
     }
     
-    // Check for common greetings
-    if (message.includes('salut') || message.includes('bună') || message.includes('hello') || message.includes('hi')) {
-        return 'Bună ziua! Cu ce vă pot ajuta astăzi? Puteți întreba despre serviciile noastre de deratizare, dezinsecție sau dezinfecție.';
-    }
-    
-    if (message.includes('mulțum') || message.includes('mersi') || message.includes('mulțumesc')) {
-        return 'Cu plăcere! Dacă mai aveți întrebări, sunt aici să vă ajut. O zi bună!';
-    }
-    
-    return chatbotResponses.default;
+    // Return default response
+    return chatbotResponses.default || 'Vă mulțumim pentru întrebare! Pentru informații detaliate despre serviciile noastre, vă rugăm să ne contactați direct.';
 }
 
 function addMessage(content, isUser = false) {
@@ -301,10 +290,6 @@ function sendMessage() {
     // Add user message
     addMessage(message, true);
     
-    // Save chatbot message to localStorage for admin panel
-    const STORAGE_KEY_CHATBOT_MESSAGES = 'sofimar_chatbot_messages';
-    let chatbotMessages = JSON.parse(localStorage.getItem(STORAGE_KEY_CHATBOT_MESSAGES) || '[]');
-    
     // Save user message immediately
     const userMessage = {
         type: 'user',
@@ -320,10 +305,7 @@ function sendMessage() {
         },
         body: JSON.stringify(userMessage)
     }).catch(error => {
-        // Fallback to localStorage if API is not available
-        console.warn('API server not available, saving to localStorage:', error);
-        chatbotMessages.push(userMessage);
-        localStorage.setItem(STORAGE_KEY_CHATBOT_MESSAGES, JSON.stringify(chatbotMessages));
+        console.error('API server not available, chatbot message not saved:', error);
     });
     
     // Dispatch custom event for admin panel
@@ -351,11 +333,7 @@ function sendMessage() {
             },
             body: JSON.stringify(botMessage)
         }).catch(error => {
-            // Fallback to localStorage if API is not available
-            console.warn('API server not available, saving to localStorage:', error);
-            chatbotMessages = JSON.parse(localStorage.getItem(STORAGE_KEY_CHATBOT_MESSAGES) || '[]');
-            chatbotMessages.push(botMessage);
-            localStorage.setItem(STORAGE_KEY_CHATBOT_MESSAGES, JSON.stringify(chatbotMessages));
+            console.error('API server not available, chatbot response not saved:', error);
         });
         
         // Dispatch custom event for admin panel
@@ -389,21 +367,21 @@ const DEFAULT_TIKTOK_VIDEO_IDS = [
     // Exemplu: '1234567890123456789',
 ];
 
-// Load videos from localStorage or use default
-function getTikTokVideoIds() {
-    const stored = localStorage.getItem(STORAGE_KEY_VIDEOS);
-    if (stored) {
-        try {
-            const videos = JSON.parse(stored);
-            return videos.length > 0 ? videos : DEFAULT_TIKTOK_VIDEO_IDS;
-        } catch (e) {
-            return DEFAULT_TIKTOK_VIDEO_IDS;
+// Load videos from API or use default
+async function getTikTokVideoIds() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`);
+        if (response.ok) {
+            const videos = await response.json();
+            return Array.isArray(videos) && videos.length > 0 ? videos : DEFAULT_TIKTOK_VIDEO_IDS;
         }
+    } catch (error) {
+        console.warn('API server not available, using default videos:', error);
     }
     return DEFAULT_TIKTOK_VIDEO_IDS;
 }
 
-const TIKTOK_VIDEO_IDS = getTikTokVideoIds();
+let TIKTOK_VIDEO_IDS = DEFAULT_TIKTOK_VIDEO_IDS;
 
 const TIKTOK_USERNAME = '@sofimar_serv.srl';
 
@@ -422,9 +400,12 @@ function createTikTokEmbed(videoId) {
 }
 
 // Load all TikTok videos dynamically
-function loadTikTokVideos() {
+async function loadTikTokVideos() {
     const carousel = document.getElementById('tiktokCarousel');
     if (!carousel) return;
+    
+    // Get videos from API
+    TIKTOK_VIDEO_IDS = await getTikTokVideoIds();
     
     // Clear existing content
     carousel.innerHTML = '';
@@ -451,28 +432,104 @@ function loadTikTokVideos() {
                 
                 // Try to enable autoplay and loop after videos load
                 setTimeout(() => {
-                    const tiktokIframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
-                    tiktokIframes.forEach((iframe) => {
-                        if (iframe.src) {
-                            try {
-                                const url = new URL(iframe.src);
-                                url.searchParams.set('autoplay', '1');
-                                url.searchParams.set('mute', '1');
-                                url.searchParams.set('loop', '1');
-                                iframe.src = url.toString();
-                                // Disable pointer events on iframe
-                                iframe.style.pointerEvents = 'none';
-                            } catch (e) {
-                                console.log('Could not modify iframe URL');
-                            }
-                        }
-                    });
+                    setupTikTokAutoReplay();
                 }, 2000);
             }
         };
         document.head.appendChild(script);
     } else if (window.tiktokEmbed) {
         window.tiktokEmbed.lib.render();
+        setTimeout(() => {
+            setupTikTokAutoReplay();
+        }, 2000);
+    }
+}
+
+// Setup auto-replay for TikTok videos
+function setupTikTokAutoReplay() {
+    const tiktokIframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
+    
+    if (tiktokIframes.length === 0) {
+        // Retry after a delay if iframes aren't loaded yet
+        setTimeout(() => setupTikTokAutoReplay(), 1000);
+        return;
+    }
+    
+    // Store original iframe sources for replay
+    tiktokIframes.forEach((iframe) => {
+        if (!iframe.dataset.originalSrc) {
+            iframe.dataset.originalSrc = iframe.src;
+        }
+        
+        // Try to set autoplay and mute parameters
+        try {
+            if (iframe.src) {
+                const url = new URL(iframe.src);
+                url.searchParams.set('autoplay', '1');
+                url.searchParams.set('mute', '1');
+                iframe.src = url.toString();
+            }
+        } catch (e) {
+            console.log('Could not modify iframe URL for autoplay');
+        }
+    });
+    
+    // Set up interval to reload videos periodically for continuous playback
+    if (!window.tiktokReplayInterval) {
+        window.tiktokReplayInterval = setInterval(() => {
+            tiktokIframes.forEach((iframe) => {
+                // Check if iframe is in viewport
+                const rect = iframe.getBoundingClientRect();
+                const isInView = rect.top < window.innerHeight && rect.bottom > 0;
+                
+                if (isInView) {
+                    // Reload iframe every 30 seconds to ensure continuous playback
+                    try {
+                        const originalSrc = iframe.dataset.originalSrc || iframe.src;
+                        
+                        if (!iframe.dataset.lastReload) {
+                            iframe.dataset.lastReload = Date.now();
+                        } else {
+                            const timeSinceReload = Date.now() - parseInt(iframe.dataset.lastReload);
+                            if (timeSinceReload > 30000) { // Reload every 30 seconds
+                                iframe.src = originalSrc;
+                                iframe.dataset.lastReload = Date.now();
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Could not reload iframe');
+                    }
+                }
+            });
+        }, 5000); // Check every 5 seconds
+    }
+    
+    // Use Intersection Observer to restart videos when they come into view
+    if (!window.tiktokObserver) {
+        window.tiktokObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const iframe = entry.target.querySelector('iframe');
+                    if (iframe && iframe.dataset.originalSrc) {
+                        // Restart video when it comes into view
+                        try {
+                            const originalSrc = iframe.dataset.originalSrc;
+                            iframe.src = originalSrc;
+                            iframe.dataset.lastReload = Date.now();
+                        } catch (e) {
+                            console.log('Could not restart iframe');
+                        }
+                    }
+                }
+            });
+        }, {
+            threshold: 0.3 // Trigger when 30% of video is visible
+        });
+        
+        // Observe all TikTok video wrappers
+        document.querySelectorAll('.tiktok-video-wrapper').forEach(wrapper => {
+            window.tiktokObserver.observe(wrapper);
+        });
     }
 }
 
@@ -489,7 +546,6 @@ function escapeHtml(text) {
 
 // Track page visits
 function trackPageVisit() {
-    const STORAGE_KEY_VISITS = 'sofimar_page_visits';
     const today = new Date();
     const dateKey = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
     
@@ -505,17 +561,10 @@ function trackPageVisit() {
                 timestamp: today.toISOString()
             })
         }).catch(error => {
-            // Fallback to localStorage
-            console.warn('API server not available, saving visit to localStorage:', error);
-            const visits = JSON.parse(localStorage.getItem(STORAGE_KEY_VISITS) || '{}');
-            visits[dateKey] = (visits[dateKey] || 0) + 1;
-            localStorage.setItem(STORAGE_KEY_VISITS, JSON.stringify(visits));
+            console.error('API server not available, visit not saved:', error);
         });
     } catch (error) {
-        // Fallback to localStorage
-        const visits = JSON.parse(localStorage.getItem(STORAGE_KEY_VISITS) || '{}');
-        visits[dateKey] = (visits[dateKey] || 0) + 1;
-        localStorage.setItem(STORAGE_KEY_VISITS, JSON.stringify(visits));
+        console.error('API server not available, visit not saved:', error);
     }
 }
 
@@ -524,12 +573,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Track page visit
     trackPageVisit();
     
-    loadTikTokVideos();
+    loadTikTokVideos().catch(err => console.error('Error loading TikTok videos:', err));
     // Initialize Romania map - wait for everything to load
     function tryInitMap() {
         if (typeof L !== 'undefined') {
             console.log('Leaflet loaded, initializing map...');
-            initRomaniaMap();
+            initRomaniaMap().catch(err => console.error('Error initializing map:', err));
         } else {
             console.warn('Leaflet not loaded yet, retrying...');
             setTimeout(tryInitMap, 200);
@@ -547,14 +596,14 @@ window.addEventListener('locationsUpdated', () => {
         const mapContainer = document.getElementById('romaniaMap');
         if (mapContainer) {
             mapContainer.innerHTML = ''; // Clear map
-            initRomaniaMap(); // Reinitialize
+            initRomaniaMap().catch(err => console.error('Error reinitializing map:', err)); // Reinitialize
         }
     }
 });
 
 // Listen for certificate updates from admin panel
 window.addEventListener('certificatesUpdated', () => {
-    if (document.getElementById('certificatesGrid')) {
+    if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
         loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
     }
 });
@@ -566,7 +615,7 @@ window.addEventListener('partnersUpdated', () => {
 });
 
 // Romania Map with Office Locations
-function initRomaniaMap() {
+async function initRomaniaMap() {
     const mapContainer = document.getElementById('romaniaMap');
     if (!mapContainer) {
         console.warn('romaniaMap container not found');
@@ -590,8 +639,12 @@ function initRomaniaMap() {
     try {
         // Initialize map centered on Romania
         const map = L.map('romaniaMap', {
-            zoomControl: true,
-            scrollWheelZoom: true
+            zoomControl: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            dragging: true
         }).setView([45.9432, 24.9668], 7);
         
         romaniaMapInstance = map; // Store for updates
@@ -614,20 +667,17 @@ function initRomaniaMap() {
             console.log('Map size invalidated');
         }, 100);
 
-    // Load office locations from localStorage or use defaults
-    const STORAGE_KEY_LOCATIONS = 'sofimar_office_locations';
+    // Load office locations from API or use defaults
     let officeLocations = [];
     
     try {
-        const stored = localStorage.getItem(STORAGE_KEY_LOCATIONS);
-        if (stored) {
-            officeLocations = JSON.parse(stored);
-            console.log('Loaded locations from localStorage:', officeLocations.length);
-        } else {
-            console.log('No locations in localStorage, using defaults');
+        const response = await fetch(`${API_BASE_URL}/api/locations`);
+        if (response.ok) {
+            officeLocations = await response.json();
+            console.log('Loaded locations from API:', officeLocations.length);
         }
     } catch (e) {
-        console.warn('Error loading locations from localStorage:', e);
+        console.warn('Error loading locations from API:', e);
     }
     
     // Use default locations if none stored
@@ -767,7 +817,7 @@ function closeCertificateModal() {
     document.body.style.overflow = '';
 }
 
-// Load partners from localStorage or API
+// Load partners from API
 async function loadPartnersOnPage() {
     const partnersGrid = document.getElementById('partnersGrid');
     if (!partnersGrid) {
@@ -791,23 +841,8 @@ async function loadPartnersOnPage() {
             throw new Error('API response not OK');
         }
     } catch (error) {
-        // Fallback to localStorage
-        console.warn('API server not available, loading from localStorage:', error);
-        const STORAGE_KEY_PARTNERS = 'sofimar_partners';
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY_PARTNERS);
-            if (stored) {
-                partners = JSON.parse(stored);
-                if (!Array.isArray(partners)) {
-                    console.error('Partners data is not an array');
-                    partners = [];
-                }
-            }
-        } catch (e) {
-            console.error('Error loading partners:', e);
-            partners = [];
-        }
-        console.log('Loading partners from localStorage:', partners.length, 'partners');
+        console.error('API server not available, partners not loaded:', error);
+        partners = [];
     }
     
     // Clear existing partners
@@ -831,10 +866,15 @@ async function loadPartnersOnPage() {
     }).join('');
 }
 
-// Load certificates from localStorage or API
+// Load certificates from API
 async function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
-    if (!certificatesGrid) {
+    const accreditationsGrid = document.getElementById('accreditationsGrid');
+    
+    // Check if we're on certificate.html (has two columns) or index.html (single grid)
+    const isCertificatePage = certificatesGrid && accreditationsGrid;
+    
+    if (!certificatesGrid && !accreditationsGrid) {
         console.log('certificatesGrid not found');
         return;
     }
@@ -855,34 +895,12 @@ async function loadCertificatesOnPage() {
             throw new Error('API response not OK');
         }
     } catch (error) {
-        // Fallback to localStorage
-        console.warn('API server not available, loading from localStorage:', error);
-        const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
-            if (stored) {
-                certificates = JSON.parse(stored);
-                if (!Array.isArray(certificates)) {
-                    console.error('Certificates data is not an array');
-                    certificates = [];
-                }
-            }
-        } catch (e) {
-            console.error('Error loading certificates:', e);
-            certificates = [];
-        }
-        console.log('Loading certificates from localStorage:', certificates.length, 'certificates');
+        console.error('API server not available, certificates not loaded:', error);
+        certificates = [];
     }
-    
-    // Always replace certificates with those from localStorage (even if empty)
-    // Clear existing certificates and load from localStorage
-    if (certificates.length === 0) {
-        // If no certificates, keep the grid empty or show default
-        certificatesGrid.innerHTML = '';
-        return;
-    }
-    
-    certificatesGrid.innerHTML = certificates.map(cert => {
+
+    // Helper function to create certificate HTML
+    const createCertificateHTML = (cert) => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = isBase64 ? cert.image : cert.image;
         const title = cert.title || 'Certificat fără titlu';
@@ -898,7 +916,34 @@ async function loadCertificatesOnPage() {
                 </div>
             </div>
         `;
-    }).join('');
+    };
+
+    if (isCertificatePage) {
+        // Separate certificates and accreditations
+        const certs = certificates.filter(cert => (cert.type || 'certificat') === 'certificat');
+        const accreds = certificates.filter(cert => (cert.type || 'certificat') === 'acreditare');
+        
+        if (certificatesGrid) {
+            certificatesGrid.innerHTML = certs.length > 0 
+                ? certs.map(createCertificateHTML).join('')
+                : '<p class="empty-state">Nu există certificate disponibile.</p>';
+        }
+        
+        if (accreditationsGrid) {
+            accreditationsGrid.innerHTML = accreds.length > 0
+                ? accreds.map(createCertificateHTML).join('')
+                : '<p class="empty-state">Nu există acreditări disponibile.</p>';
+        }
+    } else {
+        // Single grid (for index.html or other pages)
+        if (certificatesGrid) {
+            if (certificates.length === 0) {
+                certificatesGrid.innerHTML = '';
+                return;
+            }
+            certificatesGrid.innerHTML = certificates.map(createCertificateHTML).join('');
+        }
+    }
 }
 
 // Convert service text format back to HTML
@@ -978,19 +1023,7 @@ async function loadSiteTexts() {
             throw new Error('API response not OK');
         }
     } catch (error) {
-        // Fallback to localStorage
-        console.warn('API server not available, loading from localStorage:', error);
-        try {
-            const stored = localStorage.getItem('sofimar_site_texts');
-            if (stored) {
-                texts = JSON.parse(stored);
-                console.log('Loaded texts from localStorage:', texts);
-            } else {
-                console.log('No texts found in localStorage');
-            }
-        } catch (e) {
-            console.error('Error loading site texts:', e);
-        }
+        console.error('API server not available, site texts not loaded:', error);
     }
     
     // Only update if we have texts
@@ -1289,45 +1322,17 @@ async function loadSiteTexts() {
 // Listen for site texts updates
 window.addEventListener('siteTextsUpdated', () => {
     console.log('Site texts updated event received');
-    // Force reload from localStorage immediately
+    // Reload from API
     setTimeout(() => {
         loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
     }, 50);
 });
 
-// Also listen for storage events (cross-tab communication)
-window.addEventListener('storage', (e) => {
-    if (e.key === 'sofimar_site_texts') {
-        console.log('Site texts storage event received', e.newValue);
-        loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-    }
-});
-
-// Also poll localStorage periodically when page is visible (for same-tab updates)
-if (document.visibilityState !== 'hidden') {
-    let lastTextsHash = '';
-    setInterval(() => {
-        try {
-            const stored = localStorage.getItem('sofimar_site_texts');
-            if (stored) {
-                const currentHash = stored;
-                if (currentHash !== lastTextsHash) {
-                    console.log('Detected texts change in localStorage');
-                    lastTextsHash = currentHash;
-                    loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-                }
-            }
-        } catch (e) {
-            // Ignore errors
-        }
-    }, 500); // Check every 500ms
-}
-
 // Initialize certificates and partners when page loads
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-        if (document.getElementById('certificatesGrid')) {
+        if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
             loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
         }
         if (document.getElementById('partnersGrid')) {
@@ -1359,4 +1364,93 @@ document.addEventListener('keydown', (e) => {
         closeCertificateModal();
     }
 });
+
+// Load Google Reviews - Random 6 on each page refresh
+async function loadReviews() {
+    const reviewsContainer = document.getElementById('reviewsContainer');
+    if (!reviewsContainer) return;
+
+    try {
+        // Load all reviews from API
+        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API error:', response.status, errorText);
+            reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
+            return;
+        }
+        
+        const allReviews = await response.json();
+        
+        // Check if response is valid array
+        if (!Array.isArray(allReviews)) {
+            console.error('Invalid reviews data:', allReviews);
+            reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
+            return;
+        }
+        
+        if (allReviews.length === 0) {
+            reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
+            return;
+        }
+
+        // Select 6 random reviews
+        const shuffled = [...allReviews].sort(() => 0.5 - Math.random());
+        const selectedReviews = shuffled.slice(0, 6);
+
+        reviewsContainer.innerHTML = selectedReviews.map(review => {
+            // Validate review data
+            if (!review.author || !review.rating || !review.text || !review.date) {
+                console.warn('Invalid review data:', review);
+                return '';
+            }
+            
+            const stars = '⭐'.repeat(review.rating);
+            const initials = review.author.split(' ').map(n => n[0]).join('').toUpperCase();
+            
+            let formattedDate;
+            try {
+                formattedDate = new Date(review.date).toLocaleDateString('ro-RO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                formattedDate = review.date;
+            }
+
+            return `
+                <div class="review-card">
+                    <div class="review-header">
+                        <div class="review-avatar">${initials}</div>
+                        <div class="review-author">
+                            <h4 class="review-author-name">${escapeHtml(review.author)}</h4>
+                            <p class="review-date">${formattedDate}</p>
+                        </div>
+                    </div>
+                    <div class="review-rating">
+                        ${stars}
+                    </div>
+                    <p class="review-text">${escapeHtml(review.text)}</p>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
+    }
+}
+
+// Load reviews when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        loadReviews();
+        loadChatbotResponses();
+    });
+} else {
+    loadReviews();
+    loadChatbotResponses();
+}
 

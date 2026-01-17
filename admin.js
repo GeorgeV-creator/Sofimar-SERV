@@ -47,14 +47,31 @@ function showDashboard() {
     loadData();
 }
 
-function login(username, password) {
-    // Verifică parola din localStorage sau folosește cea default
-    const storedPassword = localStorage.getItem(STORAGE_KEY_PASSWORD) || DEFAULT_PASSWORD;
+async function login(username, password) {
+    if (username !== DEFAULT_USERNAME) {
+        return false;
+    }
     
-    if (username === DEFAULT_USERNAME && password === storedPassword) {
-        localStorage.setItem(STORAGE_KEY_AUTH, 'true');
-        showDashboard();
-        return true;
+    try {
+        // Try to get password from API
+        const response = await fetch(`${API_BASE_URL}/api/admin-password`);
+        if (response.ok) {
+            const result = await response.json();
+            const storedPassword = result.password || DEFAULT_PASSWORD;
+            if (password === storedPassword) {
+                localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+                showDashboard();
+                return true;
+            }
+        }
+    } catch (error) {
+        console.warn('API server not available, using default password:', error);
+        // Fallback to default password if API is not available
+        if (password === DEFAULT_PASSWORD) {
+            localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+            showDashboard();
+            return true;
+        }
     }
     return false;
 }
@@ -70,13 +87,13 @@ function initializeEventListeners() {
     // Login form
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('loginError');
             
-            if (login(username, password)) {
+            if (await login(username, password)) {
                 errorDiv.textContent = '';
                 errorDiv.classList.remove('show');
             } else {
@@ -182,6 +199,7 @@ function initializeEventListeners() {
             e.preventDefault();
             const title = document.getElementById('certTitle').value.trim();
             const description = document.getElementById('certDescription').value.trim();
+            const type = document.getElementById('certType').value;
             
             const imageSource = document.querySelector('input[name="imageSource"]:checked').value;
             let image = '';
@@ -203,7 +221,7 @@ function initializeEventListeners() {
             }
             
             if (title && image) {
-                addCertificate(title, description, image);
+                addCertificate(title, description, image, type);
                 closeCertificateModal();
             }
         });
@@ -433,6 +451,10 @@ function switchTab(tabName) {
         loadCertificates();
     } else if (tabName === 'partners') {
         loadPartners();
+    } else if (tabName === 'reviews') {
+        loadReviewsAdmin();
+    } else if (tabName === 'chatbot-responses') {
+        loadChatbotResponsesAdmin();
     } else if (tabName === 'settings') {
         console.log('Settings tab opened, loading texts...');
         // Wait a bit for the form to be rendered
@@ -513,30 +535,18 @@ async function getMessages() {
             const messages = await response.json();
             console.log('Messages loaded from API:', messages.length);
             return Array.isArray(messages) ? messages : [];
-        } else {
-            console.warn('API response not OK:', response.status);
         }
+        console.warn('API response not OK:', response.status);
     } catch (error) {
-        console.warn('API server not available, loading from localStorage:', error);
+        console.error('API server not available, messages not loaded:', error);
     }
-    
-    // Fallback to localStorage
-    console.log('Loading messages from localStorage...');
-    const messages = localStorage.getItem(STORAGE_KEY_MESSAGES);
-    const parsed = messages ? JSON.parse(messages) : [];
-    console.log('Messages loaded from localStorage:', parsed.length);
-    return parsed;
+
+    return [];
 }
 
 async function saveMessages(messages) {
-    try {
-        // Try to save to API server (for new messages)
-        // For deletion, we use DELETE endpoint
-    } catch (error) {
-        console.warn('API server not available, saving to localStorage:', error);
-    }
-    // Always save to localStorage as backup
-    localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
+    // No-op: messages are stored only in the API database.
+    void messages;
 }
 
 async function clearMessages() {
@@ -546,9 +556,8 @@ async function clearMessages() {
             method: 'DELETE'
         });
     } catch (error) {
-        console.warn('API server not available, clearing from localStorage:', error);
+        console.error('API server not available, messages not cleared:', error);
     }
-    localStorage.removeItem(STORAGE_KEY_MESSAGES);
     await loadMessages();
     updateStatistics();
 }
@@ -564,12 +573,11 @@ async function deleteMessage(index) {
                 method: 'DELETE'
             });
         } catch (error) {
-            console.warn('API server not available, deleting from localStorage:', error);
+            console.error('API server not available, message not deleted:', error);
+            alert('Eroare: serverul nu este disponibil. Mesajul nu a fost șters.');
+            return;
         }
     }
-    
-    messages.splice(index, 1);
-    await saveMessages(messages);
     await loadMessages();
     updateStatistics();
 }
@@ -663,26 +671,10 @@ async function getChatbotMessages() {
             return Array.isArray(messages) ? messages : [];
         }
     } catch (error) {
-        console.warn('API server not available, loading from localStorage:', error);
+        console.error('API server not available, chatbot messages not loaded:', error);
     }
-    
-    // Fallback to localStorage
-    try {
-        const messages = localStorage.getItem(STORAGE_KEY_CHATBOT_MESSAGES);
-        if (!messages) {
-            return [];
-        }
-        const parsed = JSON.parse(messages);
-        console.log('Retrieved chatbot messages from localStorage:', parsed);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-        console.error('Error loading chatbot messages:', e);
-        return [];
-    }
-}
 
-function saveChatbotMessages(messages) {
-    localStorage.setItem(STORAGE_KEY_CHATBOT_MESSAGES, JSON.stringify(messages));
+    return [];
 }
 
 async function clearChatbotMessages() {
@@ -692,9 +684,8 @@ async function clearChatbotMessages() {
             method: 'DELETE'
         });
     } catch (error) {
-        console.warn('API server not available, clearing from localStorage:', error);
+        console.error('API server not available, chatbot messages not cleared:', error);
     }
-    localStorage.removeItem(STORAGE_KEY_CHATBOT_MESSAGES);
     await loadChatbotMessages();
     updateStatistics();
 }
@@ -726,19 +717,39 @@ async function deleteChatbotConversation(index) {
     // Remove the conversation at the specified index
     const toRemove = sortedConversations[index];
     if (toRemove) {
-        if (toRemove.botIndex !== null) {
-            messages.splice(toRemove.botIndex, 1);
+        const idsToDelete = [];
+        const userMessage = messages[toRemove.userIndex];
+        if (userMessage && userMessage.id) {
+            idsToDelete.push(userMessage.id);
         }
-        messages.splice(toRemove.userIndex, 1);
-        await saveChatbotMessages(messages);
-        await loadChatbotMessages();
-        updateStatistics();
+        if (toRemove.botIndex !== null) {
+            const botMessage = messages[toRemove.botIndex];
+            if (botMessage && botMessage.id) {
+                idsToDelete.push(botMessage.id);
+            }
+        }
+
+        if (idsToDelete.length === 0) {
+            alert('Eroare: nu pot șterge conversația (lipsește ID-ul).');
+            return;
+        }
+
+        try {
+            await Promise.all(idsToDelete.map(id => fetch(`${API_BASE_URL}/api/chatbot?id=${encodeURIComponent(id)}`, {
+                method: 'DELETE'
+            })));
+            await loadChatbotMessages();
+            updateStatistics();
+        } catch (error) {
+            console.error('API server not available, conversation not deleted:', error);
+            alert('Eroare: serverul nu este disponibil. Conversația nu a fost ștearsă.');
+        }
     }
 }
 
 // Locations Management
-function loadLocations() {
-    const locations = getLocations();
+async function loadLocations() {
+    const locations = await getLocations();
     const locationsList = document.getElementById('locationsList');
     
     if (!locationsList) {
@@ -774,19 +785,20 @@ function loadLocations() {
     }).join('');
 }
 
-function getLocations() {
+async function getLocations() {
     try {
-        const locations = localStorage.getItem(STORAGE_KEY_LOCATIONS);
-        if (!locations) {
-            // Return default locations if none exist
-            return getDefaultLocations();
+        const response = await fetch(`${API_BASE_URL}/api/locations`);
+        if (response.ok) {
+            const locations = await response.json();
+            if (Array.isArray(locations) && locations.length > 0) {
+                return locations;
+            }
         }
-        const parsed = JSON.parse(locations);
-        return Array.isArray(parsed) && parsed.length > 0 ? parsed : getDefaultLocations();
-    } catch (e) {
-        console.error('Error loading locations:', e);
-        return getDefaultLocations();
+    } catch (error) {
+        console.error('API server not available:', error);
     }
+    // Return default locations if API fails or returns empty
+    return getDefaultLocations();
 }
 
 function getDefaultLocations() {
@@ -843,8 +855,23 @@ function getDefaultLocations() {
     ];
 }
 
-function saveLocations(locations) {
-    localStorage.setItem(STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
+async function saveLocations(locations) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/locations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ locations })
+        });
+        if (!response.ok) {
+            throw new Error('Failed to save locations');
+        }
+    } catch (error) {
+        console.error('Error saving locations:', error);
+        alert('Eroare: serverul nu este disponibil. Locațiile nu au fost salvate.');
+        throw error;
+    }
 }
 
 let locationMap = null;
@@ -863,14 +890,15 @@ function openLocationModal(index = null) {
     
     if (index !== null) {
         // Edit mode
-        const locations = getLocations();
-        const location = locations[index];
-        title.textContent = 'Editează Locație';
-        editIndex.value = index;
-        document.getElementById('locationName').value = location.name;
-        document.getElementById('locationDescription').value = location.description;
-        document.getElementById('locationAddress').value = location.address;
-        document.getElementById('locationPhone').value = location.phone;
+        getLocations().then(locations => {
+            const location = locations[index];
+            title.textContent = 'Editează Locație';
+            editIndex.value = index;
+            document.getElementById('locationName').value = location.name;
+            document.getElementById('locationDescription').value = location.description;
+            document.getElementById('locationAddress').value = location.address;
+            document.getElementById('locationPhone').value = location.phone;
+        });
     } else {
         // Add mode
         title.textContent = 'Adaugă Locație';
@@ -901,13 +929,18 @@ function initLocationMapPicker(index = null) {
     let initialZoom = 7;
 
     if (index !== null) {
-        const locations = getLocations();
-        const location = locations[index];
-        if (location && location.coordinates) {
-            initialLat = location.coordinates[0];
-            initialLng = location.coordinates[1];
-            initialZoom = 13;
-        }
+        getLocations().then(locations => {
+            const location = locations[index];
+            if (location && location.coordinates) {
+                initialLat = location.coordinates[0];
+                initialLng = location.coordinates[1];
+                initialZoom = 13;
+                // Re-initialize map with correct coordinates
+                if (locationMap) {
+                    locationMap.setView([initialLat, initialLng], initialZoom);
+                }
+            }
+        });
     }
 
     // Initialize map
@@ -921,21 +954,22 @@ function initLocationMapPicker(index = null) {
 
     // Add marker if editing
     if (index !== null) {
-        const locations = getLocations();
-        const location = locations[index];
-        if (location && location.coordinates) {
-            locationMarker = L.marker([location.coordinates[0], location.coordinates[1]], {
-                draggable: true
-            }).addTo(locationMap);
-            
-            // Update coordinates when marker is dragged
-            locationMarker.on('dragend', function(e) {
-                const pos = locationMarker.getLatLng();
-                updateCoordinatesFromMap(pos.lat, pos.lng);
-            });
-            
-            updateCoordinatesFromMap(location.coordinates[0], location.coordinates[1]);
-        }
+        getLocations().then(locations => {
+            const location = locations[index];
+            if (location && location.coordinates) {
+                locationMarker = L.marker([location.coordinates[0], location.coordinates[1]], {
+                    draggable: true
+                }).addTo(locationMap);
+                
+                // Update coordinates when marker is dragged
+                locationMarker.on('dragend', function(e) {
+                    const pos = locationMarker.getLatLng();
+                    updateCoordinatesFromMap(pos.lat, pos.lng);
+                });
+                
+                updateCoordinatesFromMap(location.coordinates[0], location.coordinates[1]);
+            }
+        });
     }
 
     // Add click handler to map
@@ -983,7 +1017,7 @@ function closeLocationModal() {
     }
 }
 
-function saveLocation() {
+async function saveLocation() {
     const name = document.getElementById('locationName').value.trim();
     const description = document.getElementById('locationDescription').value.trim();
     const address = document.getElementById('locationAddress').value.trim();
@@ -1002,44 +1036,54 @@ function saveLocation() {
         return;
     }
     
-    const locations = getLocations();
-    const newLocation = {
-        name,
-        description,
-        address,
-        phone,
-        coordinates: [latitude, longitude]
-    };
-    
-    if (editIndex !== '') {
-        // Edit existing
-        locations[parseInt(editIndex)] = newLocation;
-    } else {
-        // Add new
-        locations.push(newLocation);
+    try {
+        const locations = await getLocations();
+        const newLocation = {
+            name,
+            description,
+            address,
+            phone,
+            coordinates: [latitude, longitude]
+        };
+        
+        if (editIndex !== '') {
+            // Edit existing
+            locations[parseInt(editIndex)] = newLocation;
+        } else {
+            // Add new
+            locations.push(newLocation);
+        }
+        
+        await saveLocations(locations);
+        await loadLocations();
+        closeLocationModal();
+        
+        // Dispatch event to update map on main page
+        window.dispatchEvent(new CustomEvent('locationsUpdated'));
+    } catch (error) {
+        console.error('Error saving location:', error);
+        alert('Eroare la salvarea locației. Te rugăm să încerci din nou.');
     }
-    
-    saveLocations(locations);
-    loadLocations();
-    closeLocationModal();
-    
-    // Dispatch event to update map on main page
-    window.dispatchEvent(new CustomEvent('locationsUpdated'));
 }
 
 function editLocation(index) {
     openLocationModal(index);
 }
 
-function deleteLocation(index) {
+async function deleteLocation(index) {
     if (confirm('Ești sigur că vrei să ștergi această locație?')) {
-        const locations = getLocations();
-        locations.splice(index, 1);
-        saveLocations(locations);
-        loadLocations();
-        
-        // Dispatch event to update map on main page
-        window.dispatchEvent(new CustomEvent('locationsUpdated'));
+        try {
+            const locations = await getLocations();
+            locations.splice(index, 1);
+            await saveLocations(locations);
+            await loadLocations();
+            
+            // Dispatch event to update map on main page
+            window.dispatchEvent(new CustomEvent('locationsUpdated'));
+        } catch (error) {
+            console.error('Error deleting location:', error);
+            alert('Eroare la ștergerea locației. Te rugăm să încerci din nou.');
+        }
     }
 }
 
@@ -1048,8 +1092,8 @@ window.editLocation = editLocation;
 window.deleteLocation = deleteLocation;
 
 // TikTok Videos Management
-function loadTikTokVideos() {
-    const videos = getTikTokVideos();
+async function loadTikTokVideos() {
+    const videos = await getTikTokVideos();
     const videosList = document.getElementById('videosList');
     
     if (videos.length === 0) {
@@ -1067,39 +1111,66 @@ function loadTikTokVideos() {
     }).join('');
 }
 
-function getTikTokVideos() {
-    // Încearcă să încarce din localStorage, altfel folosește cele din script.js
-    const videos = localStorage.getItem(STORAGE_KEY_VIDEOS);
-    if (videos) {
-        return JSON.parse(videos);
+async function getTikTokVideos() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`);
+        if (response.ok) {
+            const videos = await response.json();
+            return Array.isArray(videos) ? videos : [];
+        }
+    } catch (error) {
+        console.error('API server not available:', error);
     }
-    // Dacă nu există în localStorage, folosește cele default
+    // Default videos if API fails
     return ['7567003645250702614', '7564125179761167638', '7556587113244937475'];
 }
 
-function saveTikTokVideos(videos) {
-    localStorage.setItem(STORAGE_KEY_VIDEOS, JSON.stringify(videos));
-}
-
-function addTikTokVideo(videoId) {
-    const videos = getTikTokVideos();
-    if (!videos.includes(videoId)) {
-        videos.push(videoId);
-        saveTikTokVideos(videos);
-        loadTikTokVideos();
-        updateStatistics();
-    } else {
-        alert('Acest video este deja adăugat!');
+async function saveTikTokVideos(videos) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tiktok-videos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ videos })
+        });
+        if (!response.ok) {
+            throw new Error('Failed to save videos');
+        }
+    } catch (error) {
+        console.error('Error saving TikTok videos:', error);
+        alert('Eroare: serverul nu este disponibil. Video-urile nu au fost salvate.');
+        throw error;
     }
 }
 
-function deleteTikTokVideo(index) {
+async function addTikTokVideo(videoId) {
+    try {
+        const videos = await getTikTokVideos();
+        if (!videos.includes(videoId)) {
+            videos.push(videoId);
+            await saveTikTokVideos(videos);
+            await loadTikTokVideos();
+            updateStatistics();
+        } else {
+            alert('Acest video este deja adăugat!');
+        }
+    } catch (error) {
+        console.error('Error adding TikTok video:', error);
+    }
+}
+
+async function deleteTikTokVideo(index) {
     if (confirm('Ești sigur că vrei să ștergi acest video?')) {
-        const videos = getTikTokVideos();
-        videos.splice(index, 1);
-        saveTikTokVideos(videos);
-        loadTikTokVideos();
-        updateStatistics();
+        try {
+            const videos = await getTikTokVideos();
+            videos.splice(index, 1);
+            await saveTikTokVideos(videos);
+            await loadTikTokVideos();
+            updateStatistics();
+        } catch (error) {
+            console.error('Error deleting TikTok video:', error);
+        }
     }
 }
 
@@ -1124,8 +1195,13 @@ async function loadCertificates() {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = cert.image || '';
         
+        const certType = cert.type || 'certificat';
+        const typeLabel = certType === 'acreditare' ? 'Acreditare' : 'Certificat';
+        const typeClass = certType === 'acreditare' ? 'cert-type-accreditare' : 'cert-type-certificat';
+        
         return `
             <div class="certificate-item-admin">
+                <div class="certificate-type-badge ${typeClass}">${typeLabel}</div>
                 <div class="certificate-image-wrapper-admin">
                     ${isBase64 
                         ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail">`
@@ -1156,35 +1232,20 @@ async function getCertificates() {
             return Array.isArray(certificates) ? certificates : [];
         }
     } catch (error) {
-        console.warn('API server not available, loading from localStorage:', error);
+        console.error('API server not available, certificates not loaded:', error);
     }
-    
-    // Fallback to localStorage
-    try {
-        const certificates = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
-        if (!certificates) {
-            return [];
-        }
-        const parsed = JSON.parse(certificates);
-        // Ensure we always return an array
-        if (!Array.isArray(parsed)) {
-            console.error('Certificates data is not an array, resetting to empty array');
-            return [];
-        }
-        return parsed;
-    } catch (e) {
-        console.error('Error loading certificates:', e);
-        return [];
-    }
+
+    return [];
 }
 
 function saveCertificates(certificates) {
-    localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
+    // No-op: certificates are stored only in the API database.
+    void certificates;
 }
 
-async function addCertificate(title, description, image) {
+async function addCertificate(title, description, image, type = 'certificat') {
     // Create new certificate object
-    const newCertificate = { title, description, image };
+    const newCertificate = { title, description, image, type };
     console.log('Adding new certificate:', newCertificate);
     
     try {
@@ -1204,19 +1265,9 @@ async function addCertificate(title, description, image) {
             throw new Error('API save failed');
         }
     } catch (error) {
-        // Fallback to localStorage
-        console.warn('API server not available, saving to localStorage:', error);
-        let certificates = await getCertificates();
-        
-        // Ensure certificates is an array
-        if (!Array.isArray(certificates)) {
-            console.warn('Certificates is not an array, initializing new array');
-            certificates = [];
-        }
-        
-        // Add to array
-        certificates.push(newCertificate);
-        saveCertificates(certificates);
+        console.error('API server not available, certificate not saved:', error);
+        alert('Eroare: serverul nu este disponibil. Certificatul nu a fost salvat.');
+        return;
     }
     
     // Reload display
@@ -1231,9 +1282,7 @@ async function deleteCertificate(certId, index) {
     if (!confirm('Ești sigur că vrei să ștergi acest certificat?')) {
         return;
     }
-    
-    const certificates = await getCertificates();
-    
+
     // Try to delete from API server if ID exists
     if (certId && !certId.startsWith('temp-')) {
         try {
@@ -1244,22 +1293,15 @@ async function deleteCertificate(certId, index) {
                 console.log('Certificate deleted from API');
             }
         } catch (error) {
-            console.warn('API server not available, deleting from localStorage:', error);
+            console.error('API server not available, certificate not deleted:', error);
+            alert('Eroare: serverul nu este disponibil. Certificatul nu a fost șters.');
+            return;
         }
-    }
-    
-    // Also delete from localStorage
-    if (index >= 0 && index < certificates.length) {
-        certificates.splice(index, 1);
-        saveCertificates(certificates);
     } else {
-        // Fallback: delete by ID if index fails
-        const filtered = certificates.filter(cert => cert.id !== certId);
-        if (filtered.length < certificates.length) {
-            saveCertificates(filtered);
-        }
+        alert('Eroare: certificatul nu are ID valid pentru ștergere.');
+        return;
     }
-    
+
     await loadCertificates();
     updateStatistics();
     
@@ -1318,7 +1360,7 @@ async function getPartners() {
             console.log('Retrieved partners from API:', partners);
             // Check if response has error
             if (partners && partners.error) {
-                console.warn('⚠️ API returned error, using localStorage fallback');
+                console.warn('⚠️ API returned error');
                 throw new Error('API returned error');
             }
             // Ensure it's an array
@@ -1326,38 +1368,22 @@ async function getPartners() {
                 console.log('✅ Partners from API:', partners.length);
                 return partners;
             } else {
-                console.warn('⚠️ Partners from API is not an array, using localStorage');
+                console.warn('⚠️ Partners from API is not an array');
                 throw new Error('Partners is not an array');
             }
         } else {
             throw new Error('API response not OK: ' + response.status);
         }
     } catch (error) {
-        console.warn('⚠️ API server not available, loading from localStorage:', error);
+        console.error('API server not available, partners not loaded:', error);
     }
-    
-    // Fallback to localStorage
-    try {
-        const partners = localStorage.getItem(STORAGE_KEY_PARTNERS);
-        if (!partners) {
-            console.log('📦 No partners in localStorage');
-            return [];
-        }
-        const parsed = JSON.parse(partners);
-        if (!Array.isArray(parsed)) {
-            console.error('❌ Partners data is not an array, resetting to empty array');
-            return [];
-        }
-        console.log('📦 Partners from localStorage:', parsed.length);
-        return parsed;
-    } catch (e) {
-        console.error('❌ Error loading partners:', e);
-        return [];
-    }
+
+    return [];
 }
 
 function savePartners(partners) {
-    localStorage.setItem(STORAGE_KEY_PARTNERS, JSON.stringify(partners));
+    // No-op: partners are stored only in the API database.
+    void partners;
 }
 
 async function addPartner(title, image) {
@@ -1381,7 +1407,7 @@ async function addPartner(title, image) {
             console.log('✅ Partner saved to API:', result);
             // Check if result has error
             if (result && result.error) {
-                console.warn('⚠️ API returned error, using localStorage fallback');
+                console.warn('⚠️ API returned error');
                 throw new Error('API returned error: ' + result.error);
             }
             // Update the partner with the ID from API
@@ -1394,22 +1420,9 @@ async function addPartner(title, image) {
             throw new Error('API save failed: ' + response.status);
         }
     } catch (error) {
-        // Fallback to localStorage
-        console.warn('⚠️ API server not available, saving to localStorage:', error);
-        let partners = await getPartners();
-        
-        if (!Array.isArray(partners)) {
-            console.warn('⚠️ Partners is not an array, initializing new array');
-            partners = [];
-        }
-        
-        // Add timestamp and ID for localStorage
-        newPartner.timestamp = new Date().toISOString();
-        newPartner.id = new Date().getTime().toString();
-        
-        partners.push(newPartner);
-        savePartners(partners);
-        console.log('✅ Partner saved to localStorage, total partners:', partners.length);
+        console.error('API server not available, partner not saved:', error);
+        alert('Eroare: serverul nu este disponibil. Partenerul nu a fost salvat.');
+        return;
     }
     
     // Reload display
@@ -1427,8 +1440,6 @@ async function deletePartner(partnerId, index) {
         return;
     }
     
-    const partners = await getPartners();
-    
     // Try to delete from API server if ID exists
     if (partnerId && !partnerId.startsWith('temp-')) {
         try {
@@ -1439,22 +1450,15 @@ async function deletePartner(partnerId, index) {
                 console.log('Partner deleted from API');
             }
         } catch (error) {
-            console.warn('API server not available, deleting from localStorage:', error);
+            console.error('API server not available, partner not deleted:', error);
+            alert('Eroare: serverul nu este disponibil. Partenerul nu a fost șters.');
+            return;
         }
-    }
-    
-    // Also delete from localStorage
-    if (index >= 0 && index < partners.length) {
-        partners.splice(index, 1);
-        savePartners(partners);
     } else {
-        // Fallback: delete by ID if index fails
-        const filtered = partners.filter(partner => partner.id !== partnerId);
-        if (filtered.length < partners.length) {
-            savePartners(filtered);
-        }
+        alert('Eroare: partenerul nu are ID valid pentru ștergere.');
+        return;
     }
-    
+
     await loadPartners();
     updateStatistics();
     
@@ -1487,7 +1491,7 @@ function closePartnerModal() {
 async function updateStatistics() {
     const messages = await getMessages();
     const chatbotMessages = await getChatbotMessages();
-    const videos = getTikTokVideos();
+    const videos = await getTikTokVideos();
     const certificates = await getCertificates();
     const partners = await getPartners();
     
@@ -1495,7 +1499,7 @@ async function updateStatistics() {
     const chatbotConversations = chatbotMessages.filter(msg => msg.type === 'user').length;
     
     // Count locations
-    const locations = getLocations();
+    const locations = await getLocations();
     const totalLocations = locations.length;
 
     document.getElementById('totalMessages').textContent = messages.length;
@@ -1526,6 +1530,7 @@ function openCertificateModal() {
     document.getElementById('certificateModal').classList.add('active');
     document.getElementById('certTitle').value = '';
     document.getElementById('certDescription').value = '';
+    document.getElementById('certType').value = 'certificat';
     document.getElementById('certImageFile').value = '';
     document.getElementById('certImageUrl').value = '';
     
@@ -1589,7 +1594,7 @@ function previewPartnerImage(file) {
 }
 
 // Change Password
-function changePassword() {
+async function changePassword() {
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
@@ -1598,14 +1603,6 @@ function changePassword() {
 
     errorDiv.classList.remove('show');
     successDiv.classList.remove('show');
-
-    const storedPassword = localStorage.getItem(STORAGE_KEY_PASSWORD) || DEFAULT_PASSWORD;
-
-    if (currentPassword !== storedPassword) {
-        errorDiv.textContent = 'Parola curentă este incorectă!';
-        errorDiv.classList.add('show');
-        return;
-    }
 
     if (newPassword !== confirmPassword) {
         errorDiv.textContent = 'Parolele nu se potrivesc!';
@@ -1619,15 +1616,47 @@ function changePassword() {
         return;
     }
 
-    localStorage.setItem(STORAGE_KEY_PASSWORD, newPassword);
-    successDiv.textContent = 'Parola a fost schimbată cu succes!';
-    successDiv.classList.add('show');
-    
-    document.getElementById('changePasswordForm').reset();
-    
-    setTimeout(() => {
-        successDiv.classList.remove('show');
-    }, 3000);
+    try {
+        // Get current password from API
+        const getResponse = await fetch(`${API_BASE_URL}/api/admin-password`);
+        if (!getResponse.ok) {
+            throw new Error('Failed to get current password');
+        }
+        const result = await getResponse.json();
+        const storedPassword = result.password || DEFAULT_PASSWORD;
+
+        if (currentPassword !== storedPassword) {
+            errorDiv.textContent = 'Parola curentă este incorectă!';
+            errorDiv.classList.add('show');
+            return;
+        }
+
+        // Save new password to API
+        const saveResponse = await fetch(`${API_BASE_URL}/api/admin-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ password: newPassword })
+        });
+
+        if (!saveResponse.ok) {
+            throw new Error('Failed to save password');
+        }
+
+        successDiv.textContent = 'Parola a fost schimbată cu succes!';
+        successDiv.classList.add('show');
+        
+        document.getElementById('changePasswordForm').reset();
+        
+        setTimeout(() => {
+            successDiv.classList.remove('show');
+        }, 3000);
+    } catch (error) {
+        console.error('Error changing password:', error);
+        errorDiv.textContent = 'Eroare: serverul nu este disponibil. Parola nu a fost schimbată.';
+        errorDiv.classList.add('show');
+    }
 }
 
 
@@ -1658,42 +1687,15 @@ async function getSiteTexts() {
             // Check if API returned an error object
             if (texts && texts.error) {
                 console.warn('⚠️ API returned error:', texts.error);
-                // Don't return error object, continue to localStorage
-            } else if (texts && Object.keys(texts).length > 0) {
+            } else if (texts && typeof texts === 'object') {
                 console.log('✅ Returning texts from API, keys:', Object.keys(texts).length);
                 return texts;
-            } else {
-                console.warn('⚠️ API returned empty texts object');
             }
         } else {
             console.warn('⚠️ API response not OK, status:', response.status);
         }
     } catch (error) {
-        console.warn('⚠️ API server not available, loading from localStorage:', error.message);
-    }
-    
-    // Fallback to localStorage
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY_SITE_TEXTS);
-        console.log('💾 localStorage value:', stored ? 'exists (' + stored.length + ' chars)' : 'null');
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            console.log('📦 Parsed localStorage:', parsed);
-            
-            // Check if parsed result has error
-            if (parsed && parsed.error) {
-                console.warn('⚠️ localStorage contains error object, ignoring');
-            } else if (parsed && Object.keys(parsed).length > 0) {
-                console.log('✅ Returning texts from localStorage, keys:', Object.keys(parsed).length);
-                return parsed;
-            } else {
-                console.warn('⚠️ Parsed localStorage is empty');
-            }
-        } else {
-            console.warn('⚠️ No data in localStorage');
-        }
-    } catch (e) {
-        console.error('❌ Error loading site texts from localStorage:', e);
+        console.warn('⚠️ API server not available, site texts not loaded:', error.message);
     }
     
     // Return empty object - no defaults
@@ -1736,25 +1738,6 @@ function saveSiteTexts() {
         return;
     }
     
-    // Save to localStorage first (immediate)
-    try {
-        const textsJson = JSON.stringify(texts);
-        localStorage.setItem(STORAGE_KEY_SITE_TEXTS, textsJson);
-        console.log('Texts saved to localStorage successfully, length:', textsJson.length);
-        
-        // Verify it was saved
-        const verify = localStorage.getItem(STORAGE_KEY_SITE_TEXTS);
-        if (verify) {
-            console.log('Verified: Texts are in localStorage');
-        } else {
-            console.error('ERROR: Texts were NOT saved to localStorage!');
-        }
-    } catch (e) {
-        console.error('Error saving to localStorage:', e);
-        alert('Eroare la salvarea în localStorage: ' + e.message);
-        return;
-    }
-    
     // Save to API
     fetch(`${API_BASE_URL}/api/site-texts`, {
         method: 'POST',
@@ -1770,7 +1753,12 @@ function saveSiteTexts() {
             throw new Error('API response not OK');
         }
     }).catch(error => {
-        console.warn('API server not available, using localStorage only:', error);
+        console.error('API server not available, site texts not saved:', error);
+        const errorDiv = document.getElementById('siteTextsError');
+        if (errorDiv) {
+            errorDiv.textContent = 'Eroare: serverul nu este disponibil. Textele nu au fost salvate.';
+            errorDiv.classList.add('show');
+        }
     });
     
     // Show success message
@@ -1794,15 +1782,9 @@ function saveSiteTexts() {
     }, 150);
     
     // Dispatch event to update index.html if open
-    // Use a small delay to ensure localStorage is saved
+    // Use a small delay to ensure API save completes
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent('siteTextsUpdated'));
-        // Also dispatch storage event for cross-tab communication
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: STORAGE_KEY_SITE_TEXTS,
-            newValue: JSON.stringify(texts),
-            storageArea: localStorage
-        }));
     }, 100);
 }
 
@@ -1851,7 +1833,7 @@ function populateFormFields(texts) {
 async function loadSiteTexts() {
     console.log('🔄 Loading site texts...');
     
-    // First, try to load from saved texts (localStorage/API) to show user's modifications
+    // First, try to load from saved texts (API) to show user's modifications
     // This ensures the admin form shows the saved changes, not the static HTML
     let texts = await getSiteTexts();
     console.log('📦 Texts from getSiteTexts:', texts);
@@ -1876,7 +1858,7 @@ async function loadSiteTexts() {
             return;
         }
     } else {
-        console.log('✅ Using saved texts from localStorage/API');
+        console.log('✅ Using saved texts from API');
     }
     
     // Final check - make sure we don't have error object
@@ -2345,4 +2327,414 @@ setInterval(() => {
         }
     }
 }, 2000); // Refresh every 2 seconds when tabs are active
+
+// Reviews Management
+async function loadReviewsAdmin() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        if (!response.ok) {
+            throw new Error('Failed to load reviews');
+        }
+        const reviews = await response.json();
+        
+        const reviewsList = document.getElementById('reviewsListAdmin');
+        if (!reviewsList) return;
+        
+        if (!Array.isArray(reviews) || reviews.length === 0) {
+            reviewsList.innerHTML = '<p class="empty-state">Nu există recenzii adăugate. Folosește butonul "Adaugă Recenzie" pentru a adăuga una nouă.</p>';
+            return;
+        }
+        
+        reviewsList.innerHTML = reviews.map((review, index) => {
+            const stars = '⭐'.repeat(review.rating);
+            const formattedDate = new Date(review.date).toLocaleDateString('ro-RO', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            return `
+                <div class="review-item-admin">
+                    <div class="review-header-admin">
+                        <div>
+                            <div class="review-author-admin">${escapeHtml(review.author)}</div>
+                            <div class="review-date-admin">📅 ${formattedDate}</div>
+                            <div class="review-rating-admin">${stars}</div>
+                        </div>
+                        <div class="review-actions-admin">
+                            <button class="btn btn-secondary" onclick="editReview('${review.id || index}', ${index})">Editează</button>
+                            <button class="btn btn-danger" onclick="deleteReview('${review.id || index}', ${index})">Șterge</button>
+                        </div>
+                    </div>
+                    <div class="review-text-admin">${escapeHtml(review.text)}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        const reviewsList = document.getElementById('reviewsListAdmin');
+        if (reviewsList) {
+            reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
+        }
+    }
+}
+
+async function getReviews() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reviews`);
+        if (response.ok) {
+            const reviews = await response.json();
+            return Array.isArray(reviews) ? reviews : [];
+        }
+    } catch (error) {
+        console.error('Error fetching reviews:', error);
+    }
+    return [];
+}
+
+function openReviewModal(index = null) {
+    const modal = document.getElementById('reviewModal');
+    const form = document.getElementById('addReviewForm');
+    const title = document.getElementById('reviewModalTitle');
+    
+    if (index !== null) {
+        getReviews().then(reviews => {
+            const review = reviews[index];
+            if (review) {
+                title.textContent = 'Editează Recenzie';
+                document.getElementById('reviewEditId').value = review.id || index;
+                document.getElementById('reviewAuthor').value = review.author;
+                document.getElementById('reviewRating').value = review.rating;
+                document.getElementById('reviewText').value = review.text;
+                document.getElementById('reviewDate').value = review.date;
+            }
+        });
+    } else {
+        title.textContent = 'Adaugă Recenzie';
+        form.reset();
+        document.getElementById('reviewEditId').value = '';
+        document.getElementById('reviewDate').value = new Date().toISOString().split('T')[0];
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeReviewModal() {
+    const modal = document.getElementById('reviewModal');
+    modal.classList.remove('active');
+    document.getElementById('addReviewForm').reset();
+    document.getElementById('reviewEditId').value = '';
+}
+
+async function saveReview() {
+    const author = document.getElementById('reviewAuthor').value.trim();
+    const rating = parseInt(document.getElementById('reviewRating').value);
+    const text = document.getElementById('reviewText').value.trim();
+    const date = document.getElementById('reviewDate').value;
+    const editId = document.getElementById('reviewEditId').value;
+    
+    if (!author || !rating || !text || !date) {
+        alert('Te rugăm să completezi toate câmpurile!');
+        return;
+    }
+    
+    try {
+        const reviewData = {
+            author,
+            rating,
+            text,
+            date
+        };
+        
+        if (editId) {
+            reviewData.id = editId;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(reviewData)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to save review');
+        }
+        
+        await loadReviewsAdmin();
+        closeReviewModal();
+    } catch (error) {
+        console.error('Error saving review:', error);
+        alert('Eroare la salvarea recenziei. Te rugăm să încerci din nou.');
+    }
+}
+
+async function deleteReview(reviewId, index) {
+    if (!confirm('Ești sigur că vrei să ștergi această recenzie?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/reviews?id=${reviewId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete review');
+        }
+        
+        await loadReviewsAdmin();
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        alert('Eroare la ștergerea recenziei. Te rugăm să încerci din nou.');
+    }
+}
+
+function editReview(reviewId, index) {
+    openReviewModal(index);
+}
+
+// Event listeners for reviews
+document.addEventListener('DOMContentLoaded', () => {
+    const addReviewBtn = document.getElementById('addReviewBtn');
+    if (addReviewBtn) {
+        addReviewBtn.addEventListener('click', () => openReviewModal());
+    }
+    
+    const addReviewForm = document.getElementById('addReviewForm');
+    if (addReviewForm) {
+        addReviewForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveReview();
+        });
+    }
+    
+    const reviewModal = document.getElementById('reviewModal');
+    if (reviewModal) {
+        const closeBtn = reviewModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeReviewModal);
+        }
+        
+        reviewModal.addEventListener('click', (e) => {
+            if (e.target === reviewModal) {
+                closeReviewModal();
+            }
+        });
+    }
+    
+    const syncGoogleReviewsBtn = document.getElementById('syncGoogleReviewsBtn');
+    if (syncGoogleReviewsBtn) {
+        syncGoogleReviewsBtn.addEventListener('click', async () => {
+            const statusDiv = document.getElementById('syncStatus');
+            const btn = syncGoogleReviewsBtn;
+            
+            btn.disabled = true;
+            btn.textContent = 'Sincronizare...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            statusDiv.textContent = 'Se sincronizează recenziile de pe Google...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/sync-google-reviews`, {
+                    method: 'GET'
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                    statusDiv.innerHTML = `
+                        <strong>Eroare:</strong> ${result.error}<br>
+                        <small>Pentru a sincroniza recenziile de pe Google, trebuie să configurezi:<br>
+                        1. GOOGLE_PLACES_API_KEY - API key de la Google Cloud Console<br>
+                        2. GOOGLE_PLACE_ID - ID-ul locației tale Google Business</small>
+                    `;
+                } else if (result.success) {
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.style.color = '#155724';
+                    statusDiv.textContent = `✅ Sincronizare reușită! ${result.synced} recenzii noi adăugate din ${result.total} recenzii totale.`;
+                    await loadReviewsAdmin();
+                } else {
+                    statusDiv.style.background = '#d1ecf1';
+                    statusDiv.style.color = '#0c5460';
+                    statusDiv.textContent = result.message || 'Sincronizare completă.';
+                    await loadReviewsAdmin();
+                }
+            } catch (error) {
+                console.error('Error syncing reviews:', error);
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.textContent = 'Eroare la sincronizare: ' + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Sincronizează de pe Google';
+                
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        });
+    }
+    
+    // Chatbot Responses Management
+    const addChatbotResponseBtn = document.getElementById('addChatbotResponseBtn');
+    if (addChatbotResponseBtn) {
+        addChatbotResponseBtn.addEventListener('click', () => openChatbotResponseModal());
+    }
+    
+    const addChatbotResponseForm = document.getElementById('addChatbotResponseForm');
+    if (addChatbotResponseForm) {
+        addChatbotResponseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveChatbotResponse();
+        });
+    }
+    
+    const chatbotResponseModal = document.getElementById('chatbotResponseModal');
+    if (chatbotResponseModal) {
+        const closeBtn = chatbotResponseModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeChatbotResponseModal);
+        }
+        
+        chatbotResponseModal.addEventListener('click', (e) => {
+            if (e.target === chatbotResponseModal) {
+                closeChatbotResponseModal();
+            }
+        });
+    }
+});
+
+// Chatbot Responses Management Functions
+async function loadChatbotResponsesAdmin() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`);
+        if (!response.ok) {
+            throw new Error('Failed to load chatbot responses');
+        }
+        const responses = await response.json();
+        
+        const responsesList = document.getElementById('chatbotResponsesList');
+        if (!responsesList) return;
+        
+        if (!responses || Object.keys(responses).length === 0) {
+            responsesList.innerHTML = '<p class="empty-state">Nu există răspunsuri configurate. Folosește butonul "Adaugă Răspuns" pentru a adăuga unul nou.</p>';
+            return;
+        }
+        
+        responsesList.innerHTML = Object.entries(responses).map(([keyword, responseText]) => {
+            return `
+                <div class="chatbot-response-item">
+                    <div class="chatbot-response-header">
+                        <div>
+                            <div class="chatbot-response-keyword">🔑 <strong>${escapeHtml(keyword)}</strong></div>
+                        </div>
+                        <div class="chatbot-response-actions">
+                            <button class="btn btn-secondary" onclick="editChatbotResponse('${escapeHtml(keyword)}')">Editează</button>
+                            <button class="btn btn-danger" onclick="deleteChatbotResponse('${escapeHtml(keyword)}')">Șterge</button>
+                        </div>
+                    </div>
+                    <div class="chatbot-response-text">${escapeHtml(responseText)}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading chatbot responses:', error);
+        const responsesList = document.getElementById('chatbotResponsesList');
+        if (responsesList) {
+            responsesList.innerHTML = '<p class="empty-state">Eroare la încărcarea răspunsurilor.</p>';
+        }
+    }
+}
+
+function openChatbotResponseModal(keyword = null) {
+    const modal = document.getElementById('chatbotResponseModal');
+    const form = document.getElementById('addChatbotResponseForm');
+    const title = document.getElementById('chatbotResponseModalTitle');
+    
+    if (keyword) {
+        fetch(`${API_BASE_URL}/api/chatbot-responses`)
+            .then(response => response.json())
+            .then(responses => {
+                if (responses[keyword]) {
+                    title.textContent = 'Editează Răspuns Chatbot';
+                    document.getElementById('chatbotKeyword').value = keyword;
+                    document.getElementById('chatbotKeyword').disabled = true;
+                    document.getElementById('chatbotResponse').value = responses[keyword];
+                }
+            });
+    } else {
+        title.textContent = 'Adaugă Răspuns Chatbot';
+        form.reset();
+        document.getElementById('chatbotKeyword').disabled = false;
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeChatbotResponseModal() {
+    const modal = document.getElementById('chatbotResponseModal');
+    modal.classList.remove('active');
+    document.getElementById('addChatbotResponseForm').reset();
+    document.getElementById('chatbotKeyword').disabled = false;
+}
+
+async function saveChatbotResponse() {
+    const keyword = document.getElementById('chatbotKeyword').value.trim().toLowerCase();
+    const responseText = document.getElementById('chatbotResponse').value.trim();
+    
+    if (!keyword || !responseText) {
+        alert('Te rugăm să completezi toate câmpurile!');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keyword, response: responseText })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to save chatbot response');
+        }
+        
+        await loadChatbotResponsesAdmin();
+        closeChatbotResponseModal();
+    } catch (error) {
+        console.error('Error saving chatbot response:', error);
+        alert('Eroare la salvarea răspunsului. Te rugăm să încerci din nou.');
+    }
+}
+
+async function deleteChatbotResponse(keyword) {
+    if (!confirm(`Ești sigur că vrei să ștergi răspunsul pentru cuvântul cheie "${keyword}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses?keyword=${encodeURIComponent(keyword)}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete chatbot response');
+        }
+        
+        await loadChatbotResponsesAdmin();
+    } catch (error) {
+        console.error('Error deleting chatbot response:', error);
+        alert('Eroare la ștergerea răspunsului. Te rugăm să încerci din nou.');
+    }
+}
+
+function editChatbotResponse(keyword) {
+    openChatbotResponseModal(keyword);
+}
 
