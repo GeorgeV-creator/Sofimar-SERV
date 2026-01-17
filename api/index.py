@@ -20,37 +20,32 @@ SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY and SUPABASE_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
-# Initialize database flag
-_db_initialized = False
-
 def init_database():
-    """Initialize database tables - called once, works for both Supabase and SQLite"""
-    global _db_initialized
-    if _db_initialized:
-        return
-    
+    """Initialize database tables - checks and creates if needed (works in serverless)"""
     try:
         db = get_db_connection()
         try:
             if db['type'] == 'supabase':
-                print("🔧 Initializing Supabase database tables...")
+                print("🔧 Checking/Initializing Supabase database tables...")
+                print(f"🔍 USE_SUPABASE={USE_SUPABASE}, SUPABASE_DB_URL={'✅' if SUPABASE_DB_URL else '❌'}")
                 init_supabase_tables(db['conn'])
                 db['conn'].commit()
-                print("✅ Supabase tables initialized successfully")
+                print("✅ Supabase tables check/initialization completed")
             else:
-                print("🔧 Initializing SQLite database tables...")
+                print("🔧 Checking/Initializing SQLite database tables...")
                 init_sqlite_tables(db['conn'])
                 db['conn'].commit()
-                print("✅ SQLite tables initialized successfully")
-            _db_initialized = True
+                print("✅ SQLite tables check/initialization completed")
         except Exception as e:
             print(f"⚠️ Database init error: {e}")
             import traceback
-            traceback.print_exc()
+            print(traceback.format_exc())
         finally:
             db['conn'].close()
     except Exception as e:
         print(f"❌ Database connection error during init: {e}")
+        import traceback
+        print(traceback.format_exc())
 
 def get_db_connection():
     """Get database connection"""
@@ -71,41 +66,50 @@ def init_supabase_tables(conn):
     """Initialize Supabase PostgreSQL tables"""
     cur = conn.cursor()
     
-    # Create all tables
-    tables_sql = [
-        "CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS chatbot_messages (id SERIAL PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS visits (date TEXT PRIMARY KEY, count INTEGER NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS certificates (id TEXT PRIMARY KEY, data TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'certificat', timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS partners (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS site_texts (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS admin_password (id INTEGER PRIMARY KEY CHECK (id = 1), password TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS tiktok_videos (id INTEGER PRIMARY KEY CHECK (id = 1), videos TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, author TEXT NOT NULL, rating INTEGER NOT NULL, text TEXT NOT NULL, date TEXT NOT NULL, timestamp TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS chatbot_responses (keyword TEXT PRIMARY KEY, response TEXT NOT NULL, timestamp TEXT NOT NULL)"
+    # Create all tables with explicit error handling
+    tables = [
+        ("messages", "CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
+        ("chatbot_messages", "CREATE TABLE IF NOT EXISTS chatbot_messages (id SERIAL PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
+        ("visits", "CREATE TABLE IF NOT EXISTS visits (date TEXT PRIMARY KEY, count INTEGER NOT NULL)"),
+        ("certificates", "CREATE TABLE IF NOT EXISTS certificates (id TEXT PRIMARY KEY, data TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'certificat', timestamp TEXT NOT NULL)"),
+        ("partners", "CREATE TABLE IF NOT EXISTS partners (id TEXT PRIMARY KEY, data TEXT NOT NULL, timestamp TEXT NOT NULL)"),
+        ("site_texts", "CREATE TABLE IF NOT EXISTS site_texts (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)"),
+        ("admin_password", "CREATE TABLE IF NOT EXISTS admin_password (id INTEGER PRIMARY KEY CHECK (id = 1), password TEXT NOT NULL, last_updated TEXT NOT NULL)"),
+        ("tiktok_videos", "CREATE TABLE IF NOT EXISTS tiktok_videos (id INTEGER PRIMARY KEY CHECK (id = 1), videos TEXT NOT NULL, last_updated TEXT NOT NULL)"),
+        ("locations", "CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, last_updated TEXT NOT NULL)"),
+        ("reviews", "CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, author TEXT NOT NULL, rating INTEGER NOT NULL, text TEXT NOT NULL, date TEXT NOT NULL, timestamp TEXT NOT NULL)"),
+        ("chatbot_responses", "CREATE TABLE IF NOT EXISTS chatbot_responses (keyword TEXT PRIMARY KEY, response TEXT NOT NULL, timestamp TEXT NOT NULL)")
     ]
     
-    for sql in tables_sql:
+    for table_name, sql in tables:
         try:
             cur.execute(sql)
-            print(f"  ✅ Table created/verified: {sql.split('(')[0].split()[-1]}")
+            conn.commit()
+            print(f"  ✅ Table '{table_name}' created/verified")
         except Exception as e:
-            print(f"  ⚠️ Table creation skipped (may already exist): {str(e)[:50]}")
+            error_msg = str(e)
+            if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
+                print(f"  ℹ️  Table '{table_name}' already exists")
+            else:
+                print(f"  ❌ Error creating table '{table_name}': {error_msg[:100]}")
+                import traceback
+                print(traceback.format_exc())
     
     # Create indexes for better performance
-    indexes_sql = [
-        "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)",
-        "CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp)",
-        "CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp)",
-        "CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp)"
+    indexes = [
+        ("idx_messages_timestamp", "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)"),
+        ("idx_chatbot_messages_timestamp", "CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp)"),
+        ("idx_certificates_timestamp", "CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp)"),
+        ("idx_reviews_timestamp", "CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp)")
     ]
     
-    for sql in indexes_sql:
+    for index_name, sql in indexes:
         try:
             cur.execute(sql)
-        except:
-            pass
+            conn.commit()
+            print(f"  ✅ Index '{index_name}' created/verified")
+        except Exception as e:
+            print(f"  ⚠️  Index '{index_name}' creation skipped: {str(e)[:50]}")
     
     cur.close()
 
