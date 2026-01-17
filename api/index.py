@@ -12,13 +12,17 @@ import urllib.request
 import urllib.parse
 
 # Database configuration
-USE_SUPABASE = os.environ.get('SUPABASE_URL') and os.environ.get('SUPABASE_SERVICE_KEY')
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
+
+# Use Supabase if all credentials are present
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY and SUPABASE_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
-# Supabase PostgreSQL connection string (alternative method)
-SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
+# Debug logging
+if os.environ.get('VERCEL'):
+    print(f"🔍 Database config: USE_SUPABASE={USE_SUPABASE}, SUPABASE_URL={'✅' if SUPABASE_URL else '❌'}, SUPABASE_KEY={'✅' if SUPABASE_KEY else '❌'}, SUPABASE_DB_URL={'✅' if SUPABASE_DB_URL else '❌'}")
 
 class DBWrapper:
     """Wrapper to make Supabase and SQLite connections compatible"""
