@@ -232,8 +232,8 @@ def handle_api_request(path, method, query, body_data):
                 
                 db = get_db_connection()
                 cur = db['conn'].cursor()
-                cur.execute("INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'supabase' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)",
-                    (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
+                sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'supabase' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
+                cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
@@ -245,8 +245,11 @@ def handle_api_request(path, method, query, body_data):
                 
                 db = get_db_connection()
                 cur = db['conn'].cursor()
-                cur.execute("INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s)" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)",
-                    (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
+                if db['type'] == 'supabase':
+                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                else:
+                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
@@ -259,8 +262,12 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = db['conn'].cursor()
                 last_updated = datetime.now().isoformat()
-                cur.execute("INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s)" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)",
-                    (json.dumps(videos, ensure_ascii=False), last_updated))
+                sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
+                videos_json = json.dumps(videos, ensure_ascii=False)
+                if db['type'] == 'supabase':
+                    cur.execute(sql, (videos_json, last_updated, videos_json, last_updated))
+                else:
+                    cur.execute(sql, (videos_json, last_updated))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
@@ -269,8 +276,12 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = db['conn'].cursor()
                 last_updated = datetime.now().isoformat()
-                cur.execute("INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, %s, %s)" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)",
-                    (json.dumps(data, ensure_ascii=False), last_updated))
+                sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
+                data_json = json.dumps(data, ensure_ascii=False)
+                if db['type'] == 'supabase':
+                    cur.execute(sql, (data_json, last_updated, data_json, last_updated))
+                else:
+                    cur.execute(sql, (data_json, last_updated))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
@@ -283,8 +294,11 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = db['conn'].cursor()
                 last_updated = datetime.now().isoformat()
-                cur.execute("INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, %s, %s)" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)",
-                    (password, last_updated))
+                sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
+                if db['type'] == 'supabase':
+                    cur.execute(sql, (password, last_updated, password, last_updated))
+                else:
+                    cur.execute(sql, (password, last_updated))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
