@@ -1,16 +1,9 @@
 {
   "functions": {
     "api/index.py": {
-      "runtime": "@vercel/python",
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
-    }
-  ]
+  }
 }
 
 
