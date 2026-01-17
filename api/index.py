@@ -124,13 +124,113 @@ def execute_query(query, params=None, fetch=True):
         conn.close()
         return rowcount
 
+def init_supabase_db():
+    """Initialize Supabase database tables automatically"""
+    if not USE_SUPABASE or not SUPABASE_DB_URL:
+        return
+    
+    try:
+        import psycopg2
+        conn = psycopg2.connect(SUPABASE_DB_URL)
+        cur = conn.cursor()
+        
+        # Create tables
+        tables_sql = [
+            """CREATE TABLE IF NOT EXISTS messages (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS chatbot_messages (
+                id SERIAL PRIMARY KEY,
+                data TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS visits (
+                date TEXT PRIMARY KEY,
+                count INTEGER NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS certificates (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'certificat',
+                timestamp TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS partners (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS site_texts (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                data TEXT NOT NULL,
+                last_updated TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS admin_password (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                password TEXT NOT NULL,
+                last_updated TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS tiktok_videos (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                videos TEXT NOT NULL,
+                last_updated TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS locations (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                data TEXT NOT NULL,
+                last_updated TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS reviews (
+                id TEXT PRIMARY KEY,
+                author TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                date TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS chatbot_responses (
+                keyword TEXT PRIMARY KEY,
+                response TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )"""
+        ]
+        
+        for sql in tables_sql:
+            try:
+                cur.execute(sql)
+            except Exception as e:
+                # Table might already exist, ignore
+                pass
+        
+        # Create indexes
+        indexes_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp)"
+        ]
+        
+        for sql in indexes_sql:
+            try:
+                cur.execute(sql)
+            except Exception as e:
+                pass
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Supabase tables initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Supabase initialization error (tables may already exist): {e}")
+
 def init_db():
-    """Initialize database tables - only for SQLite (Supabase tables created via SQL)"""
+    """Initialize database tables - SQLite only (Supabase uses init_supabase_db)"""
     db = get_db()
     if db.db_type == 'supabase':
-        # Tables should be created via SQL in Supabase dashboard
-        # No need to initialize here
+        # Initialize Supabase tables
         db.close()
+        init_supabase_db()
         return
     
     # SQLite initialization
@@ -248,9 +348,8 @@ def init_db():
     db.commit()
     db.close()
 
-# Initialize database on first import (only SQLite)
-if not USE_SUPABASE:
-    init_db()
+# Initialize database on first import
+init_db()
 
 def sync_google_reviews(place_id=None, api_key=None):
     """Sync reviews from Google Places API"""

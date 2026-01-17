@@ -1,16 +1,15 @@
 # Configurare Supabase pentru Vercel
 
+## ✅ Automatizat: Tabelele se creează automat!
+
+**Tabelele se vor crea automat la primul acces API** dacă credențialele Supabase sunt configurate corect în Vercel. Nu este necesar să le creezi manual!
+
 ## Pași pentru setup:
 
 1. **Creează proiectul Supabase** (dacă nu ai deja):
    - Mergi pe https://supabase.com
    - Creează un cont gratuit
    - Creează un nou proiect
-
-2. **Creează tabelele în Supabase**:
-   - Mergi la **SQL Editor** din Supabase Dashboard
-   - Rulează scriptul `supabase_schema.sql` (copy-paste conținutul fișierului)
-   - Click pe **Run** pentru a executa scriptul
 
 3. **Obține credențialele Supabase**:
    - Mergi la **Settings** > **API** în Supabase Dashboard
@@ -43,13 +42,31 @@
 
 - **SUPABASE_SERVICE_KEY** trebuie să fie **service_role key**, NU **anon key**
 - **SUPABASE_DB_URL** trebuie să conțină parola corectă a bazei de date
-- După ce adaugi variabilele de mediu, redeploy proiectul pe Vercel
+- După ce adaugi variabilele de mediu, **redeploy proiectul pe Vercel**
+- **Tabelele se vor crea automat** la primul acces API - nu trebuie să le creezi manual!
 
 ## Verificare:
 
-După deploy, verifică în Vercel logs dacă apare "Using Supabase" sau "Using SQLite fallback".
+### Metoda 1: Verifică în Vercel Logs
+După deploy, verifică în Vercel Dashboard > Functions > Logs:
+- ✅ Ar trebui să vezi "✅ Supabase tables initialized successfully" la primul acces
+- ✅ Sau "⚠️ Supabase initialization error (tables may already exist)" dacă există deja
+
+### Metoda 2: Verifică manual (opțional)
+Dacă vrei să verifici manual, poți rula `init_supabase.py` local:
+```bash
+export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.xxxxx.supabase.co:5432/postgres'
+python3 init_supabase.py
+```
+
+### Metoda 3: Verifică în Supabase Dashboard
+- Mergi la Supabase Dashboard > Table Editor
+- Ar trebui să vezi toate tabelele create automat
+
+## Troubleshooting:
+
 Dacă vezi "Supabase connection error", verifică că:
-- Variabilele de mediu sunt corecte
-- Tabelele există în Supabase
-- Parola din SUPABASE_DB_URL este corectă
+- Variabilele de mediu sunt corecte în Vercel
+- **SUPABASE_DB_URL** conține parola corectă (nu [PASSWORD] literal)
+- Credențialele sunt setate pentru environment-ul corect (Production/Preview/Development)
 
