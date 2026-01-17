@@ -1120,65 +1120,77 @@ def handler(request):
 
 # Vercel serverless function entry point
 def main(request):
-    """Vercel serverless function entry point - handles both request object and dict"""
+    """Vercel serverless function entry point"""
     try:
-        # Handle Vercel Python request format
-        if hasattr(request, 'method'):
-            # Vercel Python request object
-            method = request.method or 'GET'
-            url = request.url if hasattr(request, 'url') else '/'
+        # Vercel Python provides request as an HttpRequest object
+        method = request.method if hasattr(request, 'method') else 'GET'
+        
+        # Get path from request URL
+        url = getattr(request, 'url', '/')
+        if url and isinstance(url, str):
             parsed = urlparse(url)
             path = parsed.path
-            
-            # Parse query
-            query_params = parse_qs(parsed.query) if parsed.query else {}
-            query = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query_params.items()}
-            
-            # Get body
-            body = ''
-            if hasattr(request, 'json') and request.json:
-                body = request.json
-            elif hasattr(request, 'body'):
-                try:
-                    body = json.loads(request.body) if isinstance(request.body, str) else request.body
-                except:
-                    body = request.body if isinstance(request.body, dict) else ''
         else:
-            # Dict format (fallback)
-            method = request.get('method', 'GET')
-            path = request.get('path', '')
-            query = request.get('query', {})
-            body = request.get('body', '')
+            # Try to get from request path attribute
+            path = getattr(request, 'path', '/')
         
-        # Extract path from URL if needed
-        if not path and hasattr(request, 'url'):
-            parsed = urlparse(request.url)
-            path = parsed.path
-        
-        # Remove /api/ prefix
+        # Remove /api/ prefix from path
         if path.startswith('/api/'):
             path = path[5:]
         elif path.startswith('api/'):
             path = path[4:]
         
-        # Handle root path
-        if path == '' or path == '/':
-            path = 'test'  # Default to test endpoint
+        # Handle empty path
+        if not path or path == '/':
+            path = 'test'
         
-        return handler({
+        # Parse query string
+        if hasattr(request, 'args'):
+            query = dict(request.args) if hasattr(request.args, 'items') else {}
+        else:
+            parsed = urlparse(url) if url else urlparse('/')
+            query_params = parse_qs(parsed.query) if parsed.query else {}
+            query = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query_params.items()}
+        
+        # Get body
+        body = ''
+        if hasattr(request, 'json') and request.json:
+            body = request.json
+        elif hasattr(request, 'body'):
+            body_str = request.body
+            if isinstance(body_str, (bytes, bytearray)):
+                body_str = body_str.decode('utf-8')
+            if body_str:
+                try:
+                    body = json.loads(body_str)
+                except:
+                    body = body_str
+        elif hasattr(request, 'data'):
+            body = request.data
+        
+        # Call handler
+        result = handler({
             'method': method,
             'path': path,
             'query': query,
             'body': body
         })
+        
+        return result
+        
     except Exception as e:
-        # Error response
+        # Error response with detailed info
         import traceback
-        error_details = {
+        error_info = {
             'error': str(e),
             'error_type': type(e).__name__,
-            'traceback': traceback.format_exc() if os.environ.get('VERCEL_ENV') != 'production' else 'Hidden in production'
+            'request_type': str(type(request)),
+            'request_attrs': [attr for attr in dir(request) if not attr.startswith('_')] if hasattr(request, '__dict__') else []
         }
+        
+        # Include traceback only in development
+        if os.environ.get('VERCEL_ENV') != 'production':
+            error_info['traceback'] = traceback.format_exc()
         
         return {
             'statusCode': 500,
@@ -1186,7 +1198,7 @@ def main(request):
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps(error_details, ensure_ascii=False)
+            'body': json.dumps(error_info, ensure_ascii=False, indent=2)
         }
 
 
