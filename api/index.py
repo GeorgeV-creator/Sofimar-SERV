@@ -200,7 +200,10 @@ def handle_api_request(path, method, query, body_data):
                 cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
                 cur.execute("SELECT keyword, response FROM chatbot_responses ORDER BY keyword")
                 rows = cur.fetchall()
-                responses = {dict(row)['keyword']: dict(row)['response'] if db['type'] == 'supabase' else row['keyword']: row['response'] for row in rows}
+                responses = {}
+                for row in rows:
+                    row_dict = dict(row) if db['type'] == 'supabase' else row
+                    responses[row_dict['keyword']] = row_dict['response']
                 db['conn'].close()
                 return 200, headers, json.dumps(responses, ensure_ascii=False)
             
