@@ -22,16 +22,27 @@ DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
 def get_db_connection():
     """Get database connection"""
+    print(f"get_db_connection called: USE_SUPABASE={USE_SUPABASE}, has_db_url={bool(SUPABASE_DB_URL)}")
+    
     if USE_SUPABASE and SUPABASE_DB_URL:
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
+            print(f"Attempting Supabase connection...")
             conn = psycopg2.connect(SUPABASE_DB_URL)
+            print("✅ Supabase connection successful!")
             # RealDictCursor is a class, not an instance
             return {'conn': conn, 'type': 'supabase', 'cursor_factory': RealDictCursor, 'is_supabase': True}
         except Exception as e:
-            print(f"Supabase connection error: {e}, using SQLite")
+            import traceback
+            error_msg = str(e)
+            print(f"❌ Supabase connection error: {error_msg}")
+            print(f"Traceback: {traceback.format_exc()}")
+            # Fall through to SQLite
+    else:
+        print(f"⚠️ Not using Supabase: USE_SUPABASE={USE_SUPABASE}, SUPABASE_DB_URL={bool(SUPABASE_DB_URL)}")
     
+    print("Using SQLite database (fallback)")
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_supabase': False}
