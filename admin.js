@@ -2418,6 +2418,9 @@ window.deleteLocation = deleteLocation;
 window.deleteTikTokVideo = deleteTikTokVideo;
 window.deleteCertificate = deleteCertificate;
 window.deletePartner = deletePartner;
+window.saveChatbotResponse = saveChatbotResponse;
+window.editChatbotResponse = editChatbotResponse;
+window.deleteChatbotResponse = deleteChatbotResponse;
 
 // Intercept contact form submissions (if on same domain)
 // This would need to be added to script.js to save messages
