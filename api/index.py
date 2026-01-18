@@ -265,21 +265,35 @@ def handle_api_request(path, method, query, body_data):
                     data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
                     cert_type = data.get('type', 'certificat')
                     
+                    print(f"📝 POST /certificates: Saving certificate id={data['id']}, type={cert_type}, title={data.get('title', 'N/A')}")
+                    
                     db = get_db_connection()
+                    print(f"📊 Database connection: type={db['type']}, is_neon={db.get('is_neon', False)}")
+                    
                     cur = get_cursor(db)
-                    sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
+                    data_json = json.dumps(data, ensure_ascii=False)
+                    
                     if db['type'] == 'neon':
-                        cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                        sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, type = EXCLUDED.type, timestamp = EXCLUDED.timestamp"
+                        print(f"📊 Executing PostgreSQL INSERT with ON CONFLICT...")
+                        cur.execute(sql, (data['id'], data_json, cert_type, data['timestamp']))
                     else:
-                        cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                        sql = "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
+                        print(f"📊 Executing SQLite INSERT OR REPLACE...")
+                        cur.execute(sql, (data['id'], data_json, cert_type, data['timestamp']))
+                    
                     db['conn'].commit()
+                    print(f"✅ Certificate saved successfully")
                     db['conn'].close()
                     return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
                 except Exception as e:
                     import traceback
-                    print(f"Error in POST /certificates: {str(e)}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    raise
+                    error_msg = str(e)
+                    traceback_str = traceback.format_exc()
+                    print(f"❌ Error in POST /certificates: {error_msg}")
+                    print(f"Traceback: {traceback_str}")
+                    # Return error response instead of raising to show user
+                    return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
             
             elif path == 'tiktok-videos':
                 try:
