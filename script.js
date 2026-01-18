@@ -831,13 +831,9 @@ async function loadPartnersOnPage() {
     
     try {
         // Try to fetch from API server
-        console.log('Fetching partners from:', `${API_BASE_URL}/partners`);
         const response = await fetch(`${API_BASE_URL}/partners`);
-        console.log('Partners API response status:', response.status, response.statusText);
         if (response.ok) {
             partners = await response.json();
-            console.log('✅ Loading partners from API:', partners.length, 'partners');
-            console.log('Partners data:', partners);
             if (!Array.isArray(partners)) {
                 console.error('❌ Partners data from API is not an array:', typeof partners, partners);
                 partners = [];
@@ -890,13 +886,9 @@ async function loadCertificatesOnPage() {
     
     try {
         // Try to fetch from API server
-        console.log('Fetching certificates from:', `${API_BASE_URL}/certificates`);
         const response = await fetch(`${API_BASE_URL}/certificates`);
-        console.log('Certificates API response status:', response.status, response.statusText);
         if (response.ok) {
             certificates = await response.json();
-            console.log('✅ Loading certificates from API:', certificates.length, 'certificates');
-            console.log('Certificates data:', certificates);
             if (!Array.isArray(certificates)) {
                 console.error('❌ Certificates data from API is not an array:', typeof certificates, certificates);
                 certificates = [];
@@ -1340,26 +1332,38 @@ window.addEventListener('siteTextsUpdated', () => {
     }, 50);
 });
 
-// Initialize certificates and partners when page loads
+// Initialize certificates and partners when page loads (lazy loading with delay)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        // Load site texts first (lightweight)
         loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-        if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
+        
+        // Load heavy content after a short delay to not block initial render
+        setTimeout(() => {
+            if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
+                loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+            }
+        }, 200);
+        
+        setTimeout(() => {
+            if (document.getElementById('partnersGrid')) {
+                loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
+            }
+        }, 400);
+    });
+} else {
+    // DOM already loaded - same lazy loading approach
+    loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+    setTimeout(() => {
+        if (document.getElementById('certificatesGrid')) {
             loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
         }
+    }, 200);
+    setTimeout(() => {
         if (document.getElementById('partnersGrid')) {
             loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
         }
-    });
-} else {
-    // DOM already loaded
-    loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-    if (document.getElementById('certificatesGrid')) {
-        loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
-    }
-    if (document.getElementById('partnersGrid')) {
-        loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
-    }
+    }, 400);
 }
 
 // Close modal when clicking outside

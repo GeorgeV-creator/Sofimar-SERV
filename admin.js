@@ -21,11 +21,12 @@ const STORAGE_KEY_AUTH = 'sofimar_admin_auth';
 const STORAGE_KEY_PASSWORD = 'sofimar_admin_password';
 const STORAGE_KEY_SITE_TEXTS = 'sofimar_site_texts';
 
-// Initialize
+// Initialize - load only essential data first
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     initializeEventListeners();
-    loadData();
+    // Load only statistics initially, other data will load on tab switch (lazy loading)
+    updateStatistics().catch(err => console.error('Error loading statistics:', err));
 });
 
 // Authentication
@@ -443,7 +444,7 @@ function initializeEventListeners() {
     });
 }
 
-// Tab switching
+// Tab switching with lazy loading
 function switchTab(tabName) {
     // Remove active class from all tabs and contents
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -453,7 +454,7 @@ function switchTab(tabName) {
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(`${tabName}Tab`).classList.add('active');
 
-    // Load data for the tab
+    // Load data for the tab only when it's opened (lazy loading for performance)
     if (tabName === 'messages') {
         loadMessages().catch(err => console.error('Error loading messages:', err));
     } else if (tabName === 'chatbot') {
