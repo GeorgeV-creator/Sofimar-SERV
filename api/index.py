@@ -162,6 +162,15 @@ def handle_api_request(path, method, query, body_data):
                 db['conn'].close()
                 return 200, headers, json.dumps(certificates, ensure_ascii=False)
             
+            elif path == 'partners':
+                db = get_db_connection()
+                cur = get_cursor(db)
+                cur.execute("SELECT data FROM partners ORDER BY timestamp DESC")
+                rows = cur.fetchall()
+                partners = [json.loads(dict(row)['data'] if db['type'] == 'neon' else row['data']) for row in rows]
+                db['conn'].close()
+                return 200, headers, json.dumps(partners, ensure_ascii=False)
+            
             elif path == 'tiktok-videos':
                 db = get_db_connection()
                 cur = get_cursor(db)
@@ -288,6 +297,18 @@ def handle_api_request(path, method, query, body_data):
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+            
+            elif path == 'partners':
+                data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
+                data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
+                
+                db = get_db_connection()
+                cur = get_cursor(db)
+                sql = "INSERT INTO partners (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO partners (id, data, timestamp) VALUES (?, ?, ?)"
+                cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
+                db['conn'].commit()
+                db['conn'].close()
+                return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
             
             elif path == 'admin-password':
                 password = data.get('password')
