@@ -75,3 +75,4 @@ vercel dev
 
 **Soluție temporară**: Verifică dacă există `vercel.json` și șterge-l dacă există (Vercel detectează automat funcțiile Python din `api/`)
 
+

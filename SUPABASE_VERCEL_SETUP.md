@@ -373,3 +373,4 @@ Dacă ai probleme:
 
 **Totul ar trebui să funcționeze automat odată ce variabilele sunt configurate corect!** 🚀
 
+
