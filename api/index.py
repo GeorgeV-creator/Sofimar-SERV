@@ -219,6 +219,19 @@ def handle_api_request(path, method, query, body_data):
                 db['conn'].close()
                 return 200, headers, json.dumps(responses, ensure_ascii=False)
             
+            elif path == 'site-texts':
+                db = get_db_connection()
+                cur = get_cursor(db)
+                cur.execute("SELECT texts FROM site_texts WHERE id = 1")
+                row = cur.fetchone()
+                if row:
+                    row_dict = dict(row) if db['type'] == 'neon' else row
+                    texts = json.loads(row_dict['texts']) if isinstance(row_dict['texts'], str) else row_dict['texts']
+                    db['conn'].close()
+                    return 200, headers, json.dumps(texts if isinstance(texts, dict) else {}, ensure_ascii=False)
+                db['conn'].close()
+                return 200, headers, json.dumps({}, ensure_ascii=False)
+            
             elif path == 'admin-password':
                 db = get_db_connection()
                 cur = get_cursor(db)
