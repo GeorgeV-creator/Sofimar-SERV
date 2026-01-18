@@ -211,7 +211,7 @@ def handle_api_request(path, method, query, body_data):
                 data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
                 
                 db = get_db_connection()
-                cur = db['conn'].cursor()
+                cur = get_cursor(db)
                 sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'supabase' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
                 cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
                 db['conn'].commit()
@@ -224,7 +224,7 @@ def handle_api_request(path, method, query, body_data):
                 cert_type = data.get('type', 'certificat')
                 
                 db = get_db_connection()
-                cur = db['conn'].cursor()
+                cur = get_cursor(db)
                 sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
                 if db['type'] == 'supabase':
                     cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
@@ -240,7 +240,7 @@ def handle_api_request(path, method, query, body_data):
                     return 400, headers, json.dumps({'error': 'Invalid videos'}, ensure_ascii=False)
                 
                 db = get_db_connection()
-                cur = db['conn'].cursor()
+                cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
                 sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
                 videos_json = json.dumps(videos, ensure_ascii=False)
@@ -254,7 +254,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'locations':
                 db = get_db_connection()
-                cur = db['conn'].cursor()
+                cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
                 sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
                 data_json = json.dumps(data, ensure_ascii=False)
@@ -272,7 +272,7 @@ def handle_api_request(path, method, query, body_data):
                     return 400, headers, json.dumps({'error': 'Missing password'}, ensure_ascii=False)
                 
                 db = get_db_connection()
-                cur = db['conn'].cursor()
+                cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
                 sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
                 if db['type'] == 'supabase':
