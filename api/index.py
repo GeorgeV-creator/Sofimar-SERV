@@ -13,6 +13,9 @@ from urllib.parse import urlparse, parse_qs
 import urllib.request
 import urllib.parse
 
+# OpenAI API Key - can be set via environment variable OPENAI_API_KEY
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
 # Database configuration
 # Try multiple environment variable names (Neon integration might use different names)
 NEON_DB_URL = (
@@ -442,6 +445,137 @@ def handle_api_request(path, method, query, body_data):
                     print(f"❌ Error in POST /chatbot-responses: {error_msg}")
                     print(f"Traceback: {traceback_str}")
                     return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
+            
+            elif path == 'chatbot' or path == 'chatbot-messages':
+                # Save chatbot message (user or bot)
+                try:
+                    message_type = data.get('type', 'user')
+                    message_text = data.get('message', '')
+                    timestamp = data.get('timestamp') or datetime.now().isoformat()
+                    
+                    if not message_text:
+                        return 400, headers, json.dumps({'error': 'Missing message'}, ensure_ascii=False)
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    
+                    message_data = {
+                        'type': message_type,
+                        'message': message_text,
+                        'timestamp': timestamp
+                    }
+                    message_json = json.dumps(message_data, ensure_ascii=False)
+                    
+                    sql = "INSERT INTO chatbot_messages (data, timestamp) VALUES (%s, %s)" if db['type'] == 'neon' else "INSERT INTO chatbot_messages (data, timestamp) VALUES (?, ?)"
+                    cur.execute(sql, (message_json, timestamp))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    error_msg = str(e)
+                    print(f"Error in POST /chatbot: {error_msg}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
+            
+            elif path == 'chatbot-ai':
+                # AI-powered chatbot response generation
+                try:
+                    user_message = data.get('message', '').strip()
+                    
+                    if not user_message:
+                        return 400, headers, json.dumps({'error': 'Missing message'}, ensure_ascii=False)
+                    
+                    if not OPENAI_API_KEY:
+                        # Fallback to keyword-based responses if OpenAI key is not configured
+                        db = get_db_connection()
+                        cur = get_cursor(db)
+                        cur.execute("SELECT keyword, response FROM chatbot_responses ORDER BY keyword")
+                        rows = cur.fetchall()
+                        responses = {}
+                        for row in rows:
+                            row_dict = dict(row) if db['type'] == 'neon' else row
+                            responses[row_dict['keyword']] = row_dict['response']
+                        db['conn'].close()
+                        
+                        message_lower = user_message.lower()
+                        for keyword, response in responses.items():
+                            if keyword != 'default' and keyword in message_lower:
+                                return 200, headers, json.dumps({'response': response}, ensure_ascii=False)
+                        
+                        default_response = responses.get('default', 'Vă mulțumim pentru întrebare! Pentru informații detaliate despre serviciile noastre de deratizare, dezinsecție sau dezinfecție, vă rugăm să ne contactați direct. Oferim consultație gratuită și intervenție rapidă în 24 de ore pentru probleme urgente.')
+                        return 200, headers, json.dumps({'response': default_response}, ensure_ascii=False)
+                    
+                    # Use OpenAI API
+                    try:
+                        from openai import OpenAI
+                        
+                        client = OpenAI(api_key=OPENAI_API_KEY)
+                        
+                        # Get conversation history (last 10 messages)
+                        db = get_db_connection()
+                        cur = get_cursor(db)
+                        cur.execute("SELECT data, timestamp FROM chatbot_messages ORDER BY timestamp DESC LIMIT 10")
+                        rows = cur.fetchall()
+                        db['conn'].close()
+                        
+                        messages = [
+                            {
+                                "role": "system",
+                                "content": "Ești un asistent virtual pentru Sofimar SERV, o companie care oferă servicii profesionale de deratizare, dezinsecție și dezinfecție în România. Răspunde întotdeauna în română. Fii prietenos, profesional și concis. Dacă nu știi ceva, îndrumă utilizatorul să contacteze compania direct pentru consultație gratuită."
+                            }
+                        ]
+                        
+                        db_type = db['type']
+                        for row in reversed(rows):
+                            row_dict = dict(row) if db_type == 'neon' else row
+                            msg_data = json.loads(row_dict['data']) if isinstance(row_dict['data'], str) else row_dict['data']
+                            role = 'user' if msg_data.get('type') == 'user' else 'assistant'
+                            content = msg_data.get('message', '')
+                            if content:
+                                messages.append({"role": role, "content": content})
+                        
+                        messages.append({"role": "user", "content": user_message})
+                        
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=messages,
+                            max_tokens=300,
+                            temperature=0.7
+                        )
+                        
+                        ai_response = response.choices[0].message.content.strip()
+                        return 200, headers, json.dumps({'response': ai_response}, ensure_ascii=False)
+                    
+                    except ImportError:
+                        return 500, headers, json.dumps({'error': 'OpenAI library not installed'}, ensure_ascii=False)
+                    except Exception as e:
+                        import traceback
+                        error_msg = str(e)
+                        print(f"Error calling OpenAI API: {error_msg}")
+                        print(f"Traceback: {traceback.format_exc()}")
+                        
+                        db = get_db_connection()
+                        cur = get_cursor(db)
+                        cur.execute("SELECT keyword, response FROM chatbot_responses WHERE keyword = 'default' LIMIT 1")
+                        row = cur.fetchone()
+                        db['conn'].close()
+                        
+                        if row:
+                            row_dict = dict(row) if db['type'] == 'neon' else row
+                            fallback = row_dict['response']
+                        else:
+                            fallback = 'Ne pare rău, am întâmpinat o eroare. Vă rugăm să ne contactați direct pentru mai multe informații.'
+                        
+                        return 200, headers, json.dumps({'response': fallback}, ensure_ascii=False)
+                
+                except Exception as e:
+                    import traceback
+                    error_msg = str(e)
+                    print(f"Error in POST /chatbot-ai: {error_msg}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    return 500, headers, json.dumps({'error': error_msg}, ensure_ascii=False)
             
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)

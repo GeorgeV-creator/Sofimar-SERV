@@ -1481,6 +1481,21 @@ body {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
+.message-content.typing {
+    font-style: italic;
+    opacity: 0.7;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
 .chatbot-input-container {
     display: flex;
     padding: 1rem;
