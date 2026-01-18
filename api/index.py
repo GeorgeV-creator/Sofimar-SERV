@@ -236,7 +236,10 @@ def handle_api_request(path, method, query, body_data):
             if not body_data:
                 return 400, headers, json.dumps({'error': 'No body data'}, ensure_ascii=False)
             
-            data = body_data if isinstance(body_data, dict) else json.loads(body_data) if isinstance(body_data, str) else {}
+            try:
+                data = body_data if isinstance(body_data, dict) else json.loads(body_data) if isinstance(body_data, str) else {}
+            except json.JSONDecodeError as e:
+                return 400, headers, json.dumps({'error': f'Invalid JSON: {str(e)}'}, ensure_ascii=False)
             
             if path == 'messages':
                 data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
