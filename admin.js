@@ -601,6 +601,9 @@ async function deleteMessage(index) {
 }
 
 // Chatbot Messages Management
+// Global variable to track active chatbot conversation tab
+let activeChatbotTabIndex = 0;
+
 async function loadChatbotMessages() {
     const messages = await getChatbotMessages();
     const conversationsDiv = document.getElementById('chatbotConversations');
@@ -614,6 +617,7 @@ async function loadChatbotMessages() {
     
     if (messages.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații.</p>';
+        activeChatbotTabIndex = 0;
         return;
     }
 
@@ -640,11 +644,17 @@ async function loadChatbotMessages() {
 
     if (conversations.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații. Mesajele pot fi doar de tip bot sau nu sunt grupate corect.</p>';
+        activeChatbotTabIndex = 0;
         return;
     }
 
     // Sort by timestamp (newest first)
     conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Ensure activeTabIndex is within bounds
+    if (activeChatbotTabIndex >= conversations.length) {
+        activeChatbotTabIndex = Math.max(0, conversations.length - 1);
+    }
 
     // Display as tabs if we have conversations
     if (conversations.length > 0) {
@@ -666,9 +676,10 @@ async function loadChatbotMessages() {
                     minute: '2-digit'
                 });
                 const preview = escapeHtml(conv.userMessage.message.substring(0, 30)) + (conv.userMessage.message.length > 30 ? '...' : '');
+                const isActive = index === activeChatbotTabIndex;
                 
                 return `
-                    <button class="chatbot-tab-btn ${index === 0 ? 'active' : ''}" data-conversation-index="${index}" onclick="switchChatbotConversation(${index})">
+                    <button class="chatbot-tab-btn ${isActive ? 'active' : ''}" data-conversation-index="${index}" onclick="switchChatbotConversation(${index})">
                         <span class="tab-date">${dateStr}</span>
                         <span class="tab-preview">${preview}</span>
                     </button>
@@ -685,9 +696,10 @@ async function loadChatbotMessages() {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
+                const isActive = index === activeChatbotTabIndex;
                 
                 return `
-                    <div class="chatbot-tab-content ${index === 0 ? 'active' : ''}" data-conversation-index="${index}">
+                    <div class="chatbot-tab-content ${isActive ? 'active' : ''}" data-conversation-index="${index}">
                         <div class="conversation-header">
                             <div class="conversation-date">📅 ${dateStr}</div>
                             <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
@@ -707,6 +719,9 @@ async function loadChatbotMessages() {
                     </div>
                 `;
             }).join('');
+            
+            // Switch to the active tab
+            switchChatbotConversation(activeChatbotTabIndex);
         }
     } else {
         const tabsContainer = document.getElementById('chatbotTabsContainer');
@@ -716,6 +731,9 @@ async function loadChatbotMessages() {
 }
 
 function switchChatbotConversation(index) {
+    // Store the active tab index
+    activeChatbotTabIndex = index;
+    
     // Remove active class from all tabs and contents
     document.querySelectorAll('.chatbot-tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.chatbot-tab-content').forEach(content => content.classList.remove('active'));
@@ -745,72 +763,108 @@ async function getChatbotMessages() {
 }
 
 async function clearChatbotMessages() {
+    if (!confirm('Ești sigur că vrei să ștergi toate conversațiile chatbot-ului?')) {
+        return;
+    }
+    
     try {
-        // Try to delete from API server
-        await fetch(`${API_BASE_URL}/chatbot?all=1`, {
+        const response = await fetch(`${API_BASE_URL}/chatbot?all=1`, {
             method: 'DELETE'
         });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API error response:', response.status, errorText);
+            throw new Error(`API error: ${response.status}`);
+        }
+        
+        activeChatbotTabIndex = 0; // Reset to first tab after clearing all
+        await loadChatbotMessages();
+        updateStatistics();
+        alert('Toate conversațiile au fost șterse cu succes!');
     } catch (error) {
         console.error('API server not available, chatbot messages not cleared:', error);
+        alert('Eroare: serverul nu este disponibil. Conversațiile nu au fost șterse.');
     }
-    await loadChatbotMessages();
-    updateStatistics();
 }
 
 async function deleteChatbotConversation(index) {
+    if (!confirm('Ești sigur că vrei să ștergi această conversație?')) {
+        return;
+    }
+    
+    // Get current conversations structure (same as in loadChatbotMessages)
     const messages = await getChatbotMessages();
     const conversations = [];
     
-    // Recreate conversations structure
+    // Group messages into conversations (same logic as loadChatbotMessages)
     for (let i = 0; i < messages.length; i++) {
         if (messages[i].type === 'user') {
             const conversation = {
-                userIndex: i,
-                botIndex: messages[i + 1] && messages[i + 1].type === 'bot' ? i + 1 : null
+                userMessage: messages[i],
+                botMessage: messages[i + 1] && messages[i + 1].type === 'bot' ? messages[i + 1] : null,
+                timestamp: messages[i].timestamp
             };
             conversations.push(conversation);
             if (messages[i + 1] && messages[i + 1].type === 'bot') {
-                i++;
+                i++; // Skip bot message as it's already included
             }
         }
     }
 
     // Sort by timestamp (newest first) to match display order
-    const sortedConversations = conversations.map((conv, idx) => ({
-        ...conv,
-        timestamp: messages[conv.userIndex].timestamp
-    })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    // Remove the conversation at the specified index
-    const toRemove = sortedConversations[index];
-    if (toRemove) {
-        const idsToDelete = [];
-        const userMessage = messages[toRemove.userIndex];
-        if (userMessage && userMessage.id) {
-            idsToDelete.push(userMessage.id);
-        }
-        if (toRemove.botIndex !== null) {
-            const botMessage = messages[toRemove.botIndex];
-            if (botMessage && botMessage.id) {
-                idsToDelete.push(botMessage.id);
-            }
-        }
+    // Get the conversation at the specified index
+    const toRemove = conversations[index];
+    if (!toRemove) {
+        alert('Eroare: conversația nu a fost găsită.');
+        return;
+    }
 
-        if (idsToDelete.length === 0) {
-            alert('Eroare: nu pot șterge conversația (lipsește ID-ul).');
-            return;
-        }
+    // Collect IDs to delete
+    const idsToDelete = [];
+    if (toRemove.userMessage && toRemove.userMessage.id) {
+        idsToDelete.push(toRemove.userMessage.id);
+    }
+    if (toRemove.botMessage && toRemove.botMessage.id) {
+        idsToDelete.push(toRemove.botMessage.id);
+    }
 
-        try {
-            await Promise.all(idsToDelete.map(id => fetch(`${API_BASE_URL}/chatbot?id=${encodeURIComponent(id)}`, {
+    if (idsToDelete.length === 0) {
+        alert('Eroare: nu pot șterge conversația (lipsește ID-ul).');
+        return;
+    }
+
+    try {
+        // Delete all messages in the conversation
+        const deletePromises = idsToDelete.map(id => 
+            fetch(`${API_BASE_URL}/chatbot?id=${encodeURIComponent(id)}`, {
                 method: 'DELETE'
-            })));
-            await loadChatbotMessages();
-            updateStatistics();
-        } catch (error) {
-            console.error('API server not available, conversation not deleted:', error);
-            alert('Eroare: serverul nu este disponibil. Conversația nu a fost ștearsă.');
+            }).then(async (response) => {
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API error: ${response.status} - ${errorText}`);
+                }
+                return response.json();
+            })
+        );
+        
+        await Promise.all(deletePromises);
+        
+        // Adjust active tab index if needed (if we deleted the current or earlier tab)
+        if (index <= activeChatbotTabIndex && activeChatbotTabIndex > 0) {
+            activeChatbotTabIndex = Math.max(0, activeChatbotTabIndex - 1);
+        } else if (index < activeChatbotTabIndex) {
+            // Tab after the deleted one, no change needed
         }
+        
+        await loadChatbotMessages();
+        updateStatistics();
+        alert('Conversația a fost ștearsă cu succes!');
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        alert('Eroare: serverul nu este disponibil. Conversația nu a fost ștearsă.');
     }
 }
 
