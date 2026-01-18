@@ -315,33 +315,15 @@ function sendMessage() {
     
     chatbotInput.value = '';
     
-    // Show typing indicator
-    const typingIndicator = document.createElement('div');
-    typingIndicator.className = 'message bot-message';
-    typingIndicator.innerHTML = '<div class="message-content typing">Ești scrie...</div>';
-    chatbotMessages.appendChild(typingIndicator);
-    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-    
-    // Get AI response from API
-    fetch(`${API_BASE_URL}/chatbot-ai`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message })
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Remove typing indicator
-        typingIndicator.remove();
-        
-        const response_text = data.response || getChatbotResponse(message); // Fallback to keyword-based if no response
-        addMessage(response_text, false);
+    // Simulate bot thinking
+    setTimeout(() => {
+        const response = getChatbotResponse(message);
+        addMessage(response, false);
         
         // Save bot response
         const botMessage = {
             type: 'bot',
-            message: response_text,
+            message: response,
             timestamp: new Date().toISOString()
         };
         
@@ -358,35 +340,7 @@ function sendMessage() {
         
         // Dispatch custom event for admin panel
         window.dispatchEvent(new CustomEvent('chatbotMessageAdded'));
-    })
-    .catch(error => {
-        console.error('Error getting AI response:', error);
-        // Remove typing indicator
-        typingIndicator.remove();
-        
-        // Fallback to keyword-based response
-        const response = getChatbotResponse(message);
-        addMessage(response, false);
-        
-        // Save bot response
-        const botMessage = {
-            type: 'bot',
-            message: response,
-            timestamp: new Date().toISOString()
-        };
-        
-        fetch(`${API_BASE_URL}/chatbot`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(botMessage)
-        }).catch(err => {
-            console.error('API server not available, chatbot response not saved:', err);
-        });
-        
-        window.dispatchEvent(new CustomEvent('chatbotMessageAdded'));
-    });
+    }, 500);
 }
 
 // Send message on button click
