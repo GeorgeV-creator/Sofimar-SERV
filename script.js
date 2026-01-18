@@ -972,7 +972,7 @@ async function loadCertificatesOnPage() {
                 
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
-                    certificatesContent.style.display = 'block';
+                    certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
                 }, remainingTime);
             };
             
