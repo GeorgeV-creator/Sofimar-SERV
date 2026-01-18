@@ -363,6 +363,93 @@ def handle_api_request(path, method, query, body_data):
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
         
+        # DELETE endpoints
+        elif method == 'DELETE':
+            # Get ID from query parameter
+            item_id = query.get('id')
+            if not item_id:
+                return 400, headers, json.dumps({'error': 'Missing id parameter'}, ensure_ascii=False)
+            
+            if path == 'messages':
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM messages WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM messages WHERE id = ?"
+                    cur.execute(sql, (item_id,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /messages: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            elif path == 'certificates':
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM certificates WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM certificates WHERE id = ?"
+                    cur.execute(sql, (item_id,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /certificates: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            elif path == 'partners':
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM partners WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM partners WHERE id = ?"
+                    cur.execute(sql, (item_id,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /partners: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            elif path == 'reviews':
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM reviews WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM reviews WHERE id = ?"
+                    cur.execute(sql, (item_id,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /reviews: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            elif path == 'chatbot-responses':
+                # For chatbot-responses, 'id' is actually the keyword
+                keyword = item_id
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM chatbot_responses WHERE keyword = %s" if db['type'] == 'neon' else "DELETE FROM chatbot_responses WHERE keyword = ?"
+                    cur.execute(sql, (keyword,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /chatbot-responses: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            else:
+                return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
+        
         else:
             return 405, headers, json.dumps({'error': 'Method not allowed'}, ensure_ascii=False)
     
