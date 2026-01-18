@@ -365,7 +365,37 @@ def handle_api_request(path, method, query, body_data):
         
         # DELETE endpoints
         elif method == 'DELETE':
-            # Get ID from query parameter
+            # Check for 'all' parameter first (for clearing all items)
+            if query.get('all') == '1':
+                if path == 'messages':
+                    try:
+                        db = get_db_connection()
+                        cur = get_cursor(db)
+                        cur.execute("DELETE FROM messages")
+                        db['conn'].commit()
+                        db['conn'].close()
+                        return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                    except Exception as e:
+                        import traceback
+                        print(f"Error in DELETE /messages?all=1: {str(e)}")
+                        print(f"Traceback: {traceback.format_exc()}")
+                        raise
+                
+                elif path == 'chatbot' or path == 'chatbot-messages':
+                    try:
+                        db = get_db_connection()
+                        cur = get_cursor(db)
+                        cur.execute("DELETE FROM chatbot_messages")
+                        db['conn'].commit()
+                        db['conn'].close()
+                        return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                    except Exception as e:
+                        import traceback
+                        print(f"Error in DELETE /chatbot?all=1: {str(e)}")
+                        print(f"Traceback: {traceback.format_exc()}")
+                        raise
+            
+            # Get ID from query parameter for individual deletion
             item_id = query.get('id')
             if not item_id:
                 return 400, headers, json.dumps({'error': 'Missing id parameter'}, ensure_ascii=False)
@@ -427,6 +457,27 @@ def handle_api_request(path, method, query, body_data):
                 except Exception as e:
                     import traceback
                     print(f"Error in DELETE /reviews: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
+            elif path == 'chatbot' or path == 'chatbot-messages':
+                # For chatbot-messages, 'id' is the message ID (integer)
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "DELETE FROM chatbot_messages WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM chatbot_messages WHERE id = ?"
+                    # Convert id to int if possible, otherwise use as string
+                    try:
+                        msg_id = int(item_id)
+                    except ValueError:
+                        msg_id = item_id
+                    cur.execute(sql, (msg_id,))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in DELETE /chatbot: {str(e)}")
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
             

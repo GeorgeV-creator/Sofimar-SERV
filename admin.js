@@ -740,7 +740,7 @@ async function deleteChatbotConversation(index) {
         }
 
         try {
-            await Promise.all(idsToDelete.map(id => fetch(`${API_BASE_URL}/api/chatbot?id=${encodeURIComponent(id)}`, {
+            await Promise.all(idsToDelete.map(id => fetch(`${API_BASE_URL}/chatbot?id=${encodeURIComponent(id)}`, {
                 method: 'DELETE'
             })));
             await loadChatbotMessages();
