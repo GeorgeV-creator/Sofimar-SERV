@@ -334,9 +334,14 @@ function initializeEventListeners() {
             if (sourceValue === 'upload') {
                 const fileInput = document.getElementById('partnerImageFile');
                 if (fileInput && fileInput.files && fileInput.files[0]) {
-                    console.log('📝 Converting image to base64...');
-                    image = await convertImageToBase64(fileInput.files[0]);
-                    console.log('✅ Image converted, length:', image.length);
+                    try {
+                        console.log('📝 Converting image to base64...');
+                        image = await convertImageToBase64(fileInput.files[0]);
+                        console.log('✅ Image converted, length:', image.length);
+                    } catch (error) {
+                        alert(error.message || 'Eroare la procesarea imaginii. Te rugăm să încerci din nou sau să folosești un URL.');
+                        return;
+                    }
                 } else {
                     alert('Te rugăm să selectezi o imagine!');
                     return;
@@ -1568,14 +1573,93 @@ function closeCertificateModal() {
     document.getElementById('imagePreview').innerHTML = '';
 }
 
-// Convert image file to base64
-function convertImageToBase64(file) {
+// Compress and resize image before converting to base64
+function compressImage(file, maxWidth = 1920, maxHeight = 1920, quality = 0.8, maxSizeKB = 500) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Calculate new dimensions
+                if (width > maxWidth || height > maxHeight) {
+                    if (width > height) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    } else {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Convert to base64 with quality compression
+                let base64 = canvas.toDataURL('image/jpeg', quality);
+                
+                // If still too large, reduce quality further
+                while (base64.length > maxSizeKB * 1024 && quality > 0.3) {
+                    quality -= 0.1;
+                    base64 = canvas.toDataURL('image/jpeg', quality);
+                }
+
+                // Check final size
+                const sizeKB = (base64.length / 1024).toFixed(2);
+                console.log(`📸 Image compressed: ${(file.size / 1024).toFixed(2)} KB → ${sizeKB} KB (quality: ${quality.toFixed(1)})`);
+                
+                if (base64.length > 4 * 1024 * 1024) { // 4MB limit
+                    reject(new Error(`Imaginea este prea mare chiar și după compresie (${sizeKB} KB). Te rugăm să folosești un URL sau să reduci dimensiunea imaginii.`));
+                } else {
+                    resolve(base64);
+                }
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+// Convert image file to base64 (with compression for large images)
+function convertImageToBase64(file) {
+    // Check file size first (5MB limit before compression)
+    const fileSizeMB = file.size / (1024 * 1024);
+    const maxSizeBeforeCompression = 5; // MB
+    
+    if (fileSizeMB > maxSizeBeforeCompression) {
+        console.log(`📸 Large image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
+        return compressImage(file);
+    } else if (fileSizeMB > 1) {
+        // Compress images larger than 1MB
+        console.log(`📸 Medium image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
+        return compressImage(file, 1920, 1920, 0.85, 800);
+    } else {
+        // Small images can be used as-is
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result;
+                const sizeKB = (base64.length / 1024).toFixed(2);
+                console.log(`📸 Image used as-is: ${sizeKB} KB`);
+                
+                if (base64.length > 4 * 1024 * 1024) { // 4MB limit
+                    reject(new Error(`Imaginea este prea mare (${sizeKB} KB). Te rugăm să folosești un URL sau să reducezi dimensiunea imaginii.`));
+                } else {
+                    resolve(base64);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
 }
 
 // Preview uploaded image
