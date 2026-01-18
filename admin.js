@@ -646,37 +646,86 @@ async function loadChatbotMessages() {
     // Sort by timestamp (newest first)
     conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    conversationsDiv.innerHTML = conversations.map((conv, index) => {
-        const date = new Date(conv.timestamp);
-        const dateStr = date.toLocaleString('ro-RO', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    // Display as tabs if we have conversations
+    if (conversations.length > 0) {
+        conversationsDiv.style.display = 'none';
+        const tabsContainer = document.getElementById('chatbotTabsContainer');
+        const tabsNav = document.getElementById('chatbotTabsNav');
+        const tabsContent = document.getElementById('chatbotTabsContent');
+        
+        if (tabsContainer && tabsNav && tabsContent) {
+            tabsContainer.style.display = 'block';
+            
+            // Build tabs navigation
+            tabsNav.innerHTML = conversations.map((conv, index) => {
+                const date = new Date(conv.timestamp);
+                const dateStr = date.toLocaleString('ro-RO', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const preview = escapeHtml(conv.userMessage.message.substring(0, 30)) + (conv.userMessage.message.length > 30 ? '...' : '');
+                
+                return `
+                    <button class="chatbot-tab-btn ${index === 0 ? 'active' : ''}" data-conversation-index="${index}" onclick="switchChatbotConversation(${index})">
+                        <span class="tab-date">${dateStr}</span>
+                        <span class="tab-preview">${preview}</span>
+                    </button>
+                `;
+            }).join('');
+            
+            // Build tabs content
+            tabsContent.innerHTML = conversations.map((conv, index) => {
+                const date = new Date(conv.timestamp);
+                const dateStr = date.toLocaleString('ro-RO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return `
+                    <div class="chatbot-tab-content ${index === 0 ? 'active' : ''}" data-conversation-index="${index}">
+                        <div class="conversation-header">
+                            <div class="conversation-date">📅 ${dateStr}</div>
+                            <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
+                        </div>
+                        <div class="conversation-messages">
+                            <div class="chatbot-message user">
+                                <div class="message-label">👤 Utilizator:</div>
+                                <div class="message-text">${escapeHtml(conv.userMessage.message)}</div>
+                            </div>
+                            ${conv.botMessage ? `
+                            <div class="chatbot-message bot">
+                                <div class="message-label">🤖 Bot:</div>
+                                <div class="message-text">${escapeHtml(conv.botMessage.message)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    } else {
+        const tabsContainer = document.getElementById('chatbotTabsContainer');
+        if (tabsContainer) tabsContainer.style.display = 'none';
+        conversationsDiv.style.display = 'block';
+    }
+}
 
-        return `
-            <div class="chatbot-conversation">
-                <div class="conversation-header">
-                    <div class="conversation-date">📅 ${dateStr}</div>
-                    <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
-                </div>
-                <div class="conversation-messages">
-                    <div class="chatbot-message user">
-                        <div class="message-label">👤 Utilizator:</div>
-                        <div class="message-text">${escapeHtml(conv.userMessage.message)}</div>
-                    </div>
-                    ${conv.botMessage ? `
-                    <div class="chatbot-message bot">
-                        <div class="message-label">🤖 Bot:</div>
-                        <div class="message-text">${escapeHtml(conv.botMessage.message)}</div>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
+function switchChatbotConversation(index) {
+    // Remove active class from all tabs and contents
+    document.querySelectorAll('.chatbot-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.chatbot-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Add active class to selected tab and content
+    const selectedTab = document.querySelector(`.chatbot-tab-btn[data-conversation-index="${index}"]`);
+    const selectedContent = document.querySelector(`.chatbot-tab-content[data-conversation-index="${index}"]`);
+    
+    if (selectedTab) selectedTab.classList.add('active');
+    if (selectedContent) selectedContent.classList.add('active');
 }
 
 async function getChatbotMessages() {
@@ -2413,6 +2462,7 @@ function escapeHtml(text) {
 // Make functions available globally for onclick handlers
 window.deleteMessage = deleteMessage;
 window.deleteChatbotConversation = deleteChatbotConversation;
+window.switchChatbotConversation = switchChatbotConversation;
 window.editLocation = editLocation;
 window.deleteLocation = deleteLocation;
 window.deleteTikTokVideo = deleteTikTokVideo;
