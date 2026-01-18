@@ -1251,11 +1251,14 @@ function saveCertificates(certificates) {
 async function addCertificate(title, description, image, type = 'certificat') {
     // Create new certificate object
     const newCertificate = { title, description, image, type };
-    console.log('Adding new certificate:', newCertificate);
+    console.log('🔄 Adding new certificate:', { title, type, imageLength: image ? image.length : 0 });
     
     try {
         // Try to save to API server
-        const response = await fetch(`${API_BASE_URL}/certificates`, {
+        const url = `${API_BASE_URL}/certificates`;
+        console.log('📡 Sending POST request to:', url);
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1263,15 +1266,26 @@ async function addCertificate(title, description, image, type = 'certificat') {
             body: JSON.stringify(newCertificate)
         });
         
+        console.log('📥 API response status:', response.status, response.statusText);
+        
         if (response.ok) {
             const result = await response.json();
-            console.log('Certificate saved to API:', result);
+            console.log('✅ Certificate saved to API:', result);
         } else {
-            throw new Error('API save failed');
+            // Get error details from response
+            let errorText = '';
+            try {
+                errorText = await response.text();
+                console.error('❌ API error response:', response.status, errorText);
+            } catch (e) {
+                console.error('❌ Could not read error response:', e);
+            }
+            throw new Error(`API save failed: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
         }
     } catch (error) {
-        console.error('API server not available, certificate not saved:', error);
-        alert('Eroare: serverul nu este disponibil. Certificatul nu a fost salvat.');
+        console.error('❌ Error saving certificate:', error);
+        const errorMessage = error.message || 'serverul nu este disponibil';
+        alert(`Eroare: ${errorMessage}. Certificatul nu a fost salvat.`);
         return;
     }
     
