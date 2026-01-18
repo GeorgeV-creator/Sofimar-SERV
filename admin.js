@@ -806,15 +806,18 @@ async function getLocations() {
         const response = await fetch(`${API_BASE_URL}/locations`);
         if (response.ok) {
             const locations = await response.json();
-            if (Array.isArray(locations) && locations.length > 0) {
+            // Always return the array from API, even if empty (don't override with defaults)
+            if (Array.isArray(locations)) {
                 return locations;
             }
         }
     } catch (error) {
         console.error('API server not available:', error);
+        // Only return defaults if API request completely fails (not if empty array)
+        return getDefaultLocations();
     }
-    // Return default locations if API fails or returns empty
-    return getDefaultLocations();
+    // Return empty array if API response is not valid
+    return [];
 }
 
 function getDefaultLocations() {
@@ -873,6 +876,7 @@ function getDefaultLocations() {
 
 async function saveLocations(locations) {
     try {
+        console.log('📡 Saving locations:', locations.length, 'locations');
         const response = await fetch(`${API_BASE_URL}/locations`, {
             method: 'POST',
             headers: {
@@ -880,12 +884,18 @@ async function saveLocations(locations) {
             },
             body: JSON.stringify({ locations })
         });
+        
         if (!response.ok) {
-            throw new Error('Failed to save locations');
+            const errorText = await response.text().catch(() => '');
+            console.error('❌ API error response:', response.status, errorText);
+            throw new Error(`Failed to save locations: ${response.status} ${errorText}`);
         }
+        
+        const result = await response.json();
+        console.log('✅ Locations saved successfully:', result);
     } catch (error) {
-        console.error('Error saving locations:', error);
-        alert('Eroare: serverul nu este disponibil. Locațiile nu au fost salvate.');
+        console.error('❌ Error saving locations:', error);
+        alert(`Eroare: ${error.message || 'serverul nu este disponibil'}. Locațiile nu au fost salvate.`);
         throw error;
     }
 }
@@ -1053,7 +1063,14 @@ async function saveLocation() {
     }
     
     try {
-        const locations = await getLocations();
+        let locations = await getLocations();
+        
+        // Ensure locations is always an array
+        if (!Array.isArray(locations)) {
+            console.warn('Locations is not an array, initializing as empty array');
+            locations = [];
+        }
+        
         const newLocation = {
             name,
             description,
@@ -1064,7 +1081,13 @@ async function saveLocation() {
         
         if (editIndex !== '') {
             // Edit existing
-            locations[parseInt(editIndex)] = newLocation;
+            const index = parseInt(editIndex);
+            if (index >= 0 && index < locations.length) {
+                locations[index] = newLocation;
+            } else {
+                alert('Eroare: indexul locației nu este valid.');
+                return;
+            }
         } else {
             // Add new
             locations.push(newLocation);
@@ -1077,8 +1100,8 @@ async function saveLocation() {
         // Dispatch event to update map on main page
         window.dispatchEvent(new CustomEvent('locationsUpdated'));
     } catch (error) {
-        console.error('Error saving location:', error);
-        alert('Eroare la salvarea locației. Te rugăm să încerci din nou.');
+        console.error('❌ Error saving location:', error);
+        alert(`Eroare la salvarea locației: ${error.message || 'Te rugăm să încerci din nou.'}`);
     }
 }
 
@@ -1089,16 +1112,28 @@ function editLocation(index) {
 async function deleteLocation(index) {
     if (confirm('Ești sigur că vrei să ștergi această locație?')) {
         try {
-            const locations = await getLocations();
-            locations.splice(index, 1);
-            await saveLocations(locations);
-            await loadLocations();
+            let locations = await getLocations();
             
-            // Dispatch event to update map on main page
-            window.dispatchEvent(new CustomEvent('locationsUpdated'));
+            // Ensure locations is always an array
+            if (!Array.isArray(locations)) {
+                console.warn('Locations is not an array, cannot delete');
+                alert('Eroare: nu s-au putut încărca locațiile.');
+                return;
+            }
+            
+            if (index >= 0 && index < locations.length) {
+                locations.splice(index, 1);
+                await saveLocations(locations);
+                await loadLocations();
+                
+                // Dispatch event to update map on main page
+                window.dispatchEvent(new CustomEvent('locationsUpdated'));
+            } else {
+                alert('Eroare: indexul locației nu este valid.');
+            }
         } catch (error) {
-            console.error('Error deleting location:', error);
-            alert('Eroare la ștergerea locației. Te rugăm să încerci din nou.');
+            console.error('❌ Error deleting location:', error);
+            alert(`Eroare la ștergerea locației: ${error.message || 'Te rugăm să încerci din nou.'}`);
         }
     }
 }
