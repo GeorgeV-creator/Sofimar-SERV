@@ -242,11 +242,14 @@ function initializeEventListeners() {
                     urlSection.style.display = 'none';
                     fileInput.required = true;
                     urlInput.required = false;
+                    urlInput.value = ''; // Clear URL when switching to upload
                 } else {
                     uploadSection.style.display = 'none';
                     urlSection.style.display = 'block';
                     fileInput.required = false;
                     urlInput.required = true;
+                    fileInput.value = ''; // Clear file when switching to URL
+                    document.getElementById('imagePreview').innerHTML = ''; // Clear preview
                 }
             });
         });
