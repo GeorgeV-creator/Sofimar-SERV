@@ -831,19 +831,24 @@ async function loadPartnersOnPage() {
     
     try {
         // Try to fetch from API server
+        console.log('Fetching partners from:', `${API_BASE_URL}/partners`);
         const response = await fetch(`${API_BASE_URL}/partners`);
+        console.log('Partners API response status:', response.status, response.statusText);
         if (response.ok) {
             partners = await response.json();
-            console.log('Loading partners from API:', partners.length, 'partners');
+            console.log('✅ Loading partners from API:', partners.length, 'partners');
+            console.log('Partners data:', partners);
             if (!Array.isArray(partners)) {
-                console.error('Partners data from API is not an array');
+                console.error('❌ Partners data from API is not an array:', typeof partners, partners);
                 partners = [];
             }
         } else {
-            throw new Error('API response not OK');
+            const errorText = await response.text();
+            console.error('❌ API response not OK:', response.status, errorText);
+            throw new Error(`API response not OK: ${response.status}`);
         }
     } catch (error) {
-        console.error('API server not available, partners not loaded:', error);
+        console.error('❌ API server not available, partners not loaded:', error);
         partners = [];
     }
     
@@ -885,19 +890,24 @@ async function loadCertificatesOnPage() {
     
     try {
         // Try to fetch from API server
+        console.log('Fetching certificates from:', `${API_BASE_URL}/certificates`);
         const response = await fetch(`${API_BASE_URL}/certificates`);
+        console.log('Certificates API response status:', response.status, response.statusText);
         if (response.ok) {
             certificates = await response.json();
-            console.log('Loading certificates from API:', certificates.length, 'certificates');
+            console.log('✅ Loading certificates from API:', certificates.length, 'certificates');
+            console.log('Certificates data:', certificates);
             if (!Array.isArray(certificates)) {
-                console.error('Certificates data from API is not an array');
+                console.error('❌ Certificates data from API is not an array:', typeof certificates, certificates);
                 certificates = [];
             }
         } else {
-            throw new Error('API response not OK');
+            const errorText = await response.text();
+            console.error('❌ API response not OK:', response.status, errorText);
+            throw new Error(`API response not OK: ${response.status}`);
         }
     } catch (error) {
-        console.error('API server not available, certificates not loaded:', error);
+        console.error('❌ API server not available, certificates not loaded:', error);
         certificates = [];
     }
 
