@@ -242,76 +242,106 @@ def handle_api_request(path, method, query, body_data):
                 return 400, headers, json.dumps({'error': f'Invalid JSON: {str(e)}'}, ensure_ascii=False)
             
             if path == 'messages':
-                data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
-                data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
-                
-                db = get_db_connection()
-                cur = get_cursor(db)
-                sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
-                cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
-                db['conn'].commit()
-                db['conn'].close()
-                return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                try:
+                    data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
+                    data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
+                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /messages: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
             
             elif path == 'certificates':
-                data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
-                data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
-                cert_type = data.get('type', 'certificat')
-                
-                db = get_db_connection()
-                cur = get_cursor(db)
-                sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
-                if db['type'] == 'neon':
-                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
-                else:
-                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
-                db['conn'].commit()
-                db['conn'].close()
-                return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                try:
+                    data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
+                    data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    cert_type = data.get('type', 'certificat')
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                    else:
+                        cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /certificates: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
             
             elif path == 'tiktok-videos':
-                videos = data.get('videos', [])
-                if not isinstance(videos, list):
-                    return 400, headers, json.dumps({'error': 'Invalid videos'}, ensure_ascii=False)
-                
-                db = get_db_connection()
-                cur = get_cursor(db)
-                last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
-                videos_json = json.dumps(videos, ensure_ascii=False)
-                if db['type'] == 'neon':
-                    cur.execute(sql, (videos_json, last_updated, videos_json, last_updated))
-                else:
-                    cur.execute(sql, (videos_json, last_updated))
-                db['conn'].commit()
-                db['conn'].close()
-                return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                try:
+                    videos = data.get('videos', [])
+                    if not isinstance(videos, list):
+                        return 400, headers, json.dumps({'error': 'Invalid videos'}, ensure_ascii=False)
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    last_updated = datetime.now().isoformat()
+                    sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
+                    videos_json = json.dumps(videos, ensure_ascii=False)
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (videos_json, last_updated, videos_json, last_updated))
+                    else:
+                        cur.execute(sql, (videos_json, last_updated))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /tiktok-videos: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
             
             elif path == 'locations':
-                db = get_db_connection()
-                cur = get_cursor(db)
-                last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
-                data_json = json.dumps(data, ensure_ascii=False)
-                if db['type'] == 'neon':
-                    cur.execute(sql, (data_json, last_updated, data_json, last_updated))
-                else:
-                    cur.execute(sql, (data_json, last_updated))
-                db['conn'].commit()
-                db['conn'].close()
-                return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    last_updated = datetime.now().isoformat()
+                    sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
+                    data_json = json.dumps(data, ensure_ascii=False)
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (data_json, last_updated, data_json, last_updated))
+                    else:
+                        cur.execute(sql, (data_json, last_updated))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /locations: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
             
             elif path == 'partners':
-                data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
-                data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
-                
-                db = get_db_connection()
-                cur = get_cursor(db)
-                sql = "INSERT INTO partners (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO partners (id, data, timestamp) VALUES (?, ?, ?)"
-                cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
-                db['conn'].commit()
-                db['conn'].close()
-                return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                try:
+                    data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
+                    data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    sql = "INSERT INTO partners (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO partners (id, data, timestamp) VALUES (?, ?, ?)"
+                    cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /partners: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
             
             elif path == 'admin-password':
                 password = data.get('password')
