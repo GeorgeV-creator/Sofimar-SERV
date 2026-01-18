@@ -370,6 +370,26 @@ def handle_api_request(path, method, query, body_data):
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
             
+            elif path == 'site-texts':
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    last_updated = datetime.now().isoformat()
+                    texts_json = json.dumps(data, ensure_ascii=False)
+                    sql = "INSERT INTO site_texts (id, texts, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET texts = EXCLUDED.texts, last_updated = EXCLUDED.last_updated" if db['type'] == 'neon' else "INSERT OR REPLACE INTO site_texts (id, texts, last_updated) VALUES (1, ?, ?)"
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (texts_json, last_updated))
+                    else:
+                        cur.execute(sql, (texts_json, last_updated))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /site-texts: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    raise
+            
             elif path == 'admin-password':
                 password = data.get('password')
                 if not password:
