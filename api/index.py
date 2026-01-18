@@ -27,13 +27,21 @@ def get_db_connection():
             import psycopg2
             from psycopg2.extras import RealDictCursor
             conn = psycopg2.connect(SUPABASE_DB_URL)
-            return {'conn': conn, 'type': 'supabase', 'cursor_factory': RealDictCursor}
+            # RealDictCursor is a class, not an instance
+            return {'conn': conn, 'type': 'supabase', 'cursor_factory': RealDictCursor, 'is_supabase': True}
         except Exception as e:
             print(f"Supabase connection error: {e}, using SQLite")
     
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
-    return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None}
+    return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_supabase': False}
+
+def get_cursor(db):
+    """Get cursor from database connection, handling both Supabase and SQLite"""
+    if db['is_supabase']:
+        return db['conn'].cursor(cursor_factory=db['cursor_factory'])
+    else:
+        return db['conn'].cursor()
 
 def handle_api_request(path, method, query, body_data):
     """Handle API request and return response"""
@@ -89,7 +97,7 @@ def handle_api_request(path, method, query, body_data):
                 try:
                     db = get_db_connection()
                     # Try a simple query
-                    cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                    cur = get_cursor(db)
                     cur.execute("SELECT 1 as test")
                     cur.fetchone()
                     db['conn'].close()
@@ -110,7 +118,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'messages':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT data FROM messages ORDER BY timestamp DESC")
                 rows = cur.fetchall()
                 messages = [json.loads(dict(row)['data'] if db['type'] == 'supabase' else row['data']) for row in rows]
@@ -119,7 +127,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'certificates':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT id, data, type FROM certificates ORDER BY timestamp DESC")
                 rows = cur.fetchall()
                 certificates = []
@@ -133,7 +141,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'tiktok-videos':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT videos FROM tiktok_videos WHERE id = 1")
                 row = cur.fetchone()
                 if row:
@@ -147,7 +155,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'locations':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT data FROM locations WHERE id = 1")
                 row = cur.fetchone()
                 if row:
@@ -160,7 +168,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'reviews':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT id, author, rating, text, date FROM reviews ORDER BY timestamp DESC")
                 rows = cur.fetchall()
                 reviews = [dict(row) if db['type'] == 'supabase' else {k: row[k] for k in row.keys()} for row in rows]
@@ -169,7 +177,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'chatbot-responses':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT keyword, response FROM chatbot_responses ORDER BY keyword")
                 rows = cur.fetchall()
                 responses = {}
@@ -181,7 +189,7 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'admin-password':
                 db = get_db_connection()
-                cur = db['conn'].cursor(cursor_factory=db['cursor_factory'])
+                cur = get_cursor(db)
                 cur.execute("SELECT password FROM admin_password WHERE id = 1")
                 row = cur.fetchone()
                 password = dict(row)['password'] if row and db['type'] == 'supabase' else (row['password'] if row else 'admin123')
