@@ -305,9 +305,8 @@ class handler(BaseHTTPRequestHandler):
             parsed_url = urlparse(raw_path)
             path = parsed_url.path
             
-            # Log for debugging
-            if os.environ.get('VERCEL_ENV') != 'production':
-                print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
+            # Log for debugging - enable in production too
+            print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
             
             # Parse query
             query = {}
