@@ -93,18 +93,21 @@ def handle_api_request(path, method, query, body_data):
             
             if path == 'test' or path == 'health':
                 # Test database connection
-                db_status = {'connected': False, 'error': None}
+                db_status = {'connected': False, 'error': None, 'type': None}
                 try:
                     db = get_db_connection()
+                    db_status['type'] = db['type']  # Set type before testing
+                    print(f"Testing connection to: {db['type']}")
                     # Try a simple query
                     cur = get_cursor(db)
                     cur.execute("SELECT 1 as test")
                     cur.fetchone()
                     db['conn'].close()
                     db_status['connected'] = True
-                    db_status['type'] = db['type']
                 except Exception as e:
-                    db_status['error'] = str(e)
+                    error_msg = str(e)
+                    db_status['error'] = error_msg
+                    print(f"Database connection error: {error_msg}")
                 
                 return 200, headers, json.dumps({
                     'status': 'ok',
