@@ -285,6 +285,7 @@ function initializeEventListeners() {
             closeLocationModal();
             closeCertificateModal();
             closePartnerModal();
+            closeChatbotResponseModal();
         });
     });
 
@@ -297,6 +298,7 @@ function initializeEventListeners() {
                 closeLocationModal();
                 closeCertificateModal();
                 closePartnerModal();
+                closeChatbotResponseModal();
             }
         });
     });
