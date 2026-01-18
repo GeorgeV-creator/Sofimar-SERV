@@ -956,28 +956,40 @@ async function loadCertificatesOnPage() {
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
         }
         
-        // Wait for all images to load before hiding loading screen
+        // Wait for all images to load before hiding loading screen (minimum 3 seconds)
         if (loadingScreen && certificatesContent) {
             const allImages = [
                 ...certificatesGrid.querySelectorAll('img'),
                 ...accreditationsGrid.querySelectorAll('img')
             ];
             
+            const startTime = Date.now();
+            const minDisplayTime = 3000; // 3 seconds minimum
+            
+            const hideLoadingScreen = () => {
+                const elapsedTime = Date.now() - startTime;
+                const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+                
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    certificatesContent.style.display = 'block';
+                }, remainingTime);
+            };
+            
             if (allImages.length === 0) {
-                // No images to load, hide loading immediately
-                loadingScreen.style.display = 'none';
-                certificatesContent.style.display = 'block';
+                // No images to load, wait minimum 3 seconds
+                hideLoadingScreen();
             } else {
-                // Wait for all images to load
+                // Wait for all images to load, but ensure minimum 3 seconds display
                 let loadedCount = 0;
                 const totalImages = allImages.length;
+                let allImagesLoaded = false;
                 
                 const checkAllLoaded = () => {
                     loadedCount++;
-                    if (loadedCount === totalImages) {
-                        // All images loaded, hide loading screen
-                        loadingScreen.style.display = 'none';
-                        certificatesContent.style.display = 'block';
+                    if (loadedCount === totalImages && !allImagesLoaded) {
+                        allImagesLoaded = true;
+                        hideLoadingScreen();
                     }
                 };
                 
@@ -992,6 +1004,14 @@ async function loadCertificatesOnPage() {
                         img.addEventListener('error', checkAllLoaded); // Also count errors as "loaded"
                     }
                 });
+                
+                // Fallback: if images take too long, hide after 3 seconds anyway
+                setTimeout(() => {
+                    if (!allImagesLoaded) {
+                        allImagesLoaded = true;
+                        hideLoadingScreen();
+                    }
+                }, minDisplayTime);
             }
         }
     } else {
