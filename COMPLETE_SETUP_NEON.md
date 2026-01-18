@@ -30,6 +30,9 @@ Ghid pas cu pas pentru deploy-ul aplicației Sofimar SERV pe Vercel cu Neon Post
 3. **Copiază** connection string-ul (format: `postgresql://[user]:[password]@[host]/[dbname]?sslmode=require`)
 4. **IMPORTANT**: Connection string-ul trebuie să includă `?sslmode=require`
 
+<!-- NOTA: Șterge parola din connection string înainte de commit pe GitHub pentru securitate! -->
+<!-- Exemplu: postgresql://neondb_owner:[PASSWORD]@ep-little-bar-a92xmhtr-pooler.gwc.azure.neon.tech/neondb?sslmode=require&channel_binding=require -->
+
 Exemplu:
 ```
 postgresql://[user]:[password]@ep-xxx-xxx.region.aws.neon.tech/neondb?sslmode=require
