@@ -49,11 +49,24 @@ def handle_api_request(path, method, query, body_data):
         if method == 'OPTIONS':
             return 200, headers, ''
         
+        # Log original path for debugging
+        original_path = path
+        
         # Remove /api/ prefix from path
         if path.startswith('/api/'):
             path = path[5:]
         elif path.startswith('api/'):
             path = path[4:]
+        elif path == '/api' or path == '/api/':
+            path = ''
+        
+        # Remove leading slash if present
+        if path.startswith('/'):
+            path = path[1:]
+        
+        # Debug logging (only in non-production)
+        if os.environ.get('VERCEL_ENV') != 'production':
+            print(f"API Request: method={method}, original_path={original_path}, processed_path={path}")
         
         # GET endpoints
         if method == 'GET':
@@ -279,10 +292,14 @@ class handler(BaseHTTPRequestHandler):
     
     def _handle_request(self, method):
         try:
-            # Parse path
-            path = self.path
-            parsed_url = urlparse(path)
+            # Parse path - Vercel passes the full path including /api/
+            raw_path = self.path
+            parsed_url = urlparse(raw_path)
             path = parsed_url.path
+            
+            # Log for debugging
+            if os.environ.get('VERCEL_ENV') != 'production':
+                print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
             
             # Parse query
             query = {}
