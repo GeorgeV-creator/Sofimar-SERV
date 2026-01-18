@@ -593,13 +593,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Listen for location updates from admin panel
 window.addEventListener('locationsUpdated', () => {
-    if (romaniaMapInstance) {
-        // Reload map with new locations
-        const mapContainer = document.getElementById('romaniaMap');
-        if (mapContainer) {
-            mapContainer.innerHTML = ''; // Clear map
-            initRomaniaMap().catch(err => console.error('Error reinitializing map:', err)); // Reinitialize
+    console.log('📍 Locations updated event received, reloading map...');
+    const mapContainer = document.getElementById('romaniaMap');
+    if (mapContainer) {
+        // Remove existing map instance if it exists
+        if (romaniaMapInstance) {
+            romaniaMapInstance.remove();
+            romaniaMapInstance = null;
         }
+        // Clear map container
+        mapContainer.innerHTML = '';
+        // Reinitialize map with new locations from API
+        setTimeout(() => {
+            initRomaniaMap().catch(err => console.error('Error reinitializing map:', err));
+        }, 100);
+    } else {
+        console.warn('Map container not found, cannot update locations');
     }
 });
 
