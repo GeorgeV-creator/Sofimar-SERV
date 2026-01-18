@@ -7,7 +7,7 @@ Creates database tables automatically on first run
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import urllib.request
@@ -15,6 +15,20 @@ import urllib.parse
 
 # OpenAI API Key - can be set via environment variable OPENAI_API_KEY
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+def cleanup_old_messages(db, cur, days=5):
+    """Delete chatbot messages older than specified days"""
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+        sql = "DELETE FROM chatbot_messages WHERE timestamp < %s" if db['type'] == 'neon' else "DELETE FROM chatbot_messages WHERE timestamp < ?"
+        cur.execute(sql, (cutoff_date,))
+        deleted_count = cur.rowcount if db['type'] == 'neon' else cur.rowcount
+        db['conn'].commit()
+        if deleted_count > 0:
+            print(f"Cleaned up {deleted_count} old chatbot messages (older than {days} days)")
+    except Exception as e:
+        print(f"Error cleaning up old messages: {str(e)}")
+        # Don't raise - cleanup failure shouldn't break the request
 
 # Database configuration
 # Try multiple environment variable names (Neon integration might use different names)
@@ -243,6 +257,32 @@ def handle_api_request(path, method, query, body_data):
                 password = dict(row)['password'] if row and db['type'] == 'neon' else (row['password'] if row else 'admin123')
                 db['conn'].close()
                 return 200, headers, json.dumps({'password': password}, ensure_ascii=False)
+            
+            elif path == 'chatbot' or path == 'chatbot-messages':
+                # Get chatbot messages
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    
+                    # Clean up messages older than 5 days
+                    cleanup_old_messages(db, cur, days=5)
+                    
+                    cur.execute("SELECT id, data, timestamp FROM chatbot_messages ORDER BY timestamp ASC")
+                    rows = cur.fetchall()
+                    messages = []
+                    for row in rows:
+                        row_dict = dict(row) if db['type'] == 'neon' else row
+                        msg_data = json.loads(row_dict['data']) if isinstance(row_dict['data'], str) else row_dict['data']
+                        msg_data['id'] = row_dict['id']
+                        messages.append(msg_data)
+                    db['conn'].close()
+                    return 200, headers, json.dumps(messages, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    error_msg = str(e)
+                    print(f"Error in GET /chatbot: {error_msg}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    return 500, headers, json.dumps({'error': error_msg}, ensure_ascii=False)
             
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
