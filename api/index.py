@@ -412,6 +412,37 @@ def handle_api_request(path, method, query, body_data):
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
             
+            elif path == 'chatbot-responses':
+                try:
+                    keyword = data.get('keyword', '').strip().lower()
+                    response_text = data.get('response', '').strip()
+                    
+                    if not keyword or not response_text:
+                        return 400, headers, json.dumps({'error': 'Missing keyword or response'}, ensure_ascii=False)
+                    
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    timestamp = datetime.now().isoformat()
+                    
+                    # Insert or update chatbot response
+                    sql = "INSERT INTO chatbot_responses (keyword, response, timestamp) VALUES (%s, %s, %s) ON CONFLICT (keyword) DO UPDATE SET response = EXCLUDED.response, timestamp = EXCLUDED.timestamp" if db['type'] == 'neon' else "INSERT OR REPLACE INTO chatbot_responses (keyword, response, timestamp) VALUES (?, ?, ?)"
+                    
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (keyword, response_text, timestamp))
+                    else:
+                        cur.execute(sql, (keyword, response_text, timestamp))
+                    
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'keyword': keyword}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    error_msg = str(e)
+                    traceback_str = traceback.format_exc()
+                    print(f"❌ Error in POST /chatbot-responses: {error_msg}")
+                    print(f"Traceback: {traceback_str}")
+                    return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
+            
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
         

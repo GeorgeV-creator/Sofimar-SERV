@@ -2842,6 +2842,7 @@ async function saveChatbotResponse() {
     }
     
     try {
+        console.log('📡 Saving chatbot response:', { keyword, responseLength: responseText.length });
         const response = await fetch(`${API_BASE_URL}/chatbot-responses`, {
             method: 'POST',
             headers: {
@@ -2851,14 +2852,19 @@ async function saveChatbotResponse() {
         });
         
         if (!response.ok) {
-            throw new Error('Failed to save chatbot response');
+            const errorText = await response.text().catch(() => '');
+            console.error('❌ API error response:', response.status, errorText);
+            throw new Error(`Failed to save chatbot response: ${response.status} ${errorText}`);
         }
+        
+        const result = await response.json();
+        console.log('✅ Chatbot response saved successfully:', result);
         
         await loadChatbotResponsesAdmin();
         closeChatbotResponseModal();
     } catch (error) {
-        console.error('Error saving chatbot response:', error);
-        alert('Eroare la salvarea răspunsului. Te rugăm să încerci din nou.');
+        console.error('❌ Error saving chatbot response:', error);
+        alert(`Eroare la salvarea răspunsului: ${error.message || 'Te rugăm să încerci din nou.'}`);
     }
 }
 
