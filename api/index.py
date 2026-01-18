@@ -14,7 +14,15 @@ import urllib.request
 import urllib.parse
 
 # Database configuration
-NEON_DB_URL = os.environ.get('NEON_DB_URL', '')
+# Try multiple environment variable names (Neon integration might use different names)
+NEON_DB_URL = (
+    os.environ.get('NEON_DB_URL') or 
+    os.environ.get('DATABASE_URL') or 
+    os.environ.get('POSTGRES_URL') or 
+    os.environ.get('POSTGRES_PRISMA_URL') or 
+    os.environ.get('POSTGRES_URL_NON_POOLING') or
+    ''
+)
 USE_NEON = bool(NEON_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
