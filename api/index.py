@@ -334,15 +334,20 @@ def handle_api_request(path, method, query, body_data):
             
             elif path == 'locations':
                 try:
+                    # Extract locations array from data (admin.js sends { locations: [...] })
+                    locations = data.get('locations') if isinstance(data, dict) and 'locations' in data else data
+                    if not isinstance(locations, list):
+                        locations = []
+                    
                     db = get_db_connection()
                     cur = get_cursor(db)
                     last_updated = datetime.now().isoformat()
-                    sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
-                    data_json = json.dumps(data, ensure_ascii=False)
+                    sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, last_updated = EXCLUDED.last_updated" if db['type'] == 'neon' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
+                    locations_json = json.dumps(locations, ensure_ascii=False)
                     if db['type'] == 'neon':
-                        cur.execute(sql, (data_json, last_updated, data_json, last_updated))
+                        cur.execute(sql, (locations_json, last_updated))
                     else:
-                        cur.execute(sql, (data_json, last_updated))
+                        cur.execute(sql, (locations_json, last_updated))
                     db['conn'].commit()
                     db['conn'].close()
                     return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
