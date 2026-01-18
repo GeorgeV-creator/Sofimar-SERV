@@ -64,12 +64,20 @@ def handle_api_request(path, method, query, body_data):
         if path.startswith('/'):
             path = path[1:]
         
-        # Debug logging (only in non-production)
-        if os.environ.get('VERCEL_ENV') != 'production':
-            print(f"API Request: method={method}, original_path={original_path}, processed_path={path}")
+        # Debug logging - enable in production too for troubleshooting
+        print(f"API Request: method={method}, original_path={original_path}, processed_path={path}")
         
         # GET endpoints
         if method == 'GET':
+            # Handle root /api/ or empty path
+            if path == '' or path == '/':
+                return 200, headers, json.dumps({
+                    'status': 'ok',
+                    'message': 'API is working. Use /api/test, /api/messages, etc.',
+                    'use_supabase': USE_SUPABASE,
+                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite'
+                }, ensure_ascii=False)
+            
             if path == 'test' or path == 'health':
                 # Test database connection
                 db_status = {'connected': False, 'error': None}
