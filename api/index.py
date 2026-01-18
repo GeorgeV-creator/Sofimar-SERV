@@ -29,34 +29,73 @@ def get_db_connection():
             import psycopg2
             from psycopg2.extras import RealDictCursor
             import socket
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import urlparse
             
             print(f"Attempting Supabase connection...")
             
             # Parse connection URL
             parsed = urlparse(SUPABASE_DB_URL)
             hostname = parsed.hostname
+            port = parsed.port or 5432
+            username = parsed.username
+            password = parsed.password
+            database = parsed.path.lstrip('/') if parsed.path else 'postgres'
             
             # Force IPv4 by resolving hostname to IPv4 address
             # This prevents IPv6 connection issues on Vercel
+            ipv4_addr = None
             try:
-                # Get IPv4 address (AF_INET = IPv4)
-                ipv4_addr = socket.getaddrinfo(hostname, parsed.port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-                print(f"Resolved {hostname} to IPv4: {ipv4_addr}")
+                # Try to get IPv4 address using AF_UNSPEC to get all addresses
+                # Then filter for IPv4 only
+                results = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+                for res in results:
+                    family, socktype, proto, canonname, sockaddr = res
+                    if family == socket.AF_INET:  # IPv4 only
+                        ipv4_addr = sockaddr[0]
+                        print(f"Resolved {hostname} to IPv4: {ipv4_addr}")
+                        break
+                if not ipv4_addr:
+                    print(f"Warning: No IPv4 address found for {hostname}, only IPv6 available")
+            except (socket.gaierror, IndexError, Exception) as resolve_error:
+                print(f"Could not resolve {hostname} to IPv4: {resolve_error}")
+                # Will fall back to connection parameters method
+            
+            if ipv4_addr:
+                # Build connection string with IPv4 address
+                # Construct connection parameters dict to force IPv4
+                conn_params = {
+                    'host': ipv4_addr,
+                    'port': port,
+                    'user': username,
+                    'password': password,
+                    'dbname': database,
+                    'connect_timeout': 10
+                }
+                # Add SSL parameters if present in original URL
+                if 'sslmode' in parsed.query:
+                    from urllib.parse import parse_qs
+                    query_params = parse_qs(parsed.query)
+                    if 'sslmode' in query_params:
+                        conn_params['sslmode'] = query_params['sslmode'][0]
+                else:
+                    # Default to require SSL for Supabase
+                    conn_params['sslmode'] = 'require'
                 
-                # Rebuild connection string with IPv4 address
-                # Replace hostname with IP in connection string
-                db_url_with_ip = SUPABASE_DB_URL.replace(f"{hostname}", ipv4_addr)
-                
-                # Add connection parameters to force IPv4 and SSL
-                conn = psycopg2.connect(
-                    db_url_with_ip,
-                    connect_timeout=10
-                )
-            except (socket.gaierror, IndexError) as resolve_error:
-                print(f"Could not resolve to IPv4, trying original URL: {resolve_error}")
-                # Fall back to original URL if resolution fails
-                conn = psycopg2.connect(SUPABASE_DB_URL, connect_timeout=10)
+                conn = psycopg2.connect(**conn_params)
+            else:
+                # Fallback: try to force IPv4 in connection using host parameter
+                # Parse connection string and rebuild with explicit IPv4 preference
+                conn_params = {
+                    'host': hostname,
+                    'port': port,
+                    'user': username,
+                    'password': password,
+                    'dbname': database,
+                    'connect_timeout': 10
+                }
+                # Try connection with host parameter - psycopg2 might handle it better
+                print(f"Trying connection with hostname: {hostname}")
+                conn = psycopg2.connect(**conn_params)
             
             print("✅ Supabase connection successful!")
             # RealDictCursor is a class, not an instance
