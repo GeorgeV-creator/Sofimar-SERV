@@ -14,109 +14,45 @@ import urllib.request
 import urllib.parse
 
 # Database configuration
-SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
-SUPABASE_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
-USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY and SUPABASE_DB_URL)
+NEON_DB_URL = os.environ.get('NEON_DB_URL', '')
+USE_NEON = bool(NEON_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
 def get_db_connection():
-    """Get database connection"""
-    print(f"get_db_connection called: USE_SUPABASE={USE_SUPABASE}, has_db_url={bool(SUPABASE_DB_URL)}")
+    """Get database connection - Neon PostgreSQL or SQLite fallback"""
+    print(f"get_db_connection called: USE_NEON={USE_NEON}, has_db_url={bool(NEON_DB_URL)}")
     
-    if USE_SUPABASE and SUPABASE_DB_URL:
+    if USE_NEON and NEON_DB_URL:
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
-            import socket
-            from urllib.parse import urlparse
             
-            print(f"Attempting Supabase connection...")
+            print(f"Attempting Neon database connection...")
             
-            # Parse connection URL
-            parsed = urlparse(SUPABASE_DB_URL)
-            hostname = parsed.hostname
-            port = parsed.port or 5432
-            username = parsed.username
-            password = parsed.password
-            database = parsed.path.lstrip('/') if parsed.path else 'postgres'
+            # Neon uses standard PostgreSQL connection string
+            # It supports IPv4 natively, no special handling needed
+            conn = psycopg2.connect(NEON_DB_URL, connect_timeout=10)
             
-            # Force IPv4 by resolving hostname to IPv4 address
-            # This prevents IPv6 connection issues on Vercel
-            ipv4_addr = None
-            try:
-                # Try to get IPv4 address using AF_UNSPEC to get all addresses
-                # Then filter for IPv4 only
-                results = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
-                for res in results:
-                    family, socktype, proto, canonname, sockaddr = res
-                    if family == socket.AF_INET:  # IPv4 only
-                        ipv4_addr = sockaddr[0]
-                        print(f"Resolved {hostname} to IPv4: {ipv4_addr}")
-                        break
-                if not ipv4_addr:
-                    print(f"Warning: No IPv4 address found for {hostname}, only IPv6 available")
-            except (socket.gaierror, IndexError, Exception) as resolve_error:
-                print(f"Could not resolve {hostname} to IPv4: {resolve_error}")
-                # Will fall back to connection parameters method
-            
-            if ipv4_addr:
-                # Build connection string with IPv4 address
-                # Construct connection parameters dict to force IPv4
-                conn_params = {
-                    'host': ipv4_addr,
-                    'port': port,
-                    'user': username,
-                    'password': password,
-                    'dbname': database,
-                    'connect_timeout': 10
-                }
-                # Add SSL parameters if present in original URL
-                if 'sslmode' in parsed.query:
-                    from urllib.parse import parse_qs
-                    query_params = parse_qs(parsed.query)
-                    if 'sslmode' in query_params:
-                        conn_params['sslmode'] = query_params['sslmode'][0]
-                else:
-                    # Default to require SSL for Supabase
-                    conn_params['sslmode'] = 'require'
-                
-                conn = psycopg2.connect(**conn_params)
-            else:
-                # Fallback: try to force IPv4 in connection using host parameter
-                # Parse connection string and rebuild with explicit IPv4 preference
-                conn_params = {
-                    'host': hostname,
-                    'port': port,
-                    'user': username,
-                    'password': password,
-                    'dbname': database,
-                    'connect_timeout': 10
-                }
-                # Try connection with host parameter - psycopg2 might handle it better
-                print(f"Trying connection with hostname: {hostname}")
-                conn = psycopg2.connect(**conn_params)
-            
-            print("✅ Supabase connection successful!")
+            print("✅ Neon connection successful!")
             # RealDictCursor is a class, not an instance
-            return {'conn': conn, 'type': 'supabase', 'cursor_factory': RealDictCursor, 'is_supabase': True}
+            return {'conn': conn, 'type': 'neon', 'cursor_factory': RealDictCursor, 'is_neon': True}
         except Exception as e:
             import traceback
             error_msg = str(e)
-            print(f"❌ Supabase connection error: {error_msg}")
+            print(f"❌ Neon connection error: {error_msg}")
             print(f"Traceback: {traceback.format_exc()}")
             # Fall through to SQLite
     else:
-        print(f"⚠️ Not using Supabase: USE_SUPABASE={USE_SUPABASE}, SUPABASE_DB_URL={bool(SUPABASE_DB_URL)}")
+        print(f"⚠️ Not using Neon: USE_NEON={USE_NEON}, NEON_DB_URL={bool(NEON_DB_URL)}")
     
     print("Using SQLite database (fallback)")
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
-    return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_supabase': False}
+    return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_neon': False}
 
 def get_cursor(db):
-    """Get cursor from database connection, handling both Supabase and SQLite"""
-    if db['is_supabase']:
+    """Get cursor from database connection, handling both Neon PostgreSQL and SQLite"""
+    if db.get('is_neon') or db['type'] == 'neon':
         return db['conn'].cursor(cursor_factory=db['cursor_factory'])
     else:
         return db['conn'].cursor()
@@ -165,8 +101,8 @@ def handle_api_request(path, method, query, body_data):
                 return 200, headers, json.dumps({
                     'status': 'ok',
                     'message': 'API is working. Use /api/test, /api/messages, etc.',
-                    'use_supabase': USE_SUPABASE,
-                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite'
+                    'use_neon': USE_NEON,
+                    'db_type': 'neon' if USE_NEON else 'sqlite'
                 }, ensure_ascii=False)
             
             if path == 'test' or path == 'health':
@@ -189,11 +125,9 @@ def handle_api_request(path, method, query, body_data):
                 
                 return 200, headers, json.dumps({
                     'status': 'ok',
-                    'use_supabase': USE_SUPABASE,
-                    'db_type': 'supabase' if USE_SUPABASE else 'sqlite',
-                    'has_supabase_url': bool(SUPABASE_URL),
-                    'has_supabase_key': bool(SUPABASE_KEY),
-                    'has_supabase_db_url': bool(SUPABASE_DB_URL),
+                    'use_neon': USE_NEON,
+                    'db_type': 'neon' if USE_NEON else 'sqlite',
+                    'has_neon_db_url': bool(NEON_DB_URL),
                     'database': db_status
                 }, ensure_ascii=False)
             
@@ -202,7 +136,7 @@ def handle_api_request(path, method, query, body_data):
                 cur = get_cursor(db)
                 cur.execute("SELECT data FROM messages ORDER BY timestamp DESC")
                 rows = cur.fetchall()
-                messages = [json.loads(dict(row)['data'] if db['type'] == 'supabase' else row['data']) for row in rows]
+                messages = [json.loads(dict(row)['data'] if db['type'] == 'neon' else row['data']) for row in rows]
                 db['conn'].close()
                 return 200, headers, json.dumps(messages, ensure_ascii=False)
             
@@ -213,7 +147,7 @@ def handle_api_request(path, method, query, body_data):
                 rows = cur.fetchall()
                 certificates = []
                 for row in rows:
-                    row_dict = dict(row) if db['type'] == 'supabase' else row
+                    row_dict = dict(row) if db['type'] == 'neon' else row
                     cert_data = json.loads(row_dict['data'])
                     cert_data['type'] = row_dict.get('type', 'certificat')
                     certificates.append(cert_data)
@@ -226,7 +160,7 @@ def handle_api_request(path, method, query, body_data):
                 cur.execute("SELECT videos FROM tiktok_videos WHERE id = 1")
                 row = cur.fetchone()
                 if row:
-                    row_dict = dict(row) if db['type'] == 'supabase' else row
+                    row_dict = dict(row) if db['type'] == 'neon' else row
                     videos = json.loads(row_dict['videos']) if isinstance(row_dict['videos'], str) else row_dict['videos']
                     db['conn'].close()
                     return 200, headers, json.dumps(videos if isinstance(videos, list) else [], ensure_ascii=False)
@@ -240,7 +174,7 @@ def handle_api_request(path, method, query, body_data):
                 cur.execute("SELECT data FROM locations WHERE id = 1")
                 row = cur.fetchone()
                 if row:
-                    row_dict = dict(row) if db['type'] == 'supabase' else row
+                    row_dict = dict(row) if db['type'] == 'neon' else row
                     locations = json.loads(row_dict['data']) if isinstance(row_dict['data'], str) else row_dict['data']
                     db['conn'].close()
                     return 200, headers, json.dumps(locations if isinstance(locations, list) else [], ensure_ascii=False)
@@ -252,7 +186,7 @@ def handle_api_request(path, method, query, body_data):
                 cur = get_cursor(db)
                 cur.execute("SELECT id, author, rating, text, date FROM reviews ORDER BY timestamp DESC")
                 rows = cur.fetchall()
-                reviews = [dict(row) if db['type'] == 'supabase' else {k: row[k] for k in row.keys()} for row in rows]
+                reviews = [dict(row) if db['type'] == 'neon' else {k: row[k] for k in row.keys()} for row in rows]
                 db['conn'].close()
                 return 200, headers, json.dumps(reviews, ensure_ascii=False)
             
@@ -263,7 +197,7 @@ def handle_api_request(path, method, query, body_data):
                 rows = cur.fetchall()
                 responses = {}
                 for row in rows:
-                    row_dict = dict(row) if db['type'] == 'supabase' else row
+                    row_dict = dict(row) if db['type'] == 'neon' else row
                     responses[row_dict['keyword']] = row_dict['response']
                 db['conn'].close()
                 return 200, headers, json.dumps(responses, ensure_ascii=False)
@@ -273,7 +207,7 @@ def handle_api_request(path, method, query, body_data):
                 cur = get_cursor(db)
                 cur.execute("SELECT password FROM admin_password WHERE id = 1")
                 row = cur.fetchone()
-                password = dict(row)['password'] if row and db['type'] == 'supabase' else (row['password'] if row else 'admin123')
+                password = dict(row)['password'] if row and db['type'] == 'neon' else (row['password'] if row else 'admin123')
                 db['conn'].close()
                 return 200, headers, json.dumps({'password': password}, ensure_ascii=False)
             
@@ -293,7 +227,7 @@ def handle_api_request(path, method, query, body_data):
                 
                 db = get_db_connection()
                 cur = get_cursor(db)
-                sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'supabase' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
+                sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
                 cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
                 db['conn'].commit()
                 db['conn'].close()
@@ -306,8 +240,8 @@ def handle_api_request(path, method, query, body_data):
                 
                 db = get_db_connection()
                 cur = get_cursor(db)
-                sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
-                if db['type'] == 'supabase':
+                sql = "INSERT INTO certificates (id, data, type, timestamp) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, type = %s, timestamp = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO certificates (id, data, type, timestamp) VALUES (?, ?, ?, ?)"
+                if db['type'] == 'neon':
                     cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
                 else:
                     cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), cert_type, data['timestamp']))
@@ -323,9 +257,9 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
+                sql = "INSERT INTO tiktok_videos (id, videos, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET videos = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO tiktok_videos (id, videos, last_updated) VALUES (1, ?, ?)"
                 videos_json = json.dumps(videos, ensure_ascii=False)
-                if db['type'] == 'supabase':
+                if db['type'] == 'neon':
                     cur.execute(sql, (videos_json, last_updated, videos_json, last_updated))
                 else:
                     cur.execute(sql, (videos_json, last_updated))
@@ -337,9 +271,9 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
+                sql = "INSERT INTO locations (id, data, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET data = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO locations (id, data, last_updated) VALUES (1, ?, ?)"
                 data_json = json.dumps(data, ensure_ascii=False)
-                if db['type'] == 'supabase':
+                if db['type'] == 'neon':
                     cur.execute(sql, (data_json, last_updated, data_json, last_updated))
                 else:
                     cur.execute(sql, (data_json, last_updated))
@@ -355,8 +289,8 @@ def handle_api_request(path, method, query, body_data):
                 db = get_db_connection()
                 cur = get_cursor(db)
                 last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'supabase' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
-                if db['type'] == 'supabase':
+                sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
+                if db['type'] == 'neon':
                     cur.execute(sql, (password, last_updated, password, last_updated))
                 else:
                     cur.execute(sql, (password, last_updated))

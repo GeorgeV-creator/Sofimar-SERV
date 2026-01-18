@@ -1,5 +1,5 @@
--- Supabase PostgreSQL Schema pentru Sofimar SERV
--- Rulează acest script în SQL Editor din Supabase Dashboard
+-- Neon PostgreSQL Schema pentru Sofimar SERV
+-- Rulează acest script în SQL Editor din Neon Dashboard
 
 -- Messages table
 CREATE TABLE IF NOT EXISTS messages (
