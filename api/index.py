@@ -28,8 +28,36 @@ def get_db_connection():
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
+            import socket
+            from urllib.parse import urlparse, parse_qs
+            
             print(f"Attempting Supabase connection...")
-            conn = psycopg2.connect(SUPABASE_DB_URL)
+            
+            # Parse connection URL
+            parsed = urlparse(SUPABASE_DB_URL)
+            hostname = parsed.hostname
+            
+            # Force IPv4 by resolving hostname to IPv4 address
+            # This prevents IPv6 connection issues on Vercel
+            try:
+                # Get IPv4 address (AF_INET = IPv4)
+                ipv4_addr = socket.getaddrinfo(hostname, parsed.port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+                print(f"Resolved {hostname} to IPv4: {ipv4_addr}")
+                
+                # Rebuild connection string with IPv4 address
+                # Replace hostname with IP in connection string
+                db_url_with_ip = SUPABASE_DB_URL.replace(f"{hostname}", ipv4_addr)
+                
+                # Add connection parameters to force IPv4 and SSL
+                conn = psycopg2.connect(
+                    db_url_with_ip,
+                    connect_timeout=10
+                )
+            except (socket.gaierror, IndexError) as resolve_error:
+                print(f"Could not resolve to IPv4, trying original URL: {resolve_error}")
+                # Fall back to original URL if resolution fails
+                conn = psycopg2.connect(SUPABASE_DB_URL, connect_timeout=10)
+            
             print("✅ Supabase connection successful!")
             # RealDictCursor is a class, not an instance
             return {'conn': conn, 'type': 'supabase', 'cursor_factory': RealDictCursor, 'is_supabase': True}
