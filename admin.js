@@ -574,7 +574,7 @@ async function deleteMessage(index) {
     if (messageToDelete && messageToDelete.id) {
         try {
             // Try to delete from API server
-            await fetch(`${API_BASE_URL}/api/messages?id=${messageToDelete.id}`, {
+            await fetch(`${API_BASE_URL}/messages?id=${messageToDelete.id}`, {
                 method: 'DELETE'
             });
         } catch (error) {
@@ -1291,7 +1291,7 @@ async function deleteCertificate(certId, index) {
     // Try to delete from API server if ID exists
     if (certId && !certId.startsWith('temp-')) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/certificates?id=${certId}`, {
+            const response = await fetch(`${API_BASE_URL}/certificates?id=${certId}`, {
                 method: 'DELETE'
             });
             if (response.ok) {
@@ -1448,7 +1448,7 @@ async function deletePartner(partnerId, index) {
     // Try to delete from API server if ID exists
     if (partnerId && !partnerId.startsWith('temp-')) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/partners?id=${partnerId}`, {
+            const response = await fetch(`${API_BASE_URL}/partners?id=${partnerId}`, {
                 method: 'DELETE'
             });
             if (response.ok) {
@@ -2481,7 +2481,7 @@ async function deleteReview(reviewId, index) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews?id=${reviewId}`, {
+        const response = await fetch(`${API_BASE_URL}/reviews?id=${reviewId}`, {
             method: 'DELETE'
         });
         
@@ -2724,7 +2724,7 @@ async function deleteChatbotResponse(keyword) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/chatbot-responses?keyword=${encodeURIComponent(keyword)}`, {
+        const response = await fetch(`${API_BASE_URL}/chatbot-responses?keyword=${encodeURIComponent(keyword)}`, {
             method: 'DELETE'
         });
         
