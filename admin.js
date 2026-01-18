@@ -209,7 +209,12 @@ function initializeEventListeners() {
             if (imageSource === 'upload') {
                 const fileInput = document.getElementById('certImageFile');
                 if (fileInput.files && fileInput.files[0]) {
-                    image = await convertImageToBase64(fileInput.files[0]);
+                    try {
+                        image = await convertImageToBase64(fileInput.files[0]);
+                    } catch (error) {
+                        alert(error.message || 'Eroare la procesarea imaginii. Te rugăm să încerci din nou sau să folosești un URL.');
+                        return;
+                    }
                 } else {
                     alert('Te rugăm să selectezi o imagine!');
                     return;
