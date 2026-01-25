@@ -105,30 +105,51 @@ def commit_image_to_github(image_path, relative_path, image_bytes):
             print("⚠️ Not in a git repository, skipping commit")
             return False
         
-        # Add file to git
-        subprocess.run(
-            ['git', 'add', relative_path],
+        # Add file to git (use absolute path)
+        result = subprocess.run(
+            ['git', 'add', str(image_path)],
             cwd=project_root,
+            capture_output=True,
+            text=True,
             check=True
         )
         print(f"✅ Added {relative_path} to git")
+        if result.stdout:
+            print(f"Git add output: {result.stdout}")
+        if result.stderr:
+            print(f"Git add stderr: {result.stderr}")
         
-        # Commit
+        # Commit with author info
         commit_message = f"Add image: {relative_path}"
-        subprocess.run(
+        result = subprocess.run(
             ['git', 'commit', '-m', commit_message],
             cwd=project_root,
-            check=True
+            capture_output=True,
+            text=True
         )
-        print(f"✅ Committed {relative_path}")
+        if result.returncode == 0:
+            print(f"✅ Committed {relative_path}")
+            if result.stdout:
+                print(f"Git commit output: {result.stdout}")
+        else:
+            # Check if there are changes to commit
+            if 'nothing to commit' in result.stdout or 'nothing to commit' in result.stderr:
+                print(f"⚠️ Nothing to commit for {relative_path} (file may already be committed)")
+            else:
+                print(f"⚠️ Git commit failed: {result.stderr}")
+                raise subprocess.CalledProcessError(result.returncode, 'git commit', result.stdout + result.stderr)
         
         # Push to GitHub
-        subprocess.run(
+        result = subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=project_root,
+            capture_output=True,
+            text=True,
             check=True
         )
         print(f"✅ Pushed {relative_path} to GitHub")
+        if result.stdout:
+            print(f"Git push output: {result.stdout}")
         
         return True
         
