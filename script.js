@@ -956,47 +956,60 @@ async function loadCertificatesOnPage() {
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
         }
         
-        // Wait for all images to load before hiding loading screen
+        // Hide loading screen and show content
         if (loadingScreen && certificatesContent) {
-            const allImages = [
-                ...certificatesGrid.querySelectorAll('img'),
-                ...accreditationsGrid.querySelectorAll('img')
-            ];
-            
             const hideLoadingScreen = () => {
-                loadingScreen.style.display = 'none';
-                certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
+                if (loadingScreen && certificatesContent) {
+                    loadingScreen.style.display = 'none';
+                    certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
+                }
             };
             
-            if (allImages.length === 0) {
-                // No images to load, hide immediately
-                hideLoadingScreen();
-            } else {
-                // Wait for all images to load
-                let loadedCount = 0;
-                const totalImages = allImages.length;
-                let allImagesLoaded = false;
+            // Get all images after they're added to DOM
+            setTimeout(() => {
+                const allImages = [
+                    ...(certificatesGrid ? certificatesGrid.querySelectorAll('img') : []),
+                    ...(accreditationsGrid ? accreditationsGrid.querySelectorAll('img') : [])
+                ];
                 
-                const checkAllLoaded = () => {
-                    loadedCount++;
-                    if (loadedCount === totalImages && !allImagesLoaded) {
-                        allImagesLoaded = true;
-                        hideLoadingScreen();
-                    }
-                };
-                
-                // Attach load and error handlers to all images
-                allImages.forEach(img => {
-                    if (img.complete) {
-                        // Image already loaded
-                        checkAllLoaded();
-                    } else {
-                        // Wait for image to load
-                        img.addEventListener('load', checkAllLoaded);
-                        img.addEventListener('error', checkAllLoaded); // Also count errors as "loaded"
-                    }
-                });
-            }
+                if (allImages.length === 0) {
+                    // No images to load, hide immediately
+                    hideLoadingScreen();
+                } else {
+                    // Wait for all images to load
+                    let loadedCount = 0;
+                    const totalImages = allImages.length;
+                    let allImagesLoaded = false;
+                    
+                    const checkAllLoaded = () => {
+                        loadedCount++;
+                        if (loadedCount === totalImages && !allImagesLoaded) {
+                            allImagesLoaded = true;
+                            hideLoadingScreen();
+                        }
+                    };
+                    
+                    // Attach load and error handlers to all images
+                    allImages.forEach(img => {
+                        if (img.complete) {
+                            // Image already loaded
+                            checkAllLoaded();
+                        } else {
+                            // Wait for image to load
+                            img.addEventListener('load', checkAllLoaded);
+                            img.addEventListener('error', checkAllLoaded); // Also count errors as "loaded"
+                        }
+                    });
+                    
+                    // Fallback: hide after 2 seconds max if images don't load
+                    setTimeout(() => {
+                        if (!allImagesLoaded) {
+                            allImagesLoaded = true;
+                            hideLoadingScreen();
+                        }
+                    }, 2000);
+                }
+            }, 0);
         }
     } else {
         // Single grid (for index.html or other pages)
