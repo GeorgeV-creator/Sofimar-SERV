@@ -3,12 +3,21 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index.py"
+    },
+    {
+      "source": "/certificate",
+      "destination": "/certificate.html"
     }
   ],
   "redirects": [
     {
       "source": "/index.html",
       "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/certificate.html",
+      "destination": "/certificate",
       "permanent": true
     }
   ],
