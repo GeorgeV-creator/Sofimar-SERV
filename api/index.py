@@ -271,12 +271,24 @@ def save_image_to_folder(image_data, filename=None):
         relative_path = f"images/{filename}"
         print(f"✅ Image saved successfully to: {relative_path}")
         
-        # In Vercel, warn that file won't persist but still return path
-        # This allows the code to work, but images need to be committed to GitHub manually
-        if os.environ.get('VERCEL'):
+        # Try to commit to GitHub if not in Vercel (local development)
+        if not os.environ.get('VERCEL'):
+            try:
+                commit_image_to_github(image_path, relative_path, image_bytes)
+            except Exception as commit_error:
+                print(f"⚠️ Could not commit image to GitHub: {str(commit_error)}")
+                print(f"⚠️ Image saved locally at: {image_path}")
+                print(f"⚠️ You may need to commit manually: git add {relative_path} && git commit -m 'Add image' && git push")
+        else:
+            # In Vercel, we can't write to filesystem persistently
             print("⚠️ WARNING: Vercel environment - file saved temporarily but won't persist after function ends")
-            print("⚠️ For production: Use Vercel Blob Storage, or commit images to GitHub repository manually")
-            print("⚠️ Returning path anyway so the code works - image will be lost after function ends")
+            print("⚠️ Attempting to upload to GitHub via API...")
+            # Try to upload to GitHub using API
+            try:
+                upload_image_to_github_via_api(relative_path, image_bytes)
+            except Exception as upload_error:
+                print(f"⚠️ Could not upload image to GitHub via API: {str(upload_error)}")
+                print(f"⚠️ For production: Set GITHUB_TOKEN environment variable in Vercel")
         
         return relative_path
         
