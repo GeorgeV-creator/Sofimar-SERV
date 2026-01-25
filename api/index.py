@@ -651,22 +651,47 @@ def handle_api_request(path, method, query, body_data):
                 try:
                     db = get_db_connection()
                     cur = get_cursor(db)
-                    # Try 'texts' first (newer schema), fallback to 'data' (older schema)
-                    try:
-                        cur.execute("SELECT texts FROM site_texts WHERE id = 1")
-                    except:
-                        # If 'texts' column doesn't exist, try 'data'
-                        cur.execute("SELECT data FROM site_texts WHERE id = 1")
                     
-                    row = cur.fetchone()
-                    if row:
-                        row_dict = dict(row) if db['type'] == 'neon' else row
-                        # Try 'texts' first, then 'data'
-                        texts_data = row_dict.get('texts') or row_dict.get('data')
-                        if texts_data:
-                            texts = json.loads(texts_data) if isinstance(texts_data, str) else texts_data
-                            db['conn'].close()
-                            return 200, headers, json.dumps(texts if isinstance(texts, dict) else {}, ensure_ascii=False)
+                    # Determine which column exists
+                    column_name = None
+                    try:
+                        if db['type'] == 'neon':
+                            # Check which column exists
+                            cur.execute("""
+                                SELECT column_name 
+                                FROM information_schema.columns 
+                                WHERE table_name='site_texts' AND column_name IN ('texts', 'data')
+                            """)
+                            columns = [row[0] if isinstance(row, tuple) else row['column_name'] for row in cur.fetchall()]
+                            if 'texts' in columns:
+                                column_name = 'texts'
+                            elif 'data' in columns:
+                                column_name = 'data'
+                        else:
+                            # SQLite - try both
+                            try:
+                                cur.execute("SELECT texts FROM site_texts WHERE id = 1 LIMIT 1")
+                                column_name = 'texts'
+                            except:
+                                try:
+                                    cur.execute("SELECT data FROM site_texts WHERE id = 1 LIMIT 1")
+                                    column_name = 'data'
+                                except:
+                                    pass
+                    except:
+                        pass
+                    
+                    if column_name:
+                        cur.execute(f"SELECT {column_name} FROM site_texts WHERE id = 1")
+                        row = cur.fetchone()
+                        if row:
+                            row_dict = dict(row) if db['type'] == 'neon' else row
+                            texts_data = row_dict.get(column_name)
+                            if texts_data:
+                                texts = json.loads(texts_data) if isinstance(texts_data, str) else texts_data
+                                db['conn'].close()
+                                return 200, headers, json.dumps(texts if isinstance(texts, dict) else {}, ensure_ascii=False)
+                    
                     db['conn'].close()
                     return 200, headers, json.dumps({}, ensure_ascii=False)
                 except Exception as e:
@@ -866,30 +891,8 @@ def handle_api_request(path, method, query, body_data):
                     db = get_db_connection()
                     cur = get_cursor(db)
                     
-                    # Create table if it doesn't exist
-                    try:
-                        if db['type'] == 'neon':
-                            cur.execute("""
-                                CREATE TABLE IF NOT EXISTS site_texts (
-                                    id INTEGER PRIMARY KEY CHECK (id = 1),
-                                    texts TEXT NOT NULL,
-                                    last_updated TEXT NOT NULL
-                                )
-                            """)
-                        else:
-                            cur.execute("""
-                                CREATE TABLE IF NOT EXISTS site_texts (
-                                    id INTEGER PRIMARY KEY CHECK (id = 1),
-                                    texts TEXT NOT NULL,
-                                    last_updated TEXT NOT NULL
-                                )
-                            """)
-                        db['conn'].commit()
-                    except Exception as create_error:
-                        # Table might already exist or have different structure
-                        print(f"Note creating site_texts table: {str(create_error)}")
-                    
-                    # Try to alter table if 'texts' column doesn't exist (migrate from 'data')
+                    # Determine which column name to use (texts or data)
+                    column_name = 'texts'
                     try:
                         if db['type'] == 'neon':
                             # Check if 'texts' column exists
@@ -898,37 +901,78 @@ def handle_api_request(path, method, query, body_data):
                                 FROM information_schema.columns 
                                 WHERE table_name='site_texts' AND column_name='texts'
                             """)
-                            has_texts_column = cur.fetchone() is not None
+                            has_texts = cur.fetchone() is not None
                             
-                            if not has_texts_column:
-                                # Add texts column
-                                cur.execute("ALTER TABLE site_texts ADD COLUMN texts TEXT")
-                                # Copy data from 'data' column if it exists
-                                try:
+                            if not has_texts:
+                                # Check if 'data' column exists
+                                cur.execute("""
+                                    SELECT column_name 
+                                    FROM information_schema.columns 
+                                    WHERE table_name='site_texts' AND column_name='data'
+                                """)
+                                has_data = cur.fetchone() is not None
+                                
+                                if has_data:
+                                    column_name = 'data'  # Use existing 'data' column
+                                else:
+                                    # Create table with texts column
                                     cur.execute("""
-                                        UPDATE site_texts 
-                                        SET texts = data 
-                                        WHERE texts IS NULL AND data IS NOT NULL
+                                        CREATE TABLE IF NOT EXISTS site_texts (
+                                            id INTEGER PRIMARY KEY CHECK (id = 1),
+                                            texts TEXT NOT NULL,
+                                            last_updated TEXT NOT NULL
+                                        )
                                     """)
-                                except:
-                                    pass  # 'data' column might not exist
+                                    db['conn'].commit()
                         else:
-                            # SQLite - try to add column
+                            # SQLite - try texts first, fallback to data
                             try:
-                                cur.execute("ALTER TABLE site_texts ADD COLUMN texts TEXT")
-                                try:
-                                    cur.execute("UPDATE site_texts SET texts = data WHERE texts IS NULL AND data IS NOT NULL")
-                                except:
-                                    pass  # 'data' column might not exist
+                                cur.execute("SELECT texts FROM site_texts WHERE id = 1 LIMIT 1")
+                                column_name = 'texts'
                             except:
-                                pass  # Column might already exist
-                        db['conn'].commit()
-                    except Exception as alter_error:
-                        print(f"Note altering site_texts table: {str(alter_error)}")
+                                try:
+                                    cur.execute("SELECT data FROM site_texts WHERE id = 1 LIMIT 1")
+                                    column_name = 'data'
+                                except:
+                                    # Table doesn't exist, create it
+                                    cur.execute("""
+                                        CREATE TABLE IF NOT EXISTS site_texts (
+                                            id INTEGER PRIMARY KEY CHECK (id = 1),
+                                            texts TEXT NOT NULL,
+                                            last_updated TEXT NOT NULL
+                                        )
+                                    """)
+                                    db['conn'].commit()
+                    except Exception as check_error:
+                        print(f"Note checking columns: {str(check_error)}")
+                        # Try to create table
+                        try:
+                            if db['type'] == 'neon':
+                                cur.execute("""
+                                    CREATE TABLE IF NOT EXISTS site_texts (
+                                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                                        texts TEXT NOT NULL,
+                                        last_updated TEXT NOT NULL
+                                    )
+                                """)
+                            else:
+                                cur.execute("""
+                                    CREATE TABLE IF NOT EXISTS site_texts (
+                                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                                        texts TEXT NOT NULL,
+                                        last_updated TEXT NOT NULL
+                                    )
+                                """)
+                            db['conn'].commit()
+                        except:
+                            pass
                     
                     last_updated = datetime.now().isoformat()
                     texts_json = json.dumps(data, ensure_ascii=False)
-                    sql = "INSERT INTO site_texts (id, texts, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET texts = EXCLUDED.texts, last_updated = EXCLUDED.last_updated" if db['type'] == 'neon' else "INSERT OR REPLACE INTO site_texts (id, texts, last_updated) VALUES (1, ?, ?)"
+                    
+                    # Use the determined column name
+                    sql = f"INSERT INTO site_texts (id, {column_name}, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET {column_name} = EXCLUDED.{column_name}, last_updated = EXCLUDED.last_updated" if db['type'] == 'neon' else f"INSERT OR REPLACE INTO site_texts (id, {column_name}, last_updated) VALUES (1, ?, ?)"
+                    
                     if db['type'] == 'neon':
                         cur.execute(sql, (texts_json, last_updated))
                     else:
