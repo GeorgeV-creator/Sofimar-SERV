@@ -574,34 +574,23 @@ def handle_api_request(path, method, query, body_data):
                     # ALWAYS save images to images folder, never store base64 in database
                     image_data = data.get('image', '')
                     if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
-                        # Save image to folder
+                        # Save image to folder - MUST succeed or return error
+                        print(f"🔄 Attempting to save certificate image...")
                         saved_path = save_image_to_folder(image_data)
                         if saved_path:
                             # Replace base64 with file path
                             data['image'] = saved_path
-                            print(f"✅ Image saved to folder: {saved_path}")
+                            print(f"✅ Certificate image saved to folder: {saved_path}")
                         else:
-                            # If saving failed, use a temporary path and warn
-                            # This allows the certificate to be saved, but image needs manual upload
-                            print(f"⚠️ WARNING: Could not save image to folder, using temporary path")
-                            print(f"⚠️ Image data will be lost - you need to manually upload the image to images/ folder")
-                            
-                            # Generate a unique temp path
-                            import uuid
-                            temp_filename = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.jpg"
-                            data['image'] = f"images/{temp_filename}"
-                            
-                            print(f"⚠️ Using temporary path: {data['image']}")
-                            print(f"⚠️ IMPORTANT: You must manually save the image to {data['image']} or it will not display")
-                            
-                            # In Vercel, this is expected - filesystem is not persistent
-                            if os.environ.get('VERCEL'):
-                                print(f"⚠️ Vercel environment - filesystem writes are not persistent")
-                                print(f"⚠️ For production: Use Vercel Blob Storage or commit images to GitHub")
+                            # If saving failed, return error - don't use temp path
+                            error_msg = "Could not save certificate image to folder. Check server logs for details."
+                            print(f"❌ {error_msg}")
+                            print(f"❌ Image data length: {len(image_data)} characters")
+                            return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
                     elif image_data and not image_data.startswith('images/'):
                         # If image is not base64 and not already a path, it might be invalid
                         if not image_data.startswith('http') and not image_data.startswith('/'):
-                            print(f"⚠️ Image path might be invalid: {image_data}")
+                            print(f"⚠️ Certificate image path might be invalid: {image_data}")
                     
                     db = get_db_connection()
                     print(f"📊 Database connection: type={db['type']}, is_neon={db.get('is_neon', False)}")
@@ -688,30 +677,19 @@ def handle_api_request(path, method, query, body_data):
                     # ALWAYS save images to images folder, never store base64 in database
                     image_data = data.get('image', '')
                     if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
-                        # Save image to folder
+                        # Save image to folder - MUST succeed or return error
+                        print(f"🔄 Attempting to save partner image...")
                         saved_path = save_image_to_folder(image_data)
                         if saved_path:
                             # Replace base64 with file path
                             data['image'] = saved_path
                             print(f"✅ Partner image saved to folder: {saved_path}")
                         else:
-                            # If saving failed, use a temporary path and warn
-                            # This allows the partner to be saved, but image needs manual upload
-                            print(f"⚠️ WARNING: Could not save partner image to folder, using temporary path")
-                            print(f"⚠️ Image data will be lost - you need to manually upload the image to images/ folder")
-                            
-                            # Generate a unique temp path
-                            import uuid
-                            temp_filename = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.jpg"
-                            data['image'] = f"images/{temp_filename}"
-                            
-                            print(f"⚠️ Using temporary path: {data['image']}")
-                            print(f"⚠️ IMPORTANT: You must manually save the image to {data['image']} or it will not display")
-                            
-                            # In Vercel, this is expected - filesystem is not persistent
-                            if os.environ.get('VERCEL'):
-                                print(f"⚠️ Vercel environment - filesystem writes are not persistent")
-                                print(f"⚠️ For production: Use Vercel Blob Storage or commit images to GitHub")
+                            # If saving failed, return error - don't use temp path
+                            error_msg = "Could not save partner image to folder. Check server logs for details."
+                            print(f"❌ {error_msg}")
+                            print(f"❌ Image data length: {len(image_data)} characters")
+                            return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
                     elif image_data and not image_data.startswith('images/'):
                         # If image is not base64 and not already a path, it might be invalid
                         if not image_data.startswith('http') and not image_data.startswith('/'):
