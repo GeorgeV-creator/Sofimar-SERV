@@ -587,9 +587,6 @@ async function deleteMessage(index) {
 }
 
 // Chatbot Messages Management
-// Global variable to track active chatbot conversation tab
-let activeChatbotTabIndex = 0;
-
 async function loadChatbotMessages() {
     const messages = await getChatbotMessages();
     const conversationsDiv = document.getElementById('chatbotConversations');
@@ -603,7 +600,6 @@ async function loadChatbotMessages() {
     
     if (messages.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații.</p>';
-        activeChatbotTabIndex = 0;
         return;
     }
 
@@ -630,106 +626,49 @@ async function loadChatbotMessages() {
 
     if (conversations.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații. Mesajele pot fi doar de tip bot sau nu sunt grupate corect.</p>';
-        activeChatbotTabIndex = 0;
         return;
     }
 
     // Sort by timestamp (newest first)
     conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    // Ensure activeTabIndex is within bounds
-    if (activeChatbotTabIndex >= conversations.length) {
-        activeChatbotTabIndex = Math.max(0, conversations.length - 1);
-    }
-
-    // Display as tabs if we have conversations
-    if (conversations.length > 0) {
-        conversationsDiv.style.display = 'none';
-        const tabsContainer = document.getElementById('chatbotTabsContainer');
-        const tabsNav = document.getElementById('chatbotTabsNav');
-        const tabsContent = document.getElementById('chatbotTabsContent');
+    // Hide tabs container
+    const tabsContainer = document.getElementById('chatbotTabsContainer');
+    if (tabsContainer) tabsContainer.style.display = 'none';
+    
+    // Display all conversations in a simple list
+    conversationsDiv.style.display = 'block';
+    conversationsDiv.innerHTML = conversations.map((conv, index) => {
+        const date = new Date(conv.timestamp);
+        const dateStr = date.toLocaleString('ro-RO', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
         
-        if (tabsContainer && tabsNav && tabsContent) {
-            tabsContainer.style.display = 'block';
-            
-            // Build tabs navigation
-            tabsNav.innerHTML = conversations.map((conv, index) => {
-                const date = new Date(conv.timestamp);
-                const dateStr = date.toLocaleString('ro-RO', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const preview = escapeHtml(conv.userMessage.message.substring(0, 30)) + (conv.userMessage.message.length > 30 ? '...' : '');
-                const isActive = index === activeChatbotTabIndex;
-                
-                return `
-                    <button class="chatbot-tab-btn ${isActive ? 'active' : ''}" data-conversation-index="${index}" onclick="switchChatbotConversation(${index})">
-                        <span class="tab-date">${dateStr}</span>
-                        <span class="tab-preview">${preview}</span>
-                    </button>
-                `;
-            }).join('');
-            
-            // Build tabs content
-            tabsContent.innerHTML = conversations.map((conv, index) => {
-                const date = new Date(conv.timestamp);
-                const dateStr = date.toLocaleString('ro-RO', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const isActive = index === activeChatbotTabIndex;
-                
-                return `
-                    <div class="chatbot-tab-content ${isActive ? 'active' : ''}" data-conversation-index="${index}">
-                        <div class="conversation-header">
-                            <div class="conversation-date">📅 ${dateStr}</div>
-                            <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
-                        </div>
-                        <div class="conversation-messages">
-                            <div class="chatbot-message user">
-                                <div class="message-label">👤 Utilizator:</div>
-                                <div class="message-text">${escapeHtml(conv.userMessage.message)}</div>
-                            </div>
-                            ${conv.botMessage ? `
-                            <div class="chatbot-message bot">
-                                <div class="message-label">🤖 Bot:</div>
-                                <div class="message-text">${escapeHtml(conv.botMessage.message)}</div>
-                            </div>
-                            ` : ''}
-                        </div>
+        return `
+            <div class="conversation-item">
+                <div class="conversation-header">
+                    <div class="conversation-date">📅 ${dateStr}</div>
+                    <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
+                </div>
+                <div class="conversation-messages">
+                    <div class="chatbot-message user">
+                        <div class="message-label">👤 Utilizator:</div>
+                        <div class="message-text">${escapeHtml(conv.userMessage.message)}</div>
                     </div>
-                `;
-            }).join('');
-            
-            // Switch to the active tab
-            switchChatbotConversation(activeChatbotTabIndex);
-        }
-    } else {
-        const tabsContainer = document.getElementById('chatbotTabsContainer');
-        if (tabsContainer) tabsContainer.style.display = 'none';
-        conversationsDiv.style.display = 'block';
-    }
-}
-
-function switchChatbotConversation(index) {
-    // Store the active tab index
-    activeChatbotTabIndex = index;
-    
-    // Remove active class from all tabs and contents
-    document.querySelectorAll('.chatbot-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.chatbot-tab-content').forEach(content => content.classList.remove('active'));
-    
-    // Add active class to selected tab and content
-    const selectedTab = document.querySelector(`.chatbot-tab-btn[data-conversation-index="${index}"]`);
-    const selectedContent = document.querySelector(`.chatbot-tab-content[data-conversation-index="${index}"]`);
-    
-    if (selectedTab) selectedTab.classList.add('active');
-    if (selectedContent) selectedContent.classList.add('active');
+                    ${conv.botMessage ? `
+                    <div class="chatbot-message bot">
+                        <div class="message-label">🤖 Bot:</div>
+                        <div class="message-text">${escapeHtml(conv.botMessage.message)}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 async function getChatbotMessages() {
@@ -764,7 +703,6 @@ async function clearChatbotMessages() {
             throw new Error(`API error: ${response.status}`);
         }
         
-        activeChatbotTabIndex = 0; // Reset to first tab after clearing all
         await loadChatbotMessages();
         updateStatistics();
         alert('Toate conversațiile au fost șterse cu succes!');
@@ -837,13 +775,6 @@ async function deleteChatbotConversation(index) {
         );
         
         await Promise.all(deletePromises);
-        
-        // Adjust active tab index if needed (if we deleted the current or earlier tab)
-        if (index <= activeChatbotTabIndex && activeChatbotTabIndex > 0) {
-            activeChatbotTabIndex = Math.max(0, activeChatbotTabIndex - 1);
-        } else if (index < activeChatbotTabIndex) {
-            // Tab after the deleted one, no change needed
-        }
         
         await loadChatbotMessages();
         updateStatistics();
@@ -2604,7 +2535,6 @@ function escapeHtml(text) {
 // Make functions available globally for onclick handlers
 window.deleteMessage = deleteMessage;
 window.deleteChatbotConversation = deleteChatbotConversation;
-window.switchChatbotConversation = switchChatbotConversation;
 window.editLocation = editLocation;
 window.deleteLocation = deleteLocation;
 window.deleteTikTokVideo = deleteTikTokVideo;
