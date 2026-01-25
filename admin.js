@@ -136,12 +136,22 @@ async function login(username, password) {
         return false;
     }
     
+    // Trim whitespace from password
+    password = password.trim();
+    
     try {
         // Try to get password from API
         const response = await fetch(`${API_BASE_URL}/admin-password`);
         if (response.ok) {
             const result = await response.json();
-            const storedPassword = result.password || DEFAULT_PASSWORD;
+            const storedPassword = (result.password || DEFAULT_PASSWORD).trim();
+            
+            console.log('🔐 Login attempt:', {
+                providedPassword: password.length + ' chars',
+                storedPassword: storedPassword.length + ' chars',
+                match: password === storedPassword
+            });
+            
             if (password === storedPassword) {
                 // Generate token and set expiry
                 const token = generateToken();
@@ -157,13 +167,16 @@ async function login(username, password) {
                 setupSessionTimeout();
                 return true;
             } else {
+                console.warn('❌ Password mismatch');
                 recordFailedLogin();
             }
+        } else {
+            console.warn('API response not OK:', response.status);
         }
     } catch (error) {
         console.warn('API server not available, using default password:', error);
         // Fallback to default password if API is not available
-        if (password === DEFAULT_PASSWORD) {
+        if (password === DEFAULT_PASSWORD.trim()) {
             const token = generateToken();
             const expiry = Date.now() + SESSION_TIMEOUT_MS;
             localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, token);
@@ -175,11 +188,23 @@ async function login(username, password) {
             setupSessionTimeout();
             return true;
         } else {
+            console.warn('❌ Password mismatch (fallback)');
             recordFailedLogin();
         }
     }
     return false;
 }
+
+// Function to reset login attempts (for debugging)
+function resetLoginBlock() {
+    localStorage.removeItem(STORAGE_KEY_LOGIN_ATTEMPTS);
+    localStorage.removeItem(STORAGE_KEY_LOGIN_BLOCKED);
+    console.log('✅ Login block reset');
+    alert('Blocarea a fost resetată. Poți încerca din nou.');
+}
+
+// Make reset function available globally for debugging
+window.resetLoginBlock = resetLoginBlock;
 
 function logout() {
     localStorage.removeItem(STORAGE_KEY_AUTH);
@@ -218,7 +243,7 @@ function initializeEventListeners() {
                     if (remaining > 0) {
                         errorDiv.textContent = `Utilizator sau parolă incorectă! Mai ai ${remaining} încercări.`;
                     } else {
-                        errorDiv.textContent = `Prea multe încercări eșuate. Accesul este blocat timp de 15 minute.`;
+                        errorDiv.textContent = `Prea multe încercări eșuate. Accesul este blocat timp de 15 minute. Apasă F12 și rulează resetLoginBlock() pentru a reseta.`;
                     }
                     errorDiv.classList.add('show');
                 }
