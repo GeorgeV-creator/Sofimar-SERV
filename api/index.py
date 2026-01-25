@@ -500,6 +500,142 @@ def handle_api_request(path, method, query, body_data):
                 db['conn'].close()
                 return 200, headers, json.dumps(reviews, ensure_ascii=False)
             
+            elif path == 'sync-google-reviews':
+                # Sync reviews from Google Places API
+                try:
+                    google_api_key = os.environ.get('GOOGLE_PLACES_API_KEY')
+                    google_place_id = os.environ.get('GOOGLE_PLACE_ID')
+                    
+                    if not google_api_key or not google_place_id:
+                        return 400, headers, json.dumps({
+                            'error': 'Google Places API not configured. Please set GOOGLE_PLACES_API_KEY and GOOGLE_PLACE_ID environment variables.',
+                            'success': False
+                        }, ensure_ascii=False)
+                    
+                    # Fetch reviews from Google Places API
+                    import urllib.request
+                    import urllib.error
+                    
+                    # Google Places API endpoint for reviews
+                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={google_place_id}&fields=reviews&key={google_api_key}"
+                    
+                    print(f"🔄 Fetching reviews from Google Places API...")
+                    print(f"📡 URL: {url.replace(google_api_key, '***')}")
+                    
+                    req = urllib.request.Request(url)
+                    req.add_header('User-Agent', 'Sofimar-SERV-Review-Sync')
+                    
+                    try:
+                        with urllib.request.urlopen(req, timeout=10) as response:
+                            data = json.loads(response.read().decode('utf-8'))
+                            
+                            if data.get('status') != 'OK':
+                                error_msg = f"Google Places API error: {data.get('status', 'UNKNOWN')} - {data.get('error_message', 'No error message')}"
+                                print(f"❌ {error_msg}")
+                                return 400, headers, json.dumps({
+                                    'error': error_msg,
+                                    'success': False
+                                }, ensure_ascii=False)
+                            
+                            reviews_data = data.get('result', {}).get('reviews', [])
+                            print(f"✅ Fetched {len(reviews_data)} reviews from Google Places API")
+                            
+                            if not reviews_data:
+                                return 200, headers, json.dumps({
+                                    'success': True,
+                                    'message': 'No reviews found on Google Places',
+                                    'synced': 0,
+                                    'total': 0
+                                }, ensure_ascii=False)
+                            
+                            # Save reviews to database
+                            db = get_db_connection()
+                            cur = get_cursor(db)
+                            
+                            synced_count = 0
+                            for review in reviews_data:
+                                try:
+                                    # Extract review data
+                                    author_name = review.get('author_name', 'Anonim')
+                                    rating = review.get('rating', 5)
+                                    text = review.get('text', '')
+                                    time = review.get('time', 0)
+                                    
+                                    # Convert timestamp to date
+                                    from datetime import datetime
+                                    review_date = datetime.fromtimestamp(time).isoformat() if time else datetime.now().isoformat()
+                                    
+                                    # Check if review already exists (by author and text hash)
+                                    import hashlib
+                                    text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
+                                    
+                                    # Check for existing review
+                                    if db['type'] == 'neon':
+                                        check_sql = "SELECT id FROM reviews WHERE author = %s AND text = %s"
+                                        cur.execute(check_sql, (author_name, text))
+                                    else:
+                                        check_sql = "SELECT id FROM reviews WHERE author = ? AND text = ?"
+                                        cur.execute(check_sql, (author_name, text))
+                                    
+                                    existing = cur.fetchone()
+                                    
+                                    if not existing:
+                                        # Insert new review
+                                        review_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                                        timestamp = datetime.now().isoformat()
+                                        
+                                        if db['type'] == 'neon':
+                                            insert_sql = "INSERT INTO reviews (id, author, rating, text, date, timestamp) VALUES (%s, %s, %s, %s, %s, %s)"
+                                            cur.execute(insert_sql, (review_id, author_name, rating, text, review_date, timestamp))
+                                        else:
+                                            insert_sql = "INSERT INTO reviews (id, author, rating, text, date, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
+                                            cur.execute(insert_sql, (review_id, author_name, rating, text, review_date, timestamp))
+                                        
+                                        synced_count += 1
+                                        print(f"✅ Added review from {author_name} (rating: {rating})")
+                                    
+                                except Exception as review_error:
+                                    print(f"⚠️ Error processing review: {str(review_error)}")
+                                    continue
+                            
+                            db['conn'].commit()
+                            db['conn'].close()
+                            
+                            print(f"✅ Synced {synced_count} new reviews from {len(reviews_data)} total Google reviews")
+                            
+                            return 200, headers, json.dumps({
+                                'success': True,
+                                'synced': synced_count,
+                                'total': len(reviews_data),
+                                'message': f'Synced {synced_count} new reviews from Google Places'
+                            }, ensure_ascii=False)
+                            
+                    except urllib.error.HTTPError as e:
+                        error_body = e.read().decode('utf-8') if e.fp else 'No error body'
+                        error_msg = f"HTTP Error {e.code}: {error_body}"
+                        print(f"❌ {error_msg}")
+                        return 500, headers, json.dumps({
+                            'error': error_msg,
+                            'success': False
+                        }, ensure_ascii=False)
+                    except urllib.error.URLError as e:
+                        error_msg = f"URL Error: {str(e)}"
+                        print(f"❌ {error_msg}")
+                        return 500, headers, json.dumps({
+                            'error': error_msg,
+                            'success': False
+                        }, ensure_ascii=False)
+                    
+                except Exception as e:
+                    import traceback
+                    error_msg = f"Error syncing Google reviews: {str(e)}"
+                    print(f"❌ {error_msg}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    return 500, headers, json.dumps({
+                        'error': error_msg,
+                        'success': False
+                    }, ensure_ascii=False)
+            
             elif path == 'chatbot-responses':
                 db = get_db_connection()
                 cur = get_cursor(db)
