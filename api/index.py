@@ -702,8 +702,72 @@ def handle_api_request(path, method, query, body_data):
                     return 200, headers, json.dumps({}, ensure_ascii=False)
             
             elif path == 'admin-password':
+                # Check if this is a reset request
+                if query.get('reset') == 'true':
+                    # Reset password to default
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    default_password = 'admin123'
+                    last_updated = datetime.now().isoformat()
+                    
+                    # Create table if it doesn't exist
+                    try:
+                        if db['type'] == 'neon':
+                            cur.execute("""
+                                CREATE TABLE IF NOT EXISTS admin_password (
+                                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                                    password TEXT NOT NULL,
+                                    last_updated TEXT NOT NULL
+                                )
+                            """)
+                        else:
+                            cur.execute("""
+                                CREATE TABLE IF NOT EXISTS admin_password (
+                                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                                    password TEXT NOT NULL,
+                                    last_updated TEXT NOT NULL
+                                )
+                            """)
+                        db['conn'].commit()
+                    except:
+                        pass
+                    
+                    # Reset password
+                    sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
+                    if db['type'] == 'neon':
+                        cur.execute(sql, (default_password, last_updated, default_password, last_updated))
+                    else:
+                        cur.execute(sql, (default_password, last_updated))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'message': 'Password reset to admin123', 'password': default_password}, ensure_ascii=False)
+                
+                # Normal GET request - return current password
                 db = get_db_connection()
                 cur = get_cursor(db)
+                
+                # Create table if it doesn't exist
+                try:
+                    if db['type'] == 'neon':
+                        cur.execute("""
+                            CREATE TABLE IF NOT EXISTS admin_password (
+                                id INTEGER PRIMARY KEY CHECK (id = 1),
+                                password TEXT NOT NULL,
+                                last_updated TEXT NOT NULL
+                            )
+                        """)
+                    else:
+                        cur.execute("""
+                            CREATE TABLE IF NOT EXISTS admin_password (
+                                id INTEGER PRIMARY KEY CHECK (id = 1),
+                                password TEXT NOT NULL,
+                                last_updated TEXT NOT NULL
+                            )
+                        """)
+                    db['conn'].commit()
+                except:
+                    pass
+                
                 cur.execute("SELECT password FROM admin_password WHERE id = 1")
                 row = cur.fetchone()
                 password = dict(row)['password'] if row and db['type'] == 'neon' else (row['password'] if row else 'admin123')
