@@ -18,8 +18,18 @@ const STORAGE_KEY_PARTNERS = 'sofimar_partners';
 const STORAGE_KEY_VISITS = 'sofimar_page_visits';
 const STORAGE_KEY_LOCATIONS = 'sofimar_office_locations';
 const STORAGE_KEY_AUTH = 'sofimar_admin_auth';
+const STORAGE_KEY_AUTH_TOKEN = 'sofimar_admin_token';
+const STORAGE_KEY_AUTH_EXPIRY = 'sofimar_admin_expiry';
 const STORAGE_KEY_PASSWORD = 'sofimar_admin_password';
 const STORAGE_KEY_SITE_TEXTS = 'sofimar_site_texts';
+const STORAGE_KEY_LOGIN_ATTEMPTS = 'sofimar_login_attempts';
+const STORAGE_KEY_LOGIN_BLOCKED = 'sofimar_login_blocked';
+
+// Session timeout: 2 hours
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+// Max login attempts before blocking
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_BLOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 // Initialize - load only essential data first
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,12 +41,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Authentication
 function checkAuth() {
-    const auth = localStorage.getItem(STORAGE_KEY_AUTH);
-    if (auth === 'true') {
-        showDashboard();
-    } else {
-        showLogin();
+    const token = localStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
+    const expiry = localStorage.getItem(STORAGE_KEY_AUTH_EXPIRY);
+    
+    // Check if token exists and is not expired
+    if (token && expiry) {
+        const now = Date.now();
+        if (now < parseInt(expiry)) {
+            // Token is valid, check if session is still active
+            showDashboard();
+            // Set up session timeout check
+            setupSessionTimeout();
+            return;
+        } else {
+            // Token expired, clear it
+            logout();
+        }
     }
+    
+    showLogin();
+}
+
+function setupSessionTimeout() {
+    // Check session timeout every minute
+    setInterval(() => {
+        const expiry = localStorage.getItem(STORAGE_KEY_AUTH_EXPIRY);
+        if (expiry && Date.now() >= parseInt(expiry)) {
+            alert('Sesiunea a expirat. Te rugăm să te conectezi din nou.');
+            logout();
+        }
+    }, 60000); // Check every minute
+}
+
+function generateToken() {
+    // Generate a simple token (in production, use JWT or similar)
+    const randomBytes = new Uint8Array(32);
+    crypto.getRandomValues(randomBytes);
+    return Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function isLoginBlocked() {
+    const blockedUntil = localStorage.getItem(STORAGE_KEY_LOGIN_BLOCKED);
+    if (blockedUntil) {
+        const now = Date.now();
+        if (now < parseInt(blockedUntil)) {
+            const remainingMinutes = Math.ceil((parseInt(blockedUntil) - now) / 60000);
+            return remainingMinutes;
+        } else {
+            // Block expired, clear it
+            localStorage.removeItem(STORAGE_KEY_LOGIN_BLOCKED);
+            localStorage.removeItem(STORAGE_KEY_LOGIN_ATTEMPTS);
+        }
+    }
+    return false;
+}
+
+function recordFailedLogin() {
+    let attempts = parseInt(localStorage.getItem(STORAGE_KEY_LOGIN_ATTEMPTS) || '0');
+    attempts++;
+    localStorage.setItem(STORAGE_KEY_LOGIN_ATTEMPTS, attempts.toString());
+    
+    if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        const blockedUntil = Date.now() + LOGIN_BLOCK_DURATION_MS;
+        localStorage.setItem(STORAGE_KEY_LOGIN_BLOCKED, blockedUntil.toString());
+        localStorage.removeItem(STORAGE_KEY_LOGIN_ATTEMPTS);
+    }
+}
+
+function clearLoginAttempts() {
+    localStorage.removeItem(STORAGE_KEY_LOGIN_ATTEMPTS);
+    localStorage.removeItem(STORAGE_KEY_LOGIN_BLOCKED);
 }
 
 function showLogin() {
@@ -51,7 +125,14 @@ function showDashboard() {
 }
 
 async function login(username, password) {
+    // Check if login is blocked
+    const blockedMinutes = isLoginBlocked();
+    if (blockedMinutes) {
+        throw new Error(`Acces blocat. Te rugăm să încerci din nou peste ${blockedMinutes} minute.`);
+    }
+    
     if (username !== DEFAULT_USERNAME) {
+        recordFailedLogin();
         return false;
     }
     
@@ -62,18 +143,39 @@ async function login(username, password) {
             const result = await response.json();
             const storedPassword = result.password || DEFAULT_PASSWORD;
             if (password === storedPassword) {
-                localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+                // Generate token and set expiry
+                const token = generateToken();
+                const expiry = Date.now() + SESSION_TIMEOUT_MS;
+                localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, token);
+                localStorage.setItem(STORAGE_KEY_AUTH_EXPIRY, expiry.toString());
+                localStorage.setItem(STORAGE_KEY_AUTH, 'true'); // Keep for backward compatibility
+                
+                // Clear failed login attempts
+                clearLoginAttempts();
+                
                 showDashboard();
+                setupSessionTimeout();
                 return true;
+            } else {
+                recordFailedLogin();
             }
         }
     } catch (error) {
         console.warn('API server not available, using default password:', error);
         // Fallback to default password if API is not available
         if (password === DEFAULT_PASSWORD) {
+            const token = generateToken();
+            const expiry = Date.now() + SESSION_TIMEOUT_MS;
+            localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, token);
+            localStorage.setItem(STORAGE_KEY_AUTH_EXPIRY, expiry.toString());
             localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+            
+            clearLoginAttempts();
             showDashboard();
+            setupSessionTimeout();
             return true;
+        } else {
+            recordFailedLogin();
         }
     }
     return false;
@@ -81,8 +183,11 @@ async function login(username, password) {
 
 function logout() {
     localStorage.removeItem(STORAGE_KEY_AUTH);
+    localStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEY_AUTH_EXPIRY);
     showLogin();
-    document.getElementById('loginForm').reset();
+    const form = document.getElementById('loginForm');
+    if (form) form.reset();
 }
 
 // Event Listeners
@@ -96,11 +201,29 @@ function initializeEventListeners() {
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('loginError');
             
-            if (await login(username, password)) {
-                errorDiv.textContent = '';
-                errorDiv.classList.remove('show');
-            } else {
-                errorDiv.textContent = 'Utilizator sau parolă incorectă!';
+            try {
+                const blockedMinutes = isLoginBlocked();
+                if (blockedMinutes) {
+                    errorDiv.textContent = `Acces blocat. Te rugăm să încerci din nou peste ${blockedMinutes} minute.`;
+                    errorDiv.classList.add('show');
+                    return;
+                }
+                
+                if (await login(username, password)) {
+                    errorDiv.textContent = '';
+                    errorDiv.classList.remove('show');
+                } else {
+                    const attempts = parseInt(localStorage.getItem(STORAGE_KEY_LOGIN_ATTEMPTS) || '0');
+                    const remaining = MAX_LOGIN_ATTEMPTS - attempts;
+                    if (remaining > 0) {
+                        errorDiv.textContent = `Utilizator sau parolă incorectă! Mai ai ${remaining} încercări.`;
+                    } else {
+                        errorDiv.textContent = `Prea multe încercări eșuate. Accesul este blocat timp de 15 minute.`;
+                    }
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message || 'Eroare la autentificare!';
                 errorDiv.classList.add('show');
             }
         });
