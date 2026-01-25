@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS partners (
 -- Site texts table (single row with id = 1)
 CREATE TABLE IF NOT EXISTS site_texts (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    data TEXT NOT NULL,
+    texts TEXT NOT NULL,
     last_updated TEXT NOT NULL
 );
 
@@ -86,4 +86,5 @@ CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp);
 CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp);
+
 

@@ -648,17 +648,33 @@ def handle_api_request(path, method, query, body_data):
                 return 200, headers, json.dumps(responses, ensure_ascii=False)
             
             elif path == 'site-texts':
-                db = get_db_connection()
-                cur = get_cursor(db)
-                cur.execute("SELECT texts FROM site_texts WHERE id = 1")
-                row = cur.fetchone()
-                if row:
-                    row_dict = dict(row) if db['type'] == 'neon' else row
-                    texts = json.loads(row_dict['texts']) if isinstance(row_dict['texts'], str) else row_dict['texts']
+                try:
+                    db = get_db_connection()
+                    cur = get_cursor(db)
+                    # Try 'texts' first (newer schema), fallback to 'data' (older schema)
+                    try:
+                        cur.execute("SELECT texts FROM site_texts WHERE id = 1")
+                    except:
+                        # If 'texts' column doesn't exist, try 'data'
+                        cur.execute("SELECT data FROM site_texts WHERE id = 1")
+                    
+                    row = cur.fetchone()
+                    if row:
+                        row_dict = dict(row) if db['type'] == 'neon' else row
+                        # Try 'texts' first, then 'data'
+                        texts_data = row_dict.get('texts') or row_dict.get('data')
+                        if texts_data:
+                            texts = json.loads(texts_data) if isinstance(texts_data, str) else texts_data
+                            db['conn'].close()
+                            return 200, headers, json.dumps(texts if isinstance(texts, dict) else {}, ensure_ascii=False)
                     db['conn'].close()
-                    return 200, headers, json.dumps(texts if isinstance(texts, dict) else {}, ensure_ascii=False)
-                db['conn'].close()
-                return 200, headers, json.dumps({}, ensure_ascii=False)
+                    return 200, headers, json.dumps({}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in GET /site-texts: {str(e)}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    # Return empty object instead of 500 error
+                    return 200, headers, json.dumps({}, ensure_ascii=False)
             
             elif path == 'admin-password':
                 db = get_db_connection()

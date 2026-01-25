@@ -1310,10 +1310,14 @@ window.addEventListener('siteTextsUpdated', () => {
 // Poll API periodically to check for text updates (for cross-tab updates)
 // This ensures index.html updates even if admin is open in another tab
 let lastTextsHash = null;
+let pollingErrorCount = 0;
+const MAX_POLLING_ERRORS = 3;
+
 setInterval(async () => {
     try {
         const response = await fetch(`${API_BASE_URL}/site-texts`);
         if (response.ok) {
+            pollingErrorCount = 0; // Reset error count on success
             const texts = await response.json();
             // Create a simple hash of the texts to detect changes
             const currentHash = JSON.stringify(texts);
@@ -1322,11 +1326,23 @@ setInterval(async () => {
                 loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
             }
             lastTextsHash = currentHash;
+        } else if (response.status === 500) {
+            pollingErrorCount++;
+            // Stop polling if too many errors
+            if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+                console.warn('Too many polling errors, stopping periodic checks');
+                return; // This will stop the interval
+            }
         }
     } catch (error) {
-        // Silently fail - API might not be available
+        pollingErrorCount++;
+        // Stop polling if too many errors
+        if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+            console.warn('Too many polling errors, stopping periodic checks');
+            return; // This will stop the interval
+        }
     }
-}, 2000); // Check every 2 seconds
+}, 5000); // Check every 5 seconds (reduced frequency)
 
 // Initialize certificates and partners when page loads (lazy loading with delay)
 if (document.readyState === 'loading') {
