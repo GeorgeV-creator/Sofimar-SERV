@@ -474,11 +474,8 @@ function switchTab(tabName) {
     } else if (tabName === 'chatbot-responses') {
         loadChatbotResponsesAdmin();
     } else if (tabName === 'settings') {
-        console.log('Settings tab opened, loading texts...');
-        // Wait a bit for the form to be rendered
-        setTimeout(() => {
-            loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-        }, 100);
+        // Settings tab - no action needed
+        console.log('Settings tab opened');
     }
 }
 
