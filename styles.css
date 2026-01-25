@@ -509,7 +509,7 @@ body {
 }
 
 .tiktok-carousel.animate {
-    animation: tiktokScroll 30s linear infinite;
+    animation: tiktokScroll 20s linear infinite;
 }
 
 .tiktok-carousel:hover {
@@ -521,7 +521,7 @@ body {
         transform: translateX(0);
     }
     100% {
-        transform: translateX(-50%);
+        transform: translateX(-25%);
     }
 }
 

@@ -412,9 +412,11 @@ async function loadTikTokVideos() {
         // Clear and create embeds
         carousel.innerHTML = '';
         
-        // Add videos (duplicate for seamless loop)
-        videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
-        videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
+        // Add videos (multiple duplicates for longer seamless loop)
+        // Add 4 sets for a longer loop
+        for (let i = 0; i < 4; i++) {
+            videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
+        }
         
         // Load TikTok embed script if not already loaded
         if (!document.querySelector('script[src*="tiktok.com/embed.js"]')) {
