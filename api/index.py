@@ -170,18 +170,23 @@ def upload_image_to_github_via_api(relative_path, image_bytes):
         github_repo = os.environ.get('GITHUB_REPO', 'GeorgeV-creator/Sofimar-SERV')
         
         if not github_token:
-            print("⚠️ GITHUB_TOKEN not set, cannot upload to GitHub via API")
-            return False
+            error_msg = "GITHUB_TOKEN not set in Vercel environment variables. Please set it in Vercel Dashboard → Settings → Environment Variables"
+            print(f"❌ {error_msg}")
+            raise ValueError(error_msg)
         
         import base64 as b64
         import urllib.request
         import urllib.parse
+        import urllib.error
         
         # Encode image to base64 for GitHub API
+        print(f"📤 Encoding image for GitHub API upload...")
         image_b64 = b64.b64encode(image_bytes).decode('utf-8')
+        print(f"📤 Encoded image size: {len(image_b64)} characters")
         
         # GitHub API endpoint
         url = f"https://api.github.com/repos/{github_repo}/contents/{relative_path}"
+        print(f"📤 Uploading to GitHub: {url}")
         
         # Create request data
         data = {
@@ -195,15 +200,36 @@ def upload_image_to_github_via_api(relative_path, image_bytes):
         req.add_header('Authorization', f'token {github_token}')
         req.add_header('Content-Type', 'application/json')
         req.add_header('Accept', 'application/vnd.github.v3+json')
+        req.add_header('User-Agent', 'Sofimar-SERV-Image-Uploader')
         
-        with urllib.request.urlopen(req, data=json.dumps(data).encode('utf-8')) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            print(f"✅ Image uploaded to GitHub: {result.get('content', {}).get('path', relative_path)}")
-            return True
+        try:
+            with urllib.request.urlopen(req, data=json.dumps(data).encode('utf-8'), timeout=30) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                uploaded_path = result.get('content', {}).get('path', relative_path)
+                print(f"✅ Image uploaded successfully to GitHub: {uploaded_path}")
+                print(f"✅ GitHub API response: {result.get('commit', {}).get('message', 'Uploaded')}")
+                return True
+        except urllib.error.HTTPError as http_error:
+            error_body = http_error.read().decode('utf-8') if http_error.fp else 'No error body'
+            print(f"❌ GitHub API HTTP Error {http_error.code}: {error_body}")
+            if http_error.code == 401:
+                raise ValueError("GitHub API authentication failed. Check if GITHUB_TOKEN is valid.")
+            elif http_error.code == 403:
+                raise ValueError("GitHub API forbidden. Check if token has 'repo' permissions.")
+            elif http_error.code == 404:
+                raise ValueError(f"GitHub repository not found: {github_repo}")
+            else:
+                raise ValueError(f"GitHub API error {http_error.code}: {error_body}")
             
+    except ValueError as ve:
+        # Re-raise ValueError as-is (these are our custom errors)
+        raise
     except Exception as e:
-        print(f"⚠️ Error uploading to GitHub via API: {str(e)}")
-        return False
+        import traceback
+        error_msg = f"Error uploading to GitHub via API: {str(e)}"
+        print(f"❌ {error_msg}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise Exception(error_msg) from e
 
 def save_image_to_folder(image_data, filename=None):
     """
@@ -255,19 +281,20 @@ def save_image_to_folder(image_data, filename=None):
             # Vercel environment - upload directly to GitHub via API
             print("🔄 Vercel environment detected - uploading directly to GitHub via API...")
             try:
-                success = upload_image_to_github_via_api(relative_path, image_bytes)
-                if success:
-                    print(f"✅ Image uploaded to GitHub: {relative_path}")
-                    return relative_path
-                else:
-                    print(f"❌ Failed to upload image to GitHub via API")
-                    return None
+                upload_image_to_github_via_api(relative_path, image_bytes)
+                print(f"✅ Image uploaded to GitHub: {relative_path}")
+                return relative_path
+            except ValueError as ve:
+                # Custom error messages (token missing, auth failed, etc.)
+                error_msg = str(ve)
+                print(f"❌ {error_msg}")
+                raise Exception(error_msg) from ve
             except Exception as upload_error:
                 import traceback
-                print(f"❌ Error uploading to GitHub via API: {str(upload_error)}")
+                error_msg = f"Error uploading to GitHub via API: {str(upload_error)}"
+                print(f"❌ {error_msg}")
                 print(f"Traceback: {traceback.format_exc()}")
-                print(f"⚠️ For production: Set GITHUB_TOKEN environment variable in Vercel")
-                return None
+                raise Exception(error_msg) from upload_error
         else:
             # Local development - save to folder and commit via git
             project_root = Path(__file__).parent.parent
