@@ -1373,25 +1373,23 @@ class handler(BaseHTTPRequestHandler):
             parsed_url = urlparse(raw_path)
             path = parsed_url.path
             
-            # If path is /api/index.py (from rewrite), try to get original from query or headers
-            if path == '/api/index.py' or path.endswith('/index.py'):
-                # Check if there's a path query parameter
-                if parsed_url.query:
-                    query_params = parse_qs(parsed_url.query)
-                    if 'path' in query_params:
-                        path = query_params['path'][0] if isinstance(query_params['path'], list) else query_params['path']
-                    elif 'p' in query_params:
-                        path = query_params['p'][0] if isinstance(query_params['p'], list) else query_params['p']
-            
-            # Log for debugging - enable in production too
-            print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
-            print(f"Headers: x-vercel-rewrite={self.headers.get('x-vercel-rewrite', 'N/A')}, x-invoke-path={self.headers.get('x-invoke-path', 'N/A')}")
-            
-            # Parse query
+            # Parse query first to check for path parameter
             query = {}
             if parsed_url.query:
                 query_params = parse_qs(parsed_url.query)
                 query = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+                
+                # If path is in query (from Vercel rewrite), use it
+                if 'path' in query:
+                    path = query['path']
+                    if not path.startswith('/'):
+                        path = '/' + path
+                    # Remove 'path' from query to avoid confusion
+                    del query['path']
+            
+            # Log for debugging - enable in production too
+            print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}, query={query}")
+            print(f"Headers: x-vercel-rewrite={self.headers.get('x-vercel-rewrite', 'N/A')}, x-invoke-path={self.headers.get('x-invoke-path', 'N/A')}")
             
             # Get body
             body_data = ''
