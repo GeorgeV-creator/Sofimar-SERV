@@ -1455,7 +1455,7 @@ async function getCertificates() {
         const response = await fetch(`${API_BASE_URL}/certificates`);
         if (response.ok) {
             const certificates = await response.json();
-            console.log('Retrieved certificates from API:', certificates.length);
+            // console.log('Retrieved certificates from API:', certificates.length);
             return Array.isArray(certificates) ? certificates : [];
         }
     } catch (error) {
@@ -1473,12 +1473,12 @@ function saveCertificates(certificates) {
 async function addCertificate(title, description, image, type = 'certificat') {
     // Create new certificate object
     const newCertificate = { title, description, image, type };
-    console.log('🔄 Adding new certificate:', { title, type, imageLength: image ? image.length : 0 });
+        // console.log('🔄 Adding new certificate:', { title, type, imageLength: image ? image.length : 0 });
     
     try {
         // Try to save to API server
         const url = `${API_BASE_URL}/certificates`;
-        console.log('📡 Sending POST request to:', url);
+        // console.log('📡 Sending POST request to:', url);
         
         const response = await fetch(url, {
             method: 'POST',
@@ -1488,11 +1488,11 @@ async function addCertificate(title, description, image, type = 'certificat') {
             body: JSON.stringify(newCertificate)
         });
         
-        console.log('📥 API response status:', response.status, response.statusText);
+        // console.log('📥 API response status:', response.status, response.statusText);
         
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Certificate saved to API:', result);
+            // console.log('✅ Certificate saved to API:', result);
         } else {
             // Get error details from response
             let errorText = '';
@@ -1531,7 +1531,7 @@ async function deleteCertificate(certId, index) {
                 method: 'DELETE'
             });
             if (response.ok) {
-                console.log('Certificate deleted from API');
+                // console.log('Certificate deleted from API');
             }
         } catch (error) {
             console.error('API server not available, certificate not deleted:', error);
@@ -1598,7 +1598,7 @@ async function getPartners() {
         const response = await fetch(`${API_BASE_URL}/partners`);
         if (response.ok) {
             const partners = await response.json();
-            console.log('Retrieved partners from API:', partners);
+            // console.log('Retrieved partners from API:', partners);
             // Check if response has error
             if (partners && partners.error) {
                 console.warn('⚠️ API returned error');
@@ -1606,7 +1606,7 @@ async function getPartners() {
             }
             // Ensure it's an array
             if (Array.isArray(partners)) {
-                console.log('✅ Partners from API:', partners.length);
+                // console.log('✅ Partners from API:', partners.length);
                 return partners;
             } else {
                 console.warn('⚠️ Partners from API is not an array');
@@ -1630,11 +1630,11 @@ function savePartners(partners) {
 async function addPartner(title, image) {
     // Create new partner object
     const newPartner = { title, image };
-    console.log('🔄 Adding new partner:', { title, imageLength: image ? image.length : 0 });
+    // console.log('🔄 Adding new partner:', { title, imageLength: image ? image.length : 0 });
     
     try {
         // Try to save to API server
-        console.log('📡 Attempting to save partner to API...');
+        // console.log('📡 Attempting to save partner to API...');
         const response = await fetch(`${API_BASE_URL}/partners`, {
             method: 'POST',
             headers: {
@@ -1645,7 +1645,7 @@ async function addPartner(title, image) {
         
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Partner saved to API:', result);
+            // console.log('✅ Partner saved to API:', result);
             // Check if result has error
             if (result && result.error) {
                 console.warn('⚠️ API returned error');
@@ -1667,13 +1667,13 @@ async function addPartner(title, image) {
     }
     
     // Reload display
-    console.log('🔄 Reloading partners display...');
+    // console.log('🔄 Reloading partners display...');
     await loadPartners();
     updateStatistics();
     
     // Dispatch event to update partners section if open
     window.dispatchEvent(new CustomEvent('partnersUpdated'));
-    console.log('✅ Partner added successfully!');
+    // console.log('✅ Partner added successfully!');
 }
 
 async function deletePartner(partnerId, index) {
@@ -1688,7 +1688,7 @@ async function deletePartner(partnerId, index) {
                 method: 'DELETE'
             });
             if (response.ok) {
-                console.log('Partner deleted from API');
+                // console.log('Partner deleted from API');
             }
         } catch (error) {
             console.error('API server not available, partner not deleted:', error);
@@ -1865,7 +1865,7 @@ function compressImage(file, maxWidth = 1920, maxHeight = 1920, quality = 0.8, m
 
                 // Check final size
                 const sizeKB = (base64.length / 1024).toFixed(2);
-                console.log(`📸 Image compressed: ${(file.size / 1024).toFixed(2)} KB → ${sizeKB} KB (quality: ${quality.toFixed(1)})`);
+                // console.log(`📸 Image compressed: ${(file.size / 1024).toFixed(2)} KB → ${sizeKB} KB (quality: ${quality.toFixed(1)})`);
                 
                 if (base64.length > 4 * 1024 * 1024) { // 4MB limit
                     reject(new Error(`Imaginea este prea mare chiar și după compresie (${sizeKB} KB). Te rugăm să folosești un URL sau să reduci dimensiunea imaginii.`));
@@ -1888,11 +1888,11 @@ function convertImageToBase64(file) {
     const maxSizeBeforeCompression = 5; // MB
     
     if (fileSizeMB > maxSizeBeforeCompression) {
-        console.log(`📸 Large image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
+        // console.log(`📸 Large image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
         return compressImage(file);
     } else if (fileSizeMB > 1) {
         // Compress images larger than 1MB
-        console.log(`📸 Medium image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
+        // console.log(`📸 Medium image detected (${fileSizeMB.toFixed(2)} MB), compressing...`);
         return compressImage(file, 1920, 1920, 0.85, 800);
     } else {
         // Small images can be used as-is
@@ -1901,7 +1901,7 @@ function convertImageToBase64(file) {
             reader.onload = () => {
                 const base64 = reader.result;
                 const sizeKB = (base64.length / 1024).toFixed(2);
-                console.log(`📸 Image used as-is: ${sizeKB} KB`);
+                // console.log(`📸 Image used as-is: ${sizeKB} KB`);
                 
                 if (base64.length > 4 * 1024 * 1024) { // 4MB limit
                     reject(new Error(`Imaginea este prea mare (${sizeKB} KB). Te rugăm să folosești un URL sau să reducezi dimensiunea imaginii.`));
@@ -2026,7 +2026,7 @@ async function exportMessages() {
             return;
         }
         
-        console.log('📊 Mesaje pentru export:', messages);
+        // console.log('📊 Mesaje pentru export:', messages);
         
         // Prepare data for Excel
         // Messages are already parsed from API, so they have direct properties: name, phone, email, message, timestamp
@@ -2087,30 +2087,30 @@ async function exportMessages() {
         const fileName = `sofimar-messages-${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(wb, fileName);
         
-        console.log(`✅ Export reușit: ${fileName}`);
+        // console.log(`✅ Export reușit: ${fileName}`);
     } catch (error) {
         console.error('❌ Eroare la export:', error);
-        console.error('Stack trace:', error.stack);
+        // console.error('Stack trace:', error.stack);
         alert('Eroare la exportul mesajelor. Verifică consola pentru detalii.');
     }
 }
 
 // Site Texts Management
 async function getSiteTexts() {
-    console.log('🔍 getSiteTexts() called');
+    // console.log('🔍 getSiteTexts() called');
     
     try {
         // Try to fetch from API server
         const response = await fetch(`${API_BASE_URL}/site-texts`);
         if (response.ok) {
             const texts = await response.json();
-            console.log('📡 Got texts from API:', texts);
+            // console.log('📡 Got texts from API:', texts);
             
             // Check if API returned an error object
             if (texts && texts.error) {
                 console.warn('⚠️ API returned error:', texts.error);
             } else if (texts && typeof texts === 'object') {
-                console.log('✅ Returning texts from API, keys:', Object.keys(texts).length);
+                // console.log('✅ Returning texts from API, keys:', Object.keys(texts).length);
                 return texts;
             }
         } else {
