@@ -59,7 +59,12 @@ function checkAuth() {
         }
     }
     
-    showLogin();
+    // If no valid token, redirect to login page
+    if (window.location.pathname !== '/adminlogin.html' && window.location.pathname !== '/admin') {
+        window.location.href = '/admin';
+    } else {
+        showLogin();
+    }
 }
 
 function setupSessionTimeout() {
