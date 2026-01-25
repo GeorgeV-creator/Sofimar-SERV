@@ -1358,11 +1358,24 @@ class handler(BaseHTTPRequestHandler):
         try:
             # Parse path - Vercel passes the full path including /api/
             raw_path = self.path
+            
+            # Check for Vercel rewrite header (contains original path)
+            vercel_rewrite = self.headers.get('x-vercel-rewrite', '')
+            if vercel_rewrite:
+                # Vercel rewrite header contains the original path
+                raw_path = vercel_rewrite
+            
+            # Also check x-invoke-path header (Vercel may use this)
+            invoke_path = self.headers.get('x-invoke-path', '')
+            if invoke_path:
+                raw_path = invoke_path
+            
             parsed_url = urlparse(raw_path)
             path = parsed_url.path
             
             # Log for debugging - enable in production too
             print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
+            print(f"Headers: x-vercel-rewrite={self.headers.get('x-vercel-rewrite', 'N/A')}, x-invoke-path={self.headers.get('x-invoke-path', 'N/A')}")
             
             # Parse query
             query = {}
