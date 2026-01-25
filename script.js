@@ -474,7 +474,7 @@ function setupTikTokAutoReplay() {
             iframe.dataset.originalSrc = iframe.src;
         }
         
-        // Reload iframe every 60 seconds to restart video
+        // Reload iframe every 30 seconds to restart video
         setInterval(() => {
             try {
                 const originalSrc = iframe.dataset.originalSrc || iframe.src;
@@ -485,7 +485,7 @@ function setupTikTokAutoReplay() {
             } catch (e) {
                 // Ignore errors
             }
-        }, 60000); // Every 60 seconds
+        }, 30000); // Every 30 seconds
     });
 }
 
