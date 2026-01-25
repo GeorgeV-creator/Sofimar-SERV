@@ -1420,40 +1420,20 @@ class handler(BaseHTTPRequestHandler):
     
     def _handle_request(self, method):
         try:
-            # Parse path - Vercel passes the full path including /api/
+            # Vercel passes the original request path in self.path
+            # For /api/messages, self.path will be /api/messages (not /api/index.py)
             raw_path = self.path
-            
-            # Check for Vercel rewrite header (contains original path)
-            vercel_rewrite = self.headers.get('x-vercel-rewrite', '')
-            if vercel_rewrite:
-                # Vercel rewrite header contains the original path
-                raw_path = vercel_rewrite
-            
-            # Also check x-invoke-path header (Vercel may use this)
-            invoke_path = self.headers.get('x-invoke-path', '')
-            if invoke_path:
-                raw_path = invoke_path
-            
             parsed_url = urlparse(raw_path)
             path = parsed_url.path
             
-            # Parse query first to check for path parameter
+            # Parse query
             query = {}
             if parsed_url.query:
                 query_params = parse_qs(parsed_url.query)
                 query = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
-                
-                # If path is in query (from Vercel rewrite), use it
-                if 'path' in query:
-                    path = query['path']
-                    if not path.startswith('/'):
-                        path = '/' + path
-                    # Remove 'path' from query to avoid confusion
-                    del query['path']
             
-            # Log for debugging - enable in production too
-            print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}, query={query}")
-            print(f"Headers: x-vercel-rewrite={self.headers.get('x-vercel-rewrite', 'N/A')}, x-invoke-path={self.headers.get('x-invoke-path', 'N/A')}")
+            # Log for debugging
+            print(f"Vercel handler: raw_path={raw_path}, path={path}, method={method}, query={query}")
             
             # Get body
             body_data = ''
