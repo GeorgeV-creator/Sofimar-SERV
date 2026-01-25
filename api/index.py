@@ -85,6 +85,105 @@ def get_cursor(db):
     else:
         return db['conn'].cursor()
 
+def commit_image_to_github(image_path, relative_path, image_bytes):
+    """
+    Commit image to GitHub repository using git commands (local only)
+    """
+    try:
+        import subprocess
+        project_root = Path(__file__).parent.parent
+        
+        # Check if we're in a git repository
+        result = subprocess.run(
+            ['git', 'rev-parse', '--is-inside-work-tree'],
+            cwd=project_root,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print("⚠️ Not in a git repository, skipping commit")
+            return False
+        
+        # Add file to git
+        subprocess.run(
+            ['git', 'add', relative_path],
+            cwd=project_root,
+            check=True
+        )
+        print(f"✅ Added {relative_path} to git")
+        
+        # Commit
+        commit_message = f"Add image: {relative_path}"
+        subprocess.run(
+            ['git', 'commit', '-m', commit_message],
+            cwd=project_root,
+            check=True
+        )
+        print(f"✅ Committed {relative_path}")
+        
+        # Push to GitHub
+        subprocess.run(
+            ['git', 'push', 'origin', 'main'],
+            cwd=project_root,
+            check=True
+        )
+        print(f"✅ Pushed {relative_path} to GitHub")
+        
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️ Git command failed: {str(e)}")
+        return False
+    except Exception as e:
+        print(f"⚠️ Error committing to GitHub: {str(e)}")
+        return False
+
+def upload_image_to_github_via_api(relative_path, image_bytes):
+    """
+    Upload image to GitHub using GitHub API (for Vercel/serverless)
+    Requires GITHUB_TOKEN environment variable
+    """
+    try:
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO', 'GeorgeV-creator/Sofimar-SERV')
+        
+        if not github_token:
+            print("⚠️ GITHUB_TOKEN not set, cannot upload to GitHub via API")
+            return False
+        
+        import base64 as b64
+        import urllib.request
+        import urllib.parse
+        
+        # Encode image to base64 for GitHub API
+        image_b64 = b64.b64encode(image_bytes).decode('utf-8')
+        
+        # GitHub API endpoint
+        url = f"https://api.github.com/repos/{github_repo}/contents/{relative_path}"
+        
+        # Create request data
+        data = {
+            "message": f"Add image: {relative_path}",
+            "content": image_b64,
+            "branch": "main"
+        }
+        
+        # Make request
+        req = urllib.request.Request(url, method='PUT')
+        req.add_header('Authorization', f'token {github_token}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Accept', 'application/vnd.github.v3+json')
+        
+        with urllib.request.urlopen(req, data=json.dumps(data).encode('utf-8')) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            print(f"✅ Image uploaded to GitHub: {result.get('content', {}).get('path', relative_path)}")
+            return True
+            
+    except Exception as e:
+        print(f"⚠️ Error uploading to GitHub via API: {str(e)}")
+        return False
+
 def save_image_to_folder(image_data, filename=None):
     """
     Save image to images folder.
