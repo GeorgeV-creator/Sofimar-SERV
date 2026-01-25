@@ -437,8 +437,6 @@ async function loadTikTokVideos() {
                         const iframes = carousel.querySelectorAll('.tiktok-video-wrapper iframe');
                         if (iframes.length > 0) {
                             carousel.classList.add('animate');
-                            // Setup auto-replay for videos
-                            setupTikTokAutoReplay();
                         }
                     }, 2000);
                 } catch (error) {
@@ -456,59 +454,6 @@ async function loadTikTokVideos() {
     }
 }
 
-// Setup auto-replay for TikTok videos
-function setupTikTokAutoReplay() {
-    const iframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
-    
-    if (iframes.length === 0) {
-        // Retry if iframes aren't loaded yet
-        setTimeout(setupTikTokAutoReplay, 1000);
-        return;
-    }
-    
-    // Setup periodic reload to restart videos
-    // TikTok embeds don't allow direct video control due to cross-origin restrictions
-    // So we reload the iframe periodically to restart videos
-    iframes.forEach((iframe, index) => {
-        if (!iframe.dataset.originalSrc) {
-            iframe.dataset.originalSrc = iframe.src;
-        }
-        
-        // Use a staggered approach - reload each iframe at different times
-        // to avoid all videos reloading at once
-        const delay = index * 2000; // Stagger by 2 seconds per video
-        
-        setTimeout(() => {
-            // Reload iframe every 15 seconds to restart video
-            setInterval(() => {
-                try {
-                    // Only reload if iframe is still in DOM and visible
-                    if (!iframe.isConnected || iframe.offsetParent === null) {
-                        return;
-                    }
-                    
-                    const originalSrc = iframe.dataset.originalSrc || iframe.src;
-                    if (!originalSrc) return;
-                    
-                    // Store current src before clearing
-                    const currentSrc = iframe.src;
-                    
-                    // Clear and reload
-                    iframe.src = '';
-                    
-                    // Wait a bit before reloading to ensure clean reload
-                    setTimeout(() => {
-                        if (iframe.isConnected) {
-                            iframe.src = originalSrc;
-                        }
-                    }, 200);
-                } catch (e) {
-                    console.warn('Error reloading TikTok iframe:', e);
-                }
-            }, 15000); // Every 15 seconds
-        }, delay);
-    });
-}
 
 // Store map instance globally for updates
 let romaniaMapInstance = null;
