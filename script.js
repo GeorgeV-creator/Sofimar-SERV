@@ -878,7 +878,7 @@ async function loadPartnersOnPage() {
     }).join('');
 }
 
-// Load certificates from API - optimized for fast loading
+// Load certificates from API - optimized for instant loading
 async function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
     const accreditationsGrid = document.getElementById('accreditationsGrid');
@@ -892,30 +892,29 @@ async function loadCertificatesOnPage() {
         return;
     }
     
-    let certificates = [];
+    // Use pre-fetched data from inline script if available
+    let certificates = window.__certificatesData;
     
-    try {
-        // Fetch with cache and no-cors optimization
-        const response = await fetch(`${API_BASE_URL}/certificates`, {
-            cache: 'default',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        if (response.ok) {
-            certificates = await response.json();
-            if (!Array.isArray(certificates)) {
-                console.error('❌ Certificates data from API is not an array:', typeof certificates, certificates);
+    if (!certificates) {
+        // Fallback: fetch if not pre-loaded
+        try {
+            const response = await fetch(`${API_BASE_URL}/certificates`, {
+                cache: 'default',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (response.ok) {
+                certificates = await response.json();
+                if (!Array.isArray(certificates)) {
+                    console.error('❌ Certificates data from API is not an array:', typeof certificates, certificates);
+                    certificates = [];
+                }
+            } else {
                 certificates = [];
             }
-        } else {
-            const errorText = await response.text();
-            console.error('❌ API response not OK:', response.status, errorText);
-            throw new Error(`API response not OK: ${response.status}`);
+        } catch (error) {
+            console.error('❌ API server not available, certificates not loaded:', error);
+            certificates = [];
         }
-    } catch (error) {
-        console.error('❌ API server not available, certificates not loaded:', error);
-        certificates = [];
     }
 
     // Helper function to create certificate HTML - optimized

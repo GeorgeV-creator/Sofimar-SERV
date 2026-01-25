@@ -75,6 +75,27 @@
         </div>
     </footer>
 
+    <script>
+        // Start fetching certificates immediately, before DOM is ready
+        (function() {
+            const API_BASE_URL = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost') === false
+                ? `${window.location.protocol}//${window.location.hostname}/api`
+                : `http://${window.location.hostname}:8001/api`;
+            
+            // Fetch certificates immediately
+            fetch(`${API_BASE_URL}/certificates`, {
+                cache: 'default',
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(response => response.ok ? response.json() : [])
+            .then(data => {
+                window.__certificatesData = Array.isArray(data) ? data : [];
+            })
+            .catch(() => {
+                window.__certificatesData = [];
+            });
+        })();
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
