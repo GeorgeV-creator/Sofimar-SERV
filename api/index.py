@@ -599,26 +599,13 @@ def handle_api_request(path, method, query, body_data):
                     
                     print(f"📝 POST /certificates: Saving certificate id={data['id']}, type={cert_type}, title={data.get('title', 'N/A')}")
                     
-                    # ALWAYS save images to images folder, never store base64 in database
+                    # Store image as base64 in database (original behavior)
                     image_data = data.get('image', '')
-                    if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
-                        # Save image to folder - MUST succeed or return error
-                        print(f"🔄 Attempting to save certificate image...")
-                        saved_path = save_image_to_folder(image_data)
-                        if saved_path:
-                            # Replace base64 with file path
-                            data['image'] = saved_path
-                            print(f"✅ Certificate image saved to folder: {saved_path}")
-                        else:
-                            # If saving failed, return error - don't use temp path
-                            error_msg = "Could not save certificate image to folder. Check server logs for details."
-                            print(f"❌ {error_msg}")
-                            print(f"❌ Image data length: {len(image_data)} characters")
-                            return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
-                    elif image_data and not image_data.startswith('images/'):
-                        # If image is not base64 and not already a path, it might be invalid
-                        if not image_data.startswith('http') and not image_data.startswith('/'):
-                            print(f"⚠️ Certificate image path might be invalid: {image_data}")
+                    if image_data:
+                        # Keep image as base64 in database
+                        print(f"✅ Certificate image will be stored as base64 in database (length: {len(image_data)} chars)")
+                    else:
+                        print(f"⚠️ No image provided for certificate")
                     
                     db = get_db_connection()
                     print(f"📊 Database connection: type={db['type']}, is_neon={db.get('is_neon', False)}")
@@ -702,26 +689,13 @@ def handle_api_request(path, method, query, body_data):
                     data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
                     data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
                     
-                    # ALWAYS save images to images folder, never store base64 in database
+                    # Store image as base64 in database (original behavior)
                     image_data = data.get('image', '')
-                    if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
-                        # Save image to folder - MUST succeed or return error
-                        print(f"🔄 Attempting to save partner image...")
-                        saved_path = save_image_to_folder(image_data)
-                        if saved_path:
-                            # Replace base64 with file path
-                            data['image'] = saved_path
-                            print(f"✅ Partner image saved to folder: {saved_path}")
-                        else:
-                            # If saving failed, return error - don't use temp path
-                            error_msg = "Could not save partner image to folder. Check server logs for details."
-                            print(f"❌ {error_msg}")
-                            print(f"❌ Image data length: {len(image_data)} characters")
-                            return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
-                    elif image_data and not image_data.startswith('images/'):
-                        # If image is not base64 and not already a path, it might be invalid
-                        if not image_data.startswith('http') and not image_data.startswith('/'):
-                            print(f"⚠️ Partner image path might be invalid: {image_data}")
+                    if image_data:
+                        # Keep image as base64 in database
+                        print(f"✅ Partner image will be stored as base64 in database (length: {len(image_data)} chars)")
+                    else:
+                        print(f"⚠️ No image provided for partner")
                     
                     db = get_db_connection()
                     cur = get_cursor(db)
