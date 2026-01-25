@@ -2898,6 +2898,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Get chatbot responses
+async function getChatbotResponses() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chatbot-responses`);
+        if (!response.ok) {
+            throw new Error('Failed to load chatbot responses');
+        }
+        const responses = await response.json();
+        // Return as array of objects for counting
+        return Object.keys(responses || {}).map(keyword => ({ keyword, response: responses[keyword] }));
+    } catch (error) {
+        console.error('Error fetching chatbot responses:', error);
+        return [];
+    }
+}
+
 // Chatbot Responses Management Functions
 async function loadChatbotResponsesAdmin() {
     try {
