@@ -1941,16 +1941,42 @@ async function exportMessages() {
             return;
         }
         
+        console.log('📊 Mesaje pentru export:', messages);
+        
         // Prepare data for Excel
+        // Messages are already parsed from API, so they have direct properties: name, phone, email, message, timestamp
         const worksheetData = messages.map((msg, index) => {
-            const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+            // Handle both direct properties and nested data structure
+            const name = msg.name || (msg.data && (msg.data.name || msg.data.nume)) || '';
+            const email = msg.email || (msg.data && msg.data.email) || '';
+            const phone = msg.phone || (msg.data && (msg.data.phone || msg.data.telefon)) || '';
+            const message = msg.message || (msg.data && (msg.data.message || msg.data.mesaj)) || '';
+            const timestamp = msg.timestamp || (msg.data && msg.data.timestamp) || '';
+            
+            // Format date if timestamp exists
+            let dateStr = '';
+            if (timestamp) {
+                try {
+                    const date = new Date(timestamp);
+                    dateStr = date.toLocaleString('ro-RO', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (e) {
+                    dateStr = timestamp;
+                }
+            }
+            
             return {
                 'Nr.': index + 1,
-                'Nume': data.name || data.nume || '',
-                'Email': data.email || '',
-                'Telefon': data.phone || data.telefon || '',
-                'Mesaj': data.message || data.mesaj || '',
-                'Data': msg.timestamp || data.timestamp || ''
+                'Nume': name,
+                'Email': email,
+                'Telefon': phone,
+                'Mesaj': message,
+                'Data': dateStr
             };
         });
         
@@ -1979,6 +2005,7 @@ async function exportMessages() {
         console.log(`✅ Export reușit: ${fileName}`);
     } catch (error) {
         console.error('❌ Eroare la export:', error);
+        console.error('Stack trace:', error.stack);
         alert('Eroare la exportul mesajelor. Verifică consola pentru detalii.');
     }
 }
