@@ -1373,6 +1373,16 @@ class handler(BaseHTTPRequestHandler):
             parsed_url = urlparse(raw_path)
             path = parsed_url.path
             
+            # If path is /api/index.py (from rewrite), try to get original from query or headers
+            if path == '/api/index.py' or path.endswith('/index.py'):
+                # Check if there's a path query parameter
+                if parsed_url.query:
+                    query_params = parse_qs(parsed_url.query)
+                    if 'path' in query_params:
+                        path = query_params['path'][0] if isinstance(query_params['path'], list) else query_params['path']
+                    elif 'p' in query_params:
+                        path = query_params['p'][0] if isinstance(query_params['p'], list) else query_params['p']
+            
             # Log for debugging - enable in production too
             print(f"Handler received: raw_path={raw_path}, parsed_path={path}, method={method}")
             print(f"Headers: x-vercel-rewrite={self.headers.get('x-vercel-rewrite', 'N/A')}, x-invoke-path={self.headers.get('x-invoke-path', 'N/A')}")
