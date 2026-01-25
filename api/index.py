@@ -92,17 +92,11 @@ def save_image_to_folder(image_data, filename=None):
     - base64 string (data:image/...;base64,...)
     - binary data
     Returns the relative path to the image or None if saving failed
+    
+    NOTE: In Vercel serverless environment, filesystem writes are not persistent.
+    For production, consider using Vercel Blob Storage or another cloud storage service.
     """
     try:
-        # Determine the images folder path
-        # In Vercel, we can't write to filesystem, so we'll return None
-        # For local development, use the images folder relative to the project root
-        if os.environ.get('VERCEL'):
-            # In Vercel, we can't write to filesystem in serverless functions
-            # Return None to indicate we should use base64 instead
-            print("⚠️ Vercel environment detected - cannot write to filesystem")
-            return None
-        
         # Get the project root (where api/index.py is located)
         project_root = Path(__file__).parent.parent
         images_folder = project_root / 'images'
@@ -143,6 +137,12 @@ def save_image_to_folder(image_data, filename=None):
         # Return relative path from project root
         relative_path = f"images/{filename}"
         print(f"✅ Image saved to: {relative_path}")
+        
+        # In Vercel, warn that file won't persist but still return path
+        if os.environ.get('VERCEL'):
+            print("⚠️ WARNING: Vercel environment - file saved temporarily but won't persist after function ends")
+            print("⚠️ Consider using Vercel Blob Storage or commit images to GitHub repository")
+        
         return relative_path
         
     except Exception as e:
@@ -392,18 +392,24 @@ def handle_api_request(path, method, query, body_data):
                     
                     print(f"📝 POST /certificates: Saving certificate id={data['id']}, type={cert_type}, title={data.get('title', 'N/A')}")
                     
-                    # If image is base64, try to save it to images folder
+                    # ALWAYS save images to images folder, never store base64 in database
                     image_data = data.get('image', '')
                     if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
-                        # Try to save image to folder
+                        # Save image to folder
                         saved_path = save_image_to_folder(image_data)
                         if saved_path:
                             # Replace base64 with file path
                             data['image'] = saved_path
                             print(f"✅ Image saved to folder: {saved_path}")
                         else:
-                            # If saving failed (e.g., in Vercel), keep base64
-                            print(f"⚠️ Could not save image to folder, keeping base64")
+                            # If saving failed, return error - don't store base64 in database
+                            error_msg = "Could not save image to folder. Please ensure images folder is writable."
+                            print(f"❌ {error_msg}")
+                            return 500, headers, json.dumps({'error': error_msg, 'success': False}, ensure_ascii=False)
+                    elif image_data and not image_data.startswith('images/'):
+                        # If image is not base64 and not already a path, it might be invalid
+                        if not image_data.startswith('http') and not image_data.startswith('/'):
+                            print(f"⚠️ Image path might be invalid: {image_data}")
                     
                     db = get_db_connection()
                     print(f"📊 Database connection: type={db['type']}, is_neon={db.get('is_neon', False)}")
