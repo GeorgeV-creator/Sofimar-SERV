@@ -505,7 +505,6 @@ body {
     display: flex;
     gap: 2rem;
     width: fit-content;
-    /* Animation will be started via JavaScript after videos are loaded */
     animation: none;
 }
 

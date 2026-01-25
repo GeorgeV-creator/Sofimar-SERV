@@ -357,314 +357,99 @@ if (chatbotInput) {
     });
 }
 
-// TikTok Video IDs - Adaugă aici toate ID-urile video-urilor de pe canalul TikTok
-// Pentru a obține ID-ul: Mergi pe video > Share > Copy Link > Copiază numărul de după /video/
-// Video-urile pot fi gestionate din panoul de admin
-const STORAGE_KEY_VIDEOS = 'sofimar_tiktok_videos';
-const DEFAULT_TIKTOK_VIDEO_IDS = [
-    '7567003645250702614',
-    '7564125179761167638',
-    '7556587113244937475'
-    // Adaugă aici mai multe ID-uri de video când ai videoclipuri noi
-    // Exemplu: '1234567890123456789',
-];
+// TikTok Videos - Simple and clean implementation
+const TIKTOK_USERNAME = 'sofimar_serv.srl';
 
-// Load videos from API or use default
+// Get TikTok video IDs from API or use defaults
 async function getTikTokVideoIds() {
     try {
         const response = await fetch(`${API_BASE_URL}/tiktok-videos`);
         if (response.ok) {
             const videos = await response.json();
-            return Array.isArray(videos) && videos.length > 0 ? videos : DEFAULT_TIKTOK_VIDEO_IDS;
+            if (Array.isArray(videos) && videos.length > 0) {
+                return videos;
+            }
         }
     } catch (error) {
-        console.warn('API server not available, using default videos:', error);
+        console.warn('Could not load TikTok videos from API:', error);
     }
-    return DEFAULT_TIKTOK_VIDEO_IDS;
+    // Default video IDs
+    return [
+        '7567003645250702614',
+        '7564125179761167638',
+        '7556587113244937475'
+    ];
 }
 
-let TIKTOK_VIDEO_IDS = DEFAULT_TIKTOK_VIDEO_IDS;
-
-const TIKTOK_USERNAME = '@sofimar_serv.srl';
-
-// Function to create TikTok embed HTML
+// Create TikTok embed blockquote
 function createTikTokEmbed(videoId) {
-    // Remove @ from username for URL
-    const usernameForUrl = TIKTOK_USERNAME.replace('@', '');
-    const videoUrl = `https://www.tiktok.com/@${usernameForUrl}/video/${videoId}`;
-    // Use official TikTok embed format - exact structure as per TikTok docs
+    const videoUrl = `https://www.tiktok.com/@${TIKTOK_USERNAME}/video/${videoId}`;
     return `
         <div class="tiktok-video-wrapper">
             <blockquote class="tiktok-embed" cite="${videoUrl}" data-video-id="${videoId}" style="max-width: 325px; min-width: 325px;">
                 <section>
-                    <a target="_blank" title="${TIKTOK_USERNAME}" href="${videoUrl}">${videoUrl}</a>
+                    <a target="_blank" title="@${TIKTOK_USERNAME}" href="${videoUrl}">@${TIKTOK_USERNAME}</a>
                 </section>
             </blockquote>
         </div>
     `;
 }
 
-// Load all TikTok videos dynamically
+// Load and display TikTok videos
 async function loadTikTokVideos() {
     const carousel = document.getElementById('tiktokCarousel');
-    if (!carousel) {
-        console.warn('TikTok carousel element not found');
-        return;
-    }
+    if (!carousel) return;
     
-    // Get videos from API
-    TIKTOK_VIDEO_IDS = await getTikTokVideoIds();
-    
-    if (!TIKTOK_VIDEO_IDS || TIKTOK_VIDEO_IDS.length === 0) {
-        console.warn('No TikTok video IDs found');
-        carousel.innerHTML = '<p style="text-align: center; padding: 2rem;">Nu sunt video-uri disponibile momentan.</p>';
-        return;
-    }
-    
-    // Clear existing content
-    carousel.innerHTML = '';
-    
-    // Create embeds for all videos
-    TIKTOK_VIDEO_IDS.forEach(videoId => {
-        carousel.innerHTML += createTikTokEmbed(videoId);
-    });
-    
-    // Duplicate videos for seamless loop
-    TIKTOK_VIDEO_IDS.forEach(videoId => {
-        carousel.innerHTML += createTikTokEmbed(videoId);
-    });
-    
-    console.log(`✅ Created ${TIKTOK_VIDEO_IDS.length * 2} TikTok embed blocks`);
-    
-    // Wait for DOM to update, then load and render TikTok embeds
-    // Use requestAnimationFrame to ensure DOM is fully updated
-    requestAnimationFrame(() => {
-        setTimeout(() => {
-            loadTikTokEmbedScript();
-        }, 100);
-    });
-}
-
-// Function to load TikTok embed script and render embeds
-function loadTikTokEmbedScript() {
-    // First, verify that blockquote elements exist in DOM
-    const blockquotes = document.querySelectorAll('.tiktok-embed');
-    console.log(`📋 Found ${blockquotes.length} TikTok embed blockquotes in DOM`);
-    
-    if (blockquotes.length === 0) {
-        console.warn('⚠️ No TikTok embed blockquotes found, retrying...');
-        setTimeout(loadTikTokEmbedScript, 500);
-        return;
-    }
-    
-    // Check if script is already loaded
-    if (window.tiktokEmbed && window.tiktokEmbed.lib) {
-        console.log('✅ TikTok embed script already loaded, rendering...');
-        try {
-            // Ensure blockquotes are visible before rendering
-            blockquotes.forEach(bq => {
-                if (bq.offsetParent === null) {
-                    console.warn('⚠️ Some blockquotes are not visible');
-                }
-            });
-            window.tiktokEmbed.lib.render();
-            console.log('✅ TikTok embeds render called');
-            setTimeout(() => {
-                setupTikTokAutoReplay();
-                startTikTokCarouselAnimation();
-            }, 2000);
-        } catch (error) {
-            console.error('❌ Error rendering TikTok embeds:', error);
+    try {
+        // Get video IDs
+        const videoIds = await getTikTokVideoIds();
+        
+        if (!videoIds || videoIds.length === 0) {
+            carousel.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">Nu sunt video-uri disponibile momentan.</p>';
+            return;
         }
-        return;
-    }
-    
-    // Check if script tag exists
-    const existingScript = document.querySelector('script[src*="tiktok.com/embed.js"]');
-    
-    if (existingScript) {
-        // Script exists, wait for it to load
-        if (window.tiktokEmbed && window.tiktokEmbed.lib) {
-            window.tiktokEmbed.lib.render();
-            setTimeout(() => {
-                setupTikTokAutoReplay();
-            }, 2000);
-        } else {
-            // Wait for script to load
-            const checkInterval = setInterval(() => {
-                if (window.tiktokEmbed && window.tiktokEmbed.lib) {
-                    clearInterval(checkInterval);
-                    console.log('✅ TikTok embed object available, rendering...');
+        
+        // Clear and create embeds
+        carousel.innerHTML = '';
+        
+        // Add videos (duplicate for seamless loop)
+        videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
+        videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
+        
+        // Load TikTok embed script if not already loaded
+        if (!document.querySelector('script[src*="tiktok.com/embed.js"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://www.tiktok.com/embed.js';
+            script.async = true;
+            document.head.appendChild(script);
+        }
+        
+        // Wait for script to load, then render
+        const checkAndRender = setInterval(() => {
+            if (window.tiktokEmbed && window.tiktokEmbed.lib) {
+                clearInterval(checkAndRender);
+                try {
                     window.tiktokEmbed.lib.render();
+                    // Start animation after videos are rendered
                     setTimeout(() => {
-                        setupTikTokAutoReplay();
-                        startTikTokCarouselAnimation();
+                        const iframes = carousel.querySelectorAll('.tiktok-video-wrapper iframe');
+                        if (iframes.length > 0) {
+                            carousel.classList.add('animate');
+                        }
                     }, 2000);
+                } catch (error) {
+                    console.error('Error rendering TikTok embeds:', error);
                 }
-            }, 100);
-            
-            // Timeout after 10 seconds
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                if (!window.tiktokEmbed) {
-                    console.error('❌ TikTok embed script failed to load');
-                }
-            }, 10000);
-        }
-    } else {
-        // Load script dynamically
-        const script = document.createElement('script');
-        script.src = 'https://www.tiktok.com/embed.js';
-        script.async = true;
-        script.onload = () => {
-            console.log('✅ TikTok embed script loaded');
-            // Wait for tiktokEmbed to be available
-            const waitForEmbed = setInterval(() => {
-                if (window.tiktokEmbed && window.tiktokEmbed.lib) {
-                    clearInterval(waitForEmbed);
-                    console.log('✅ TikTok embed object available, rendering...');
-                    try {
-                        window.tiktokEmbed.lib.render();
-                        setTimeout(() => {
-                            setupTikTokAutoReplay();
-                            startTikTokCarouselAnimation();
-                        }, 2000);
-                    } catch (error) {
-                        console.error('❌ Error calling render:', error);
-                    }
-                }
-            }, 100);
-            
-            // Timeout after 5 seconds
-            setTimeout(() => {
-                clearInterval(waitForEmbed);
-                if (!window.tiktokEmbed) {
-                    console.error('❌ TikTok embed object not available after script load');
-                }
-            }, 5000);
-        };
-        script.onerror = () => {
-            console.error('❌ Failed to load TikTok embed script');
-        };
-        document.head.appendChild(script);
-    }
-}
-
-// Setup auto-replay for TikTok videos
-function setupTikTokAutoReplay() {
-    const tiktokIframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
-    
-    if (tiktokIframes.length === 0) {
-        // Retry after a delay if iframes aren't loaded yet
-        setTimeout(() => setupTikTokAutoReplay(), 1000);
-        return;
-    }
-    
-    // Store original iframe sources for replay
-    tiktokIframes.forEach((iframe) => {
-        if (!iframe.dataset.originalSrc) {
-            iframe.dataset.originalSrc = iframe.src;
-        }
-        
-        // Try to set autoplay and mute parameters
-        try {
-            if (iframe.src) {
-                const url = new URL(iframe.src);
-                url.searchParams.set('autoplay', '1');
-                url.searchParams.set('mute', '1');
-                iframe.src = url.toString();
             }
-        } catch (e) {
-            console.log('Could not modify iframe URL for autoplay');
-        }
-    });
-    
-    // Set up interval to reload videos periodically for continuous playback
-    if (!window.tiktokReplayInterval) {
-        window.tiktokReplayInterval = setInterval(() => {
-            tiktokIframes.forEach((iframe) => {
-                // Check if iframe is in viewport
-                const rect = iframe.getBoundingClientRect();
-                const isInView = rect.top < window.innerHeight && rect.bottom > 0;
-                
-                if (isInView) {
-                    // Reload iframe every 30 seconds to ensure continuous playback
-                    try {
-                        const originalSrc = iframe.dataset.originalSrc || iframe.src;
-                        
-                        if (!iframe.dataset.lastReload) {
-                            iframe.dataset.lastReload = Date.now();
-                        } else {
-                            const timeSinceReload = Date.now() - parseInt(iframe.dataset.lastReload);
-                            if (timeSinceReload > 30000) { // Reload every 30 seconds
-                                iframe.src = originalSrc;
-                                iframe.dataset.lastReload = Date.now();
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Could not reload iframe');
-                    }
-                }
-            });
-        }, 5000); // Check every 5 seconds
-    }
-    
-    // Use Intersection Observer to restart videos when they come into view
-    if (!window.tiktokObserver) {
-        window.tiktokObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const iframe = entry.target.querySelector('iframe');
-                    if (iframe && iframe.dataset.originalSrc) {
-                        // Restart video when it comes into view
-                        try {
-                            const originalSrc = iframe.dataset.originalSrc;
-                            iframe.src = originalSrc;
-                            iframe.dataset.lastReload = Date.now();
-                        } catch (e) {
-                            console.log('Could not restart iframe');
-                        }
-                    }
-                }
-            });
-        }, {
-            threshold: 0.3 // Trigger when 30% of video is visible
-        });
+        }, 200);
         
-        // Observe all TikTok video wrappers
-        document.querySelectorAll('.tiktok-video-wrapper').forEach(wrapper => {
-            window.tiktokObserver.observe(wrapper);
-        });
+        // Timeout after 10 seconds
+        setTimeout(() => clearInterval(checkAndRender), 10000);
+        
+    } catch (error) {
+        console.error('Error loading TikTok videos:', error);
+        carousel.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">Eroare la încărcarea video-urilor.</p>';
     }
-}
-
-// Start TikTok carousel animation after videos are loaded
-function startTikTokCarouselAnimation() {
-    const carousel = document.getElementById('tiktokCarousel');
-    if (!carousel) {
-        console.warn('⚠️ TikTok carousel not found');
-        return;
-    }
-    
-    // Check if there are video wrappers with content
-    const videoWrappers = carousel.querySelectorAll('.tiktok-video-wrapper');
-    if (videoWrappers.length === 0) {
-        console.warn('⚠️ No TikTok video wrappers found, animation not started');
-        return;
-    }
-    
-    // Check if iframes are loaded (videos are rendered)
-    const iframes = carousel.querySelectorAll('.tiktok-video-wrapper iframe');
-    if (iframes.length === 0) {
-        console.log('⏳ Waiting for TikTok iframes to load before starting animation...');
-        // Retry after a delay
-        setTimeout(startTikTokCarouselAnimation, 1000);
-        return;
-    }
-    
-    // Add animate class to start the animation
-    carousel.classList.add('animate');
-    console.log('✅ TikTok carousel animation started');
 }
 
 // Store map instance globally for updates
