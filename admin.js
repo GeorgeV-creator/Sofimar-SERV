@@ -2067,9 +2067,17 @@ function saveSiteTexts() {
     }, 150);
     
     // Dispatch event to update index.html if open
-    // Use a small delay to ensure API save completes
+    // Use localStorage to communicate between tabs
     setTimeout(() => {
+        // Dispatch local event
         window.dispatchEvent(new CustomEvent('siteTextsUpdated'));
+        // Also update localStorage to trigger storage event in other tabs
+        const timestamp = Date.now();
+        localStorage.setItem('siteTextsUpdated', timestamp.toString());
+        // Remove after a short delay to allow other tabs to detect the change
+        setTimeout(() => {
+            localStorage.removeItem('siteTextsUpdated');
+        }, 100);
     }, 100);
 }
 

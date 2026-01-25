@@ -1307,6 +1307,30 @@ window.addEventListener('siteTextsUpdated', () => {
     }, 50);
 });
 
+// Listen for storage events (for cross-tab communication)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'siteTextsUpdated') {
+        console.log('Site texts updated in another tab, reloading...');
+        // Reload from API
+        setTimeout(() => {
+            loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+        }, 50);
+    }
+});
+
+// Also listen for localStorage changes in the same tab (for same-tab updates)
+let lastSiteTextsUpdate = localStorage.getItem('siteTextsUpdated');
+setInterval(() => {
+    const currentUpdate = localStorage.getItem('siteTextsUpdated');
+    if (currentUpdate && currentUpdate !== lastSiteTextsUpdate) {
+        lastSiteTextsUpdate = currentUpdate;
+        console.log('Site texts updated detected, reloading...');
+        setTimeout(() => {
+            loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+        }, 50);
+    }
+}, 500); // Check every 500ms
+
 // Initialize certificates and partners when page loads (lazy loading with delay)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
