@@ -892,18 +892,34 @@ def handle_api_request(path, method, query, body_data):
                     # Try to alter table if 'texts' column doesn't exist (migrate from 'data')
                     try:
                         if db['type'] == 'neon':
-                            cur.execute("ALTER TABLE site_texts ADD COLUMN IF NOT EXISTS texts TEXT")
-                            # If texts column was just added, copy data from 'data' column if it exists
+                            # Check if 'texts' column exists
                             cur.execute("""
-                                UPDATE site_texts 
-                                SET texts = data 
-                                WHERE texts IS NULL AND data IS NOT NULL
+                                SELECT column_name 
+                                FROM information_schema.columns 
+                                WHERE table_name='site_texts' AND column_name='texts'
                             """)
+                            has_texts_column = cur.fetchone() is not None
+                            
+                            if not has_texts_column:
+                                # Add texts column
+                                cur.execute("ALTER TABLE site_texts ADD COLUMN texts TEXT")
+                                # Copy data from 'data' column if it exists
+                                try:
+                                    cur.execute("""
+                                        UPDATE site_texts 
+                                        SET texts = data 
+                                        WHERE texts IS NULL AND data IS NOT NULL
+                                    """)
+                                except:
+                                    pass  # 'data' column might not exist
                         else:
-                            # SQLite doesn't support IF NOT EXISTS for ALTER TABLE
+                            # SQLite - try to add column
                             try:
                                 cur.execute("ALTER TABLE site_texts ADD COLUMN texts TEXT")
-                                cur.execute("UPDATE site_texts SET texts = data WHERE texts IS NULL AND data IS NOT NULL")
+                                try:
+                                    cur.execute("UPDATE site_texts SET texts = data WHERE texts IS NULL AND data IS NOT NULL")
+                                except:
+                                    pass  # 'data' column might not exist
                             except:
                                 pass  # Column might already exist
                         db['conn'].commit()
