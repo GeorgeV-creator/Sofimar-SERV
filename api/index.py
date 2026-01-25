@@ -562,7 +562,6 @@ def handle_api_request(path, method, query, body_data):
                                     time = review.get('time', 0)
                                     
                                     # Convert timestamp to date
-                                    from datetime import datetime
                                     review_date = datetime.fromtimestamp(time).isoformat() if time else datetime.now().isoformat()
                                     
                                     # Check if review already exists (by author and text hash)
