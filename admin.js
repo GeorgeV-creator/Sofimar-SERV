@@ -2066,18 +2066,10 @@ function saveSiteTexts() {
         populateFormFields(texts);
     }, 150);
     
-    // Dispatch event to update index.html if open
-    // Use localStorage to communicate between tabs
+    // Dispatch event to update index.html if open (same tab only)
+    // For cross-tab updates, index.html will poll the API periodically
     setTimeout(() => {
-        // Dispatch local event
         window.dispatchEvent(new CustomEvent('siteTextsUpdated'));
-        // Also update localStorage to trigger storage event in other tabs
-        const timestamp = Date.now();
-        localStorage.setItem('siteTextsUpdated', timestamp.toString());
-        // Remove after a short delay to allow other tabs to detect the change
-        setTimeout(() => {
-            localStorage.removeItem('siteTextsUpdated');
-        }, 100);
     }, 100);
 }
 

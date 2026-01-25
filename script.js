@@ -1298,7 +1298,7 @@ async function loadSiteTexts() {
     console.log('📊 Summary - Texts loaded:', Object.keys(texts).length, 'keys');
 }
 
-// Listen for site texts updates
+// Listen for site texts updates (same tab only)
 window.addEventListener('siteTextsUpdated', () => {
     console.log('Site texts updated event received');
     // Reload from API
@@ -1307,29 +1307,26 @@ window.addEventListener('siteTextsUpdated', () => {
     }, 50);
 });
 
-// Listen for storage events (for cross-tab communication)
-window.addEventListener('storage', (e) => {
-    if (e.key === 'siteTextsUpdated') {
-        console.log('Site texts updated in another tab, reloading...');
-        // Reload from API
-        setTimeout(() => {
-            loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-        }, 50);
+// Poll API periodically to check for text updates (for cross-tab updates)
+// This ensures index.html updates even if admin is open in another tab
+let lastTextsHash = null;
+setInterval(async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/site-texts`);
+        if (response.ok) {
+            const texts = await response.json();
+            // Create a simple hash of the texts to detect changes
+            const currentHash = JSON.stringify(texts);
+            if (lastTextsHash !== null && currentHash !== lastTextsHash) {
+                console.log('Site texts changed in database, reloading...');
+                loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
+            }
+            lastTextsHash = currentHash;
+        }
+    } catch (error) {
+        // Silently fail - API might not be available
     }
-});
-
-// Also listen for localStorage changes in the same tab (for same-tab updates)
-let lastSiteTextsUpdate = localStorage.getItem('siteTextsUpdated');
-setInterval(() => {
-    const currentUpdate = localStorage.getItem('siteTextsUpdated');
-    if (currentUpdate && currentUpdate !== lastSiteTextsUpdate) {
-        lastSiteTextsUpdate = currentUpdate;
-        console.log('Site texts updated detected, reloading...');
-        setTimeout(() => {
-            loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-        }, 50);
-    }
-}, 500); // Check every 500ms
+}, 2000); // Check every 2 seconds
 
 // Initialize certificates and partners when page loads (lazy loading with delay)
 if (document.readyState === 'loading') {
