@@ -499,6 +499,7 @@ body {
     margin-top: 3rem;
     position: relative;
     padding: 2rem 0;
+    pointer-events: none;
 }
 
 .tiktok-carousel {
@@ -506,6 +507,7 @@ body {
     gap: 2rem;
     width: fit-content;
     animation: none;
+    pointer-events: none;
 }
 
 .tiktok-carousel.animate {
@@ -513,7 +515,7 @@ body {
 }
 
 .tiktok-carousel:hover {
-    animation-play-state: paused;
+    animation-play-state: running;
 }
 
 @keyframes tiktokScroll {
@@ -546,6 +548,7 @@ body {
 .tiktok-video-wrapper:hover {
     transform: none;
     box-shadow: var(--shadow);
+    pointer-events: none;
 }
 
 .tiktok-video-wrapper blockquote {
