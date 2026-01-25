@@ -920,7 +920,14 @@ async function loadCertificatesOnPage() {
     // Helper function to create certificate HTML - optimized
     const createCertificateHTML = (cert) => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
-        const imageSrc = isBase64 ? cert.image : cert.image;
+        let imageSrc = cert.image || '';
+        
+        // If image is a path (not base64), ensure it starts with / for absolute path
+        if (!isBase64 && imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('/') && !imageSrc.startsWith('data:')) {
+            // Add leading slash if it's a relative path like "images/file.jpg"
+            imageSrc = imageSrc.startsWith('images/') ? '/' + imageSrc : imageSrc;
+        }
+        
         const title = cert.title || 'Certificat fără titlu';
         const escapedTitle = escapeHtml(title);
         const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -930,11 +937,14 @@ async function loadCertificatesOnPage() {
         const loadingAttr = isCertificatePage ? 'loading="eager"' : 'loading="lazy"';
         const fetchPriority = isCertificatePage ? 'fetchpriority="high"' : '';
         
+        // Add error handler for missing images
+        const onErrorHandler = `this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine indisponibilă%3C/text%3E%3C/svg%3E';`;
+        
         return `
             <div class="certificate-item">
                 <h3 class="certificate-title">${escapedTitle}</h3>
                 <div class="certificate-image-container" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
-                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" ${loadingAttr} ${fetchPriority} decoding="async">
+                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" ${loadingAttr} ${fetchPriority} decoding="async" onerror="${onErrorHandler}">
                 </div>
             </div>
         `;
