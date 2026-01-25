@@ -1933,15 +1933,54 @@ async function changePassword() {
 
 // Export Messages
 async function exportMessages() {
-    const messages = await getMessages();
-    const dataStr = JSON.stringify(messages, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sofimar-messages-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    try {
+        const messages = await getMessages();
+        
+        if (!messages || messages.length === 0) {
+            alert('Nu există mesaje de exportat.');
+            return;
+        }
+        
+        // Prepare data for Excel
+        const worksheetData = messages.map((msg, index) => {
+            const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+            return {
+                'Nr.': index + 1,
+                'Nume': data.name || data.nume || '',
+                'Email': data.email || '',
+                'Telefon': data.phone || data.telefon || '',
+                'Mesaj': data.message || data.mesaj || '',
+                'Data': msg.timestamp || data.timestamp || ''
+            };
+        });
+        
+        // Create workbook and worksheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(worksheetData);
+        
+        // Set column widths
+        const colWidths = [
+            { wch: 5 },   // Nr.
+            { wch: 20 },  // Nume
+            { wch: 30 },  // Email
+            { wch: 15 },  // Telefon
+            { wch: 50 },  // Mesaj
+            { wch: 20 }   // Data
+        ];
+        ws['!cols'] = colWidths;
+        
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Mesaje');
+        
+        // Generate Excel file
+        const fileName = `sofimar-messages-${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        console.log(`✅ Export reușit: ${fileName}`);
+    } catch (error) {
+        console.error('❌ Eroare la export:', error);
+        alert('Eroare la exportul mesajelor. Verifică consola pentru detalii.');
+    }
 }
 
 // Site Texts Management
