@@ -21,6 +21,17 @@
       "permanent": true
     }
   ],
+  "headers": [
+    {
+      "source": "/admin.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive, nosnippet"
+        }
+      ]
+    }
+  ],
   "cleanUrls": true,
   "trailingSlash": false
 }
