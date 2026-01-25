@@ -865,6 +865,51 @@ def handle_api_request(path, method, query, body_data):
                 try:
                     db = get_db_connection()
                     cur = get_cursor(db)
+                    
+                    # Create table if it doesn't exist
+                    try:
+                        if db['type'] == 'neon':
+                            cur.execute("""
+                                CREATE TABLE IF NOT EXISTS site_texts (
+                                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                                    texts TEXT NOT NULL,
+                                    last_updated TEXT NOT NULL
+                                )
+                            """)
+                        else:
+                            cur.execute("""
+                                CREATE TABLE IF NOT EXISTS site_texts (
+                                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                                    texts TEXT NOT NULL,
+                                    last_updated TEXT NOT NULL
+                                )
+                            """)
+                        db['conn'].commit()
+                    except Exception as create_error:
+                        # Table might already exist or have different structure
+                        print(f"Note creating site_texts table: {str(create_error)}")
+                    
+                    # Try to alter table if 'texts' column doesn't exist (migrate from 'data')
+                    try:
+                        if db['type'] == 'neon':
+                            cur.execute("ALTER TABLE site_texts ADD COLUMN IF NOT EXISTS texts TEXT")
+                            # If texts column was just added, copy data from 'data' column if it exists
+                            cur.execute("""
+                                UPDATE site_texts 
+                                SET texts = data 
+                                WHERE texts IS NULL AND data IS NOT NULL
+                            """)
+                        else:
+                            # SQLite doesn't support IF NOT EXISTS for ALTER TABLE
+                            try:
+                                cur.execute("ALTER TABLE site_texts ADD COLUMN texts TEXT")
+                                cur.execute("UPDATE site_texts SET texts = data WHERE texts IS NULL AND data IS NOT NULL")
+                            except:
+                                pass  # Column might already exist
+                        db['conn'].commit()
+                    except Exception as alter_error:
+                        print(f"Note altering site_texts table: {str(alter_error)}")
+                    
                     last_updated = datetime.now().isoformat()
                     texts_json = json.dumps(data, ensure_ascii=False)
                     sql = "INSERT INTO site_texts (id, texts, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET texts = EXCLUDED.texts, last_updated = EXCLUDED.last_updated" if db['type'] == 'neon' else "INSERT OR REPLACE INTO site_texts (id, texts, last_updated) VALUES (1, ?, ?)"
@@ -877,9 +922,11 @@ def handle_api_request(path, method, query, body_data):
                     return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
                 except Exception as e:
                     import traceback
-                    print(f"Error in POST /site-texts: {str(e)}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    raise
+                    error_msg = str(e)
+                    traceback_str = traceback.format_exc()
+                    print(f"Error in POST /site-texts: {error_msg}")
+                    print(f"Traceback: {traceback_str}")
+                    return 500, headers, json.dumps({'error': f'Failed to save site texts: {error_msg}', 'success': False}, ensure_ascii=False)
             
             elif path == 'admin-password':
                 password = data.get('password')
