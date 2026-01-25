@@ -392,7 +392,7 @@ function createTikTokEmbed(videoId) {
     // Remove @ from username for URL
     const usernameForUrl = TIKTOK_USERNAME.replace('@', '');
     const videoUrl = `https://www.tiktok.com/@${usernameForUrl}/video/${videoId}`;
-    // Use official TikTok embed format
+    // Use official TikTok embed format - exact structure as per TikTok docs
     return `
         <div class="tiktok-video-wrapper">
             <blockquote class="tiktok-embed" cite="${videoUrl}" data-video-id="${videoId}" style="max-width: 325px; min-width: 325px;">
@@ -436,22 +436,44 @@ async function loadTikTokVideos() {
     
     console.log(`✅ Created ${TIKTOK_VIDEO_IDS.length * 2} TikTok embed blocks`);
     
-    // Load and render TikTok embeds
-    loadTikTokEmbedScript();
+    // Wait for DOM to update, then load and render TikTok embeds
+    // Use requestAnimationFrame to ensure DOM is fully updated
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            loadTikTokEmbedScript();
+        }, 100);
+    });
 }
 
 // Function to load TikTok embed script and render embeds
 function loadTikTokEmbedScript() {
+    // First, verify that blockquote elements exist in DOM
+    const blockquotes = document.querySelectorAll('.tiktok-embed');
+    console.log(`📋 Found ${blockquotes.length} TikTok embed blockquotes in DOM`);
+    
+    if (blockquotes.length === 0) {
+        console.warn('⚠️ No TikTok embed blockquotes found, retrying...');
+        setTimeout(loadTikTokEmbedScript, 500);
+        return;
+    }
+    
     // Check if script is already loaded
     if (window.tiktokEmbed && window.tiktokEmbed.lib) {
         console.log('✅ TikTok embed script already loaded, rendering...');
         try {
+            // Ensure blockquotes are visible before rendering
+            blockquotes.forEach(bq => {
+                if (bq.offsetParent === null) {
+                    console.warn('⚠️ Some blockquotes are not visible');
+                }
+            });
             window.tiktokEmbed.lib.render();
+            console.log('✅ TikTok embeds render called');
             setTimeout(() => {
                 setupTikTokAutoReplay();
             }, 2000);
         } catch (error) {
-            console.error('Error rendering TikTok embeds:', error);
+            console.error('❌ Error rendering TikTok embeds:', error);
         }
         return;
     }
@@ -471,6 +493,7 @@ function loadTikTokEmbedScript() {
             const checkInterval = setInterval(() => {
                 if (window.tiktokEmbed && window.tiktokEmbed.lib) {
                     clearInterval(checkInterval);
+                    console.log('✅ TikTok embed object available, rendering...');
                     window.tiktokEmbed.lib.render();
                     setTimeout(() => {
                         setupTikTokAutoReplay();
@@ -493,19 +516,29 @@ function loadTikTokEmbedScript() {
         script.async = true;
         script.onload = () => {
             console.log('✅ TikTok embed script loaded');
-            // Wait a bit for tiktokEmbed to be available
-            setTimeout(() => {
+            // Wait for tiktokEmbed to be available
+            const waitForEmbed = setInterval(() => {
                 if (window.tiktokEmbed && window.tiktokEmbed.lib) {
-                    window.tiktokEmbed.lib.render();
-                    setTimeout(() => {
-                        setupTikTokAutoReplay();
-                    }, 2000);
-                } else {
-                    console.warn('⚠️ TikTok embed object not available after script load');
-                    // Retry
-                    setTimeout(loadTikTokEmbedScript, 1000);
+                    clearInterval(waitForEmbed);
+                    console.log('✅ TikTok embed object available, rendering...');
+                    try {
+                        window.tiktokEmbed.lib.render();
+                        setTimeout(() => {
+                            setupTikTokAutoReplay();
+                        }, 2000);
+                    } catch (error) {
+                        console.error('❌ Error calling render:', error);
+                    }
                 }
-            }, 500);
+            }, 100);
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                clearInterval(waitForEmbed);
+                if (!window.tiktokEmbed) {
+                    console.error('❌ TikTok embed object not available after script load');
+                }
+            }, 5000);
         };
         script.onerror = () => {
             console.error('❌ Failed to load TikTok embed script');
