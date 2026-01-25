@@ -417,17 +417,6 @@ function initializeEventListeners() {
         }
     }
 
-    // Site texts form
-    const siteTextsForm = document.getElementById('siteTextsForm');
-    if (siteTextsForm) {
-        siteTextsForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            console.log('Form submitted!');
-            saveSiteTexts();
-        });
-        // Load existing texts when settings tab is opened
-        // Don't load immediately, wait for tab to be opened
-    }
 
     // Add click handlers to stat cards
     const statCards = document.querySelectorAll('.stat-card[data-tab]');
