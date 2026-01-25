@@ -48,20 +48,21 @@ DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
 def get_db_connection():
     """Get database connection - Neon PostgreSQL or SQLite fallback"""
-    print(f"get_db_connection called: USE_NEON={USE_NEON}, has_db_url={bool(NEON_DB_URL)}")
+    # Minimal logging
+    # print(f"get_db_connection called: USE_NEON={USE_NEON}, has_db_url={bool(NEON_DB_URL)}")
     
     if USE_NEON and NEON_DB_URL:
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
             
-            print(f"Attempting Neon database connection...")
+            # print(f"Attempting Neon database connection...")
             
             # Neon uses standard PostgreSQL connection string
             # It supports IPv4 natively, no special handling needed
             conn = psycopg2.connect(NEON_DB_URL, connect_timeout=10)
             
-            print("✅ Neon connection successful!")
+            # print("✅ Neon connection successful!")
             # RealDictCursor is a class, not an instance
             return {'conn': conn, 'type': 'neon', 'cursor_factory': RealDictCursor, 'is_neon': True}
         except Exception as e:
@@ -71,9 +72,9 @@ def get_db_connection():
             print(f"Traceback: {traceback.format_exc()}")
             # Fall through to SQLite
     else:
-        print(f"⚠️ Not using Neon: USE_NEON={USE_NEON}, NEON_DB_URL={bool(NEON_DB_URL)}")
+        # print(f"⚠️ Not using Neon: USE_NEON={USE_NEON}, NEON_DB_URL={bool(NEON_DB_URL)}")
     
-    print("Using SQLite database (fallback)")
+    # print("Using SQLite database (fallback)")
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_neon': False}
@@ -392,8 +393,8 @@ def handle_api_request(path, method, query, body_data):
         if path.startswith('/'):
             path = path[1:]
         
-        # Debug logging - enable in production too for troubleshooting
-        print(f"API Request: method={method}, original_path={original_path}, processed_path='{path}'")
+        # Minimal logging - only log errors
+        # print(f"API Request: method={method}, original_path={original_path}, processed_path='{path}'")
         
         # GET endpoints
         if method == 'GET':
@@ -1432,8 +1433,8 @@ class handler(BaseHTTPRequestHandler):
                 query_params = parse_qs(parsed_url.query)
                 query = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
             
-            # Log for debugging
-            print(f"Vercel handler: raw_path={raw_path}, path={path}, method={method}, query={query}")
+            # Minimal logging - only log errors
+            # print(f"Vercel handler: raw_path={raw_path}, path={path}, method={method}, query={query}")
             
             # Get body
             body_data = ''

@@ -151,11 +151,12 @@ async function login(username, password) {
             const result = await response.json();
             const storedPassword = (result.password || DEFAULT_PASSWORD).trim();
             
-            console.log('🔐 Login attempt:', {
-                providedPassword: password.length + ' chars',
-                storedPassword: storedPassword.length + ' chars',
-                match: password === storedPassword
-            });
+            // Minimal logging - only log errors
+            // console.log('🔐 Login attempt:', {
+            //     providedPassword: password.length + ' chars',
+            //     storedPassword: storedPassword.length + ' chars',
+            //     match: password === storedPassword
+            // });
             
             if (password === storedPassword) {
                 // Generate token and set expiry
@@ -172,11 +173,11 @@ async function login(username, password) {
                 setupSessionTimeout();
                 return true;
             } else {
-                console.warn('❌ Password mismatch');
+                // console.warn('❌ Password mismatch');
                 recordFailedLogin();
             }
         } else {
-            console.warn('API response not OK:', response.status);
+            // console.warn('API response not OK:', response.status);
         }
     } catch (error) {
         console.warn('API server not available, using default password:', error);
@@ -204,7 +205,7 @@ async function login(username, password) {
 function resetLoginBlock() {
     localStorage.removeItem(STORAGE_KEY_LOGIN_ATTEMPTS);
     localStorage.removeItem(STORAGE_KEY_LOGIN_BLOCKED);
-    console.log('✅ Login block reset');
+    // console.log('✅ Login block reset');
     alert('Blocarea a fost resetată. Poți încerca din nou.');
 }
 
@@ -474,13 +475,13 @@ function initializeEventListeners() {
     // Partner form
     const addPartnerForm = document.getElementById('addPartnerForm');
     if (addPartnerForm) {
-        console.log('✅ Partner form found, adding event listener');
+        // console.log('✅ Partner form found, adding event listener');
         addPartnerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('📝 Partner form submitted');
+            // console.log('📝 Partner form submitted');
             
             const title = document.getElementById('partnerTitle').value.trim() || 'Partner';
-            console.log('📝 Partner title:', title);
+                // console.log('📝 Partner title:', title);
             
             const imageSource = document.querySelector('input[name="partnerImageSource"]:checked');
             if (!imageSource) {
@@ -496,9 +497,9 @@ function initializeEventListeners() {
                 const fileInput = document.getElementById('partnerImageFile');
                 if (fileInput && fileInput.files && fileInput.files[0]) {
                     try {
-                        console.log('📝 Converting image to base64...');
+                        // console.log('📝 Converting image to base64...');
                         image = await convertImageToBase64(fileInput.files[0]);
-                        console.log('✅ Image converted, length:', image.length);
+                        // console.log('✅ Image converted, length:', image.length);
                     } catch (error) {
                         alert(error.message || 'Eroare la procesarea imaginii. Te rugăm să încerci din nou sau să folosești un URL.');
                         return;
@@ -511,7 +512,7 @@ function initializeEventListeners() {
                 const urlInput = document.getElementById('partnerImageUrl');
                 if (urlInput) {
                     image = urlInput.value.trim();
-                    console.log('📝 Image URL:', image);
+                    // console.log('📝 Image URL:', image);
                 }
                 if (!image) {
                     alert('Te rugăm să introduci un URL pentru imagine!');
@@ -520,9 +521,9 @@ function initializeEventListeners() {
             }
             
             if (image) {
-                console.log('📝 Calling addPartner with title:', title, 'and image length:', image.length);
+                // console.log('📝 Calling addPartner with title:', title, 'and image length:', image.length);
                 await addPartner(title, image);
-                console.log('✅ addPartner completed');
+                // console.log('✅ addPartner completed');
                 closePartnerModal();
             } else {
                 console.error('❌ No image provided');
@@ -617,13 +618,13 @@ function switchTab(tabName) {
         loadChatbotResponsesAdmin();
     } else if (tabName === 'settings') {
         // Settings tab - no action needed
-        console.log('Settings tab opened');
+        // console.log('Settings tab opened');
     }
 }
 
 // Load all data
 async function loadData() {
-    console.log('Loading all data...');
+        // console.log('Loading all data...');
     try {
         await loadMessages();
         await loadChatbotMessages();
@@ -631,7 +632,7 @@ async function loadData() {
         loadTikTokVideos();
         await loadCertificates();
         await updateStatistics();
-        console.log('All data loaded successfully');
+        // console.log('All data loaded successfully');
     } catch (error) {
         console.error('Error loading data:', error);
     }
@@ -639,7 +640,7 @@ async function loadData() {
 
 // Messages Management
 async function loadMessages() {
-    console.log('Loading messages...');
+        // console.log('Loading messages...');
     const messagesList = document.getElementById('messagesList');
     
     if (!messagesList) {
@@ -648,7 +649,7 @@ async function loadMessages() {
     }
     
     const messages = await getMessages();
-    console.log('Total messages to display:', messages.length);
+    // console.log('Total messages to display:', messages.length);
     
     if (messages.length === 0) {
         messagesList.innerHTML = '<p class="empty-state">Nu există mesaje.</p>';
@@ -686,11 +687,11 @@ async function loadMessages() {
 async function getMessages() {
     try {
         // Try to fetch from API server
-        console.log('Fetching messages from API...');
+        // console.log('Fetching messages from API...');
         const response = await fetch(`${API_BASE_URL}/messages`);
         if (response.ok) {
             const messages = await response.json();
-            console.log('Messages loaded from API:', messages.length);
+            // console.log('Messages loaded from API:', messages.length);
             return Array.isArray(messages) ? messages : [];
         }
         console.warn('API response not OK:', response.status);
