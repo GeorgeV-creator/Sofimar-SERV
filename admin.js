@@ -2121,7 +2121,7 @@ async function getSiteTexts() {
     }
     
     // Return empty object - no defaults
-    console.log('⚠️ Returning empty object - no texts found');
+    // console.log('⚠️ Returning empty object - no texts found');
     return {};
 }
 
@@ -2151,7 +2151,7 @@ function saveSiteTexts() {
         guarantee3Description: document.getElementById('guarantee3Description') ? document.getElementById('guarantee3Description').value.trim() : ''
     };
     
-    console.log('Saving texts:', texts);
+    // console.log('Saving texts:', texts);
     
     // Validate that we have some texts
     if (!texts || Object.keys(texts).length === 0) {
@@ -2169,7 +2169,7 @@ function saveSiteTexts() {
         body: JSON.stringify(texts)
     }).then(response => {
         if (response.ok) {
-            console.log('Site texts saved to API');
+            // console.log('Site texts saved to API');
             return response.json();
         } else {
             throw new Error('API response not OK');
@@ -3072,7 +3072,7 @@ async function saveChatbotResponse() {
     }
     
     try {
-        console.log('📡 Saving chatbot response:', { keyword, responseLength: responseText.length });
+        // console.log('📡 Saving chatbot response:', { keyword, responseLength: responseText.length });
         const response = await fetch(`${API_BASE_URL}/chatbot-responses`, {
             method: 'POST',
             headers: {
@@ -3088,7 +3088,7 @@ async function saveChatbotResponse() {
         }
         
         const result = await response.json();
-        console.log('✅ Chatbot response saved successfully:', result);
+        // console.log('✅ Chatbot response saved successfully:', result);
         
         await loadChatbotResponsesAdmin();
         closeChatbotResponseModal();
