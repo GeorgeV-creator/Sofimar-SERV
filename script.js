@@ -882,7 +882,6 @@ async function loadPartnersOnPage() {
 async function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
     const accreditationsGrid = document.getElementById('accreditationsGrid');
-    const loadingScreen = document.getElementById('certificatesLoading');
     const certificatesContent = document.getElementById('certificatesContent');
     
     // Check if we're on certificate.html (has two columns) or index.html (single grid)
@@ -891,12 +890,6 @@ async function loadCertificatesOnPage() {
     if (!certificatesGrid && !accreditationsGrid) {
         console.log('certificatesGrid not found');
         return;
-    }
-    
-    // Show loading screen for certificate.html
-    if (isCertificatePage && loadingScreen && certificatesContent) {
-        loadingScreen.style.display = 'flex';
-        certificatesContent.style.display = 'none';
     }
     
     let certificates = [];
@@ -954,62 +947,6 @@ async function loadCertificatesOnPage() {
             accreditationsGrid.innerHTML = accreds.length > 0
                 ? accreds.map(createCertificateHTML).join('')
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
-        }
-        
-        // Hide loading screen and show content
-        if (loadingScreen && certificatesContent) {
-            const hideLoadingScreen = () => {
-                if (loadingScreen && certificatesContent) {
-                    loadingScreen.style.display = 'none';
-                    certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
-                }
-            };
-            
-            // Get all images after they're added to DOM
-            setTimeout(() => {
-                const allImages = [
-                    ...(certificatesGrid ? certificatesGrid.querySelectorAll('img') : []),
-                    ...(accreditationsGrid ? accreditationsGrid.querySelectorAll('img') : [])
-                ];
-                
-                if (allImages.length === 0) {
-                    // No images to load, hide immediately
-                    hideLoadingScreen();
-                } else {
-                    // Wait for all images to load
-                    let loadedCount = 0;
-                    const totalImages = allImages.length;
-                    let allImagesLoaded = false;
-                    
-                    const checkAllLoaded = () => {
-                        loadedCount++;
-                        if (loadedCount === totalImages && !allImagesLoaded) {
-                            allImagesLoaded = true;
-                            hideLoadingScreen();
-                        }
-                    };
-                    
-                    // Attach load and error handlers to all images
-                    allImages.forEach(img => {
-                        if (img.complete) {
-                            // Image already loaded
-                            checkAllLoaded();
-                        } else {
-                            // Wait for image to load
-                            img.addEventListener('load', checkAllLoaded);
-                            img.addEventListener('error', checkAllLoaded); // Also count errors as "loaded"
-                        }
-                    });
-                    
-                    // Fallback: hide after 2 seconds max if images don't load
-                    setTimeout(() => {
-                        if (!allImagesLoaded) {
-                            allImagesLoaded = true;
-                            hideLoadingScreen();
-                        }
-                    }, 2000);
-                }
-            }, 0);
         }
     } else {
         // Single grid (for index.html or other pages)
