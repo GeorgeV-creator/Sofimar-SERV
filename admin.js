@@ -1682,6 +1682,42 @@ async function updateStatistics() {
     if (totalLocationsEl) {
         totalLocationsEl.textContent = totalLocations;
     }
+    
+    // Update partners count
+    const totalPartnersEl = document.getElementById('totalPartners');
+    if (totalPartnersEl) {
+        totalPartnersEl.textContent = partners.length;
+    }
+    
+    // Update reviews count
+    try {
+        const reviews = await getReviews();
+        const totalReviewsEl = document.getElementById('totalReviews');
+        if (totalReviewsEl) {
+            totalReviewsEl.textContent = reviews.length;
+        }
+    } catch (error) {
+        console.warn('Could not load reviews count:', error);
+        const totalReviewsEl = document.getElementById('totalReviews');
+        if (totalReviewsEl) {
+            totalReviewsEl.textContent = '0';
+        }
+    }
+    
+    // Update chatbot responses count
+    try {
+        const chatbotResponses = await getChatbotResponses();
+        const totalChatbotResponsesEl = document.getElementById('totalChatbotResponses');
+        if (totalChatbotResponsesEl) {
+            totalChatbotResponsesEl.textContent = chatbotResponses.length;
+        }
+    } catch (error) {
+        console.warn('Could not load chatbot responses count:', error);
+        const totalChatbotResponsesEl = document.getElementById('totalChatbotResponses');
+        if (totalChatbotResponsesEl) {
+            totalChatbotResponsesEl.textContent = '0';
+        }
+    }
 }
 
 // Modals
