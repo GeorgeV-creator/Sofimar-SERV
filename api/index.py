@@ -12,6 +12,9 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import urllib.request
 import urllib.parse
+import base64
+import uuid
+from pathlib import Path
 
 # OpenAI API Key - can be set via environment variable OPENAI_API_KEY
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
@@ -81,6 +84,72 @@ def get_cursor(db):
         return db['conn'].cursor(cursor_factory=db['cursor_factory'])
     else:
         return db['conn'].cursor()
+
+def save_image_to_folder(image_data, filename=None):
+    """
+    Save image to images folder.
+    image_data can be:
+    - base64 string (data:image/...;base64,...)
+    - binary data
+    Returns the relative path to the image or None if saving failed
+    """
+    try:
+        # Determine the images folder path
+        # In Vercel, we can't write to filesystem, so we'll return None
+        # For local development, use the images folder relative to the project root
+        if os.environ.get('VERCEL'):
+            # In Vercel, we can't write to filesystem in serverless functions
+            # Return None to indicate we should use base64 instead
+            print("⚠️ Vercel environment detected - cannot write to filesystem")
+            return None
+        
+        # Get the project root (where api/index.py is located)
+        project_root = Path(__file__).parent.parent
+        images_folder = project_root / 'images'
+        
+        # Create images folder if it doesn't exist
+        images_folder.mkdir(exist_ok=True)
+        
+        # Generate filename if not provided
+        if not filename:
+            # Extract extension from base64 data or use jpg as default
+            if isinstance(image_data, str) and image_data.startswith('data:image/'):
+                # Extract format from data URI
+                format_match = image_data.split(';')[0].split('/')[-1]
+                ext = format_match if format_match in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg'
+            else:
+                ext = 'jpg'
+            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
+        
+        image_path = images_folder / filename
+        
+        # Handle base64 data
+        if isinstance(image_data, str):
+            if image_data.startswith('data:image/'):
+                # Extract base64 data from data URI
+                header, encoded = image_data.split(',', 1)
+                image_bytes = base64.b64decode(encoded)
+            else:
+                # Assume it's already base64 without data URI
+                image_bytes = base64.b64decode(image_data)
+        else:
+            # Assume it's already binary
+            image_bytes = image_data
+        
+        # Write to file
+        with open(image_path, 'wb') as f:
+            f.write(image_bytes)
+        
+        # Return relative path from project root
+        relative_path = f"images/{filename}"
+        print(f"✅ Image saved to: {relative_path}")
+        return relative_path
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error saving image to folder: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return None
 
 def handle_api_request(path, method, query, body_data):
     """Handle API request and return response"""
@@ -323,6 +392,19 @@ def handle_api_request(path, method, query, body_data):
                     
                     print(f"📝 POST /certificates: Saving certificate id={data['id']}, type={cert_type}, title={data.get('title', 'N/A')}")
                     
+                    # If image is base64, try to save it to images folder
+                    image_data = data.get('image', '')
+                    if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
+                        # Try to save image to folder
+                        saved_path = save_image_to_folder(image_data)
+                        if saved_path:
+                            # Replace base64 with file path
+                            data['image'] = saved_path
+                            print(f"✅ Image saved to folder: {saved_path}")
+                        else:
+                            # If saving failed (e.g., in Vercel), keep base64
+                            print(f"⚠️ Could not save image to folder, keeping base64")
+                    
                     db = get_db_connection()
                     print(f"📊 Database connection: type={db['type']}, is_neon={db.get('is_neon', False)}")
                     
@@ -404,6 +486,19 @@ def handle_api_request(path, method, query, body_data):
                 try:
                     data['timestamp'] = data.get('timestamp') or datetime.now().isoformat()
                     data['id'] = data.get('id') or datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    
+                    # If image is base64, try to save it to images folder
+                    image_data = data.get('image', '')
+                    if image_data and (isinstance(image_data, str) and image_data.startswith('data:image/')):
+                        # Try to save image to folder
+                        saved_path = save_image_to_folder(image_data)
+                        if saved_path:
+                            # Replace base64 with file path
+                            data['image'] = saved_path
+                            print(f"✅ Partner image saved to folder: {saved_path}")
+                        else:
+                            # If saving failed (e.g., in Vercel), keep base64
+                            print(f"⚠️ Could not save partner image to folder, keeping base64")
                     
                     db = get_db_connection()
                     cur = get_cursor(db)
