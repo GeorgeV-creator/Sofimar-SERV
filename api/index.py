@@ -207,52 +207,19 @@ def upload_image_to_github_via_api(relative_path, image_bytes):
 
 def save_image_to_folder(image_data, filename=None):
     """
-    Save image to images folder.
+    Save image to images folder or upload directly to GitHub (in Vercel).
     image_data can be:
     - base64 string (data:image/...;base64,...)
     - binary data
     Returns the relative path to the image or None if saving failed
     
-    NOTE: In Vercel serverless environment, filesystem writes are not persistent.
-    For production, consider using Vercel Blob Storage or another cloud storage service.
+    In Vercel, uploads directly to GitHub via API (no filesystem write).
+    Locally, saves to folder and commits via git.
     """
     try:
-        # Get the project root (where api/index.py is located)
-        project_root = Path(__file__).parent.parent
-        images_folder = project_root / 'images'
+        is_vercel = os.environ.get('VERCEL')
         
-        print(f"📁 Project root: {project_root}")
-        print(f"📁 Images folder path: {images_folder}")
-        print(f"📁 Images folder exists: {images_folder.exists()}")
-        
-        # Create images folder if it doesn't exist
-        try:
-            images_folder.mkdir(exist_ok=True, mode=0o755)
-            print(f"✅ Images folder created/verified: {images_folder}")
-        except Exception as mkdir_error:
-            print(f"❌ Error creating images folder: {str(mkdir_error)}")
-            raise
-        
-        # Check if folder is writable
-        if not os.access(images_folder, os.W_OK):
-            print(f"❌ Images folder is not writable: {images_folder}")
-            raise PermissionError(f"Images folder is not writable: {images_folder}")
-        
-        # Generate filename if not provided
-        if not filename:
-            # Extract extension from base64 data or use jpg as default
-            if isinstance(image_data, str) and image_data.startswith('data:image/'):
-                # Extract format from data URI
-                format_match = image_data.split(';')[0].split('/')[-1]
-                ext = format_match if format_match in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg'
-            else:
-                ext = 'jpg'
-            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
-        
-        image_path = images_folder / filename
-        print(f"📝 Saving image to: {image_path}")
-        
-        # Handle base64 data
+        # Decode image data first
         if isinstance(image_data, str):
             if image_data.startswith('data:image/'):
                 # Extract base64 data from data URI
@@ -262,41 +229,87 @@ def save_image_to_folder(image_data, filename=None):
                 print(f"📝 Decoding base64 image, header: {header[:50]}...")
                 image_bytes = base64.b64decode(encoded)
                 print(f"📝 Decoded image size: {len(image_bytes)} bytes")
+                
+                # Extract extension from header
+                if not filename:
+                    format_match = image_data.split(';')[0].split('/')[-1]
+                    ext = format_match if format_match in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg'
+                    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
             else:
                 # Assume it's already base64 without data URI
                 print(f"📝 Decoding base64 string (no data URI)")
                 image_bytes = base64.b64decode(image_data)
                 print(f"📝 Decoded image size: {len(image_bytes)} bytes")
+                if not filename:
+                    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.jpg"
         else:
             # Assume it's already binary
             image_bytes = image_data
             print(f"📝 Using binary data, size: {len(image_bytes)} bytes")
+            if not filename:
+                filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.jpg"
         
-        # Write to file
-        try:
-            with open(image_path, 'wb') as f:
-                f.write(image_bytes)
-            print(f"✅ Image file written successfully: {image_path}")
-        except Exception as write_error:
-            print(f"❌ Error writing image file: {str(write_error)}")
-            raise
-        
-        # Verify file was created
-        if not image_path.exists():
-            raise FileNotFoundError(f"Image file was not created: {image_path}")
-        
-        file_size = image_path.stat().st_size
-        print(f"✅ Image file verified: {image_path} ({file_size} bytes)")
-        
-        # Return relative path from project root
         relative_path = f"images/{filename}"
-        print(f"✅ Image saved successfully to: {relative_path}")
         
-        # ALWAYS try to commit to GitHub (works both locally and via API in Vercel)
-        is_vercel = os.environ.get('VERCEL')
-        
-        if not is_vercel:
-            # Local development - use git commands
+        if is_vercel:
+            # Vercel environment - upload directly to GitHub via API
+            print("🔄 Vercel environment detected - uploading directly to GitHub via API...")
+            try:
+                success = upload_image_to_github_via_api(relative_path, image_bytes)
+                if success:
+                    print(f"✅ Image uploaded to GitHub: {relative_path}")
+                    return relative_path
+                else:
+                    print(f"❌ Failed to upload image to GitHub via API")
+                    return None
+            except Exception as upload_error:
+                import traceback
+                print(f"❌ Error uploading to GitHub via API: {str(upload_error)}")
+                print(f"Traceback: {traceback.format_exc()}")
+                print(f"⚠️ For production: Set GITHUB_TOKEN environment variable in Vercel")
+                return None
+        else:
+            # Local development - save to folder and commit via git
+            project_root = Path(__file__).parent.parent
+            images_folder = project_root / 'images'
+            image_path = images_folder / filename
+            
+            print(f"📁 Project root: {project_root}")
+            print(f"📁 Images folder path: {images_folder}")
+            
+            # Create images folder if it doesn't exist
+            try:
+                images_folder.mkdir(exist_ok=True, mode=0o755)
+                print(f"✅ Images folder created/verified: {images_folder}")
+            except Exception as mkdir_error:
+                print(f"❌ Error creating images folder: {str(mkdir_error)}")
+                raise
+            
+            # Check if folder is writable
+            if not os.access(images_folder, os.W_OK):
+                print(f"❌ Images folder is not writable: {images_folder}")
+                raise PermissionError(f"Images folder is not writable: {images_folder}")
+            
+            print(f"📝 Saving image to: {image_path}")
+            
+            # Write to file
+            try:
+                with open(image_path, 'wb') as f:
+                    f.write(image_bytes)
+                print(f"✅ Image file written successfully: {image_path}")
+            except Exception as write_error:
+                print(f"❌ Error writing image file: {str(write_error)}")
+                raise
+            
+            # Verify file was created
+            if not image_path.exists():
+                raise FileNotFoundError(f"Image file was not created: {image_path}")
+            
+            file_size = image_path.stat().st_size
+            print(f"✅ Image file verified: {image_path} ({file_size} bytes)")
+            print(f"✅ Image saved successfully to: {relative_path}")
+            
+            # Try to commit to GitHub
             print("🔄 Attempting to commit image to GitHub using git...")
             try:
                 success = commit_image_to_github(image_path, relative_path, image_bytes)
@@ -308,24 +321,12 @@ def save_image_to_folder(image_data, filename=None):
                 print(f"Traceback: {traceback.format_exc()}")
                 print(f"⚠️ Image saved locally at: {image_path}")
                 print(f"⚠️ You may need to commit manually: git add {relative_path} && git commit -m 'Add image' && git push")
-        else:
-            # Vercel environment - use GitHub API
-            print("🔄 Vercel environment detected - uploading to GitHub via API...")
-            try:
-                success = upload_image_to_github_via_api(relative_path, image_bytes)
-                if not success:
-                    print(f"⚠️ GitHub API upload failed")
-            except Exception as upload_error:
-                import traceback
-                print(f"⚠️ Could not upload image to GitHub via API: {str(upload_error)}")
-                print(f"Traceback: {traceback.format_exc()}")
-                print(f"⚠️ For production: Set GITHUB_TOKEN environment variable in Vercel")
-        
-        return relative_path
+            
+            return relative_path
         
     except Exception as e:
         import traceback
-        error_msg = f"Error saving image to folder: {str(e)}"
+        error_msg = f"Error saving image: {str(e)}"
         print(f"❌ {error_msg}")
         print(f"Traceback: {traceback.format_exc()}")
         return None
