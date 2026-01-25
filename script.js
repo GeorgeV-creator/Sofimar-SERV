@@ -437,6 +437,8 @@ async function loadTikTokVideos() {
                         const iframes = carousel.querySelectorAll('.tiktok-video-wrapper iframe');
                         if (iframes.length > 0) {
                             carousel.classList.add('animate');
+                            // Setup auto-replay for videos
+                            setupTikTokAutoReplay();
                         }
                     }, 2000);
                 } catch (error) {
