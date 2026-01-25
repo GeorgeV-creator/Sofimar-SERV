@@ -471,6 +471,7 @@ function loadTikTokEmbedScript() {
             console.log('✅ TikTok embeds render called');
             setTimeout(() => {
                 setupTikTokAutoReplay();
+                startTikTokCarouselAnimation();
             }, 2000);
         } catch (error) {
             console.error('❌ Error rendering TikTok embeds:', error);
@@ -497,6 +498,7 @@ function loadTikTokEmbedScript() {
                     window.tiktokEmbed.lib.render();
                     setTimeout(() => {
                         setupTikTokAutoReplay();
+                        startTikTokCarouselAnimation();
                     }, 2000);
                 }
             }, 100);
@@ -525,6 +527,7 @@ function loadTikTokEmbedScript() {
                         window.tiktokEmbed.lib.render();
                         setTimeout(() => {
                             setupTikTokAutoReplay();
+                            startTikTokCarouselAnimation();
                         }, 2000);
                     } catch (error) {
                         console.error('❌ Error calling render:', error);
@@ -633,6 +636,35 @@ function setupTikTokAutoReplay() {
             window.tiktokObserver.observe(wrapper);
         });
     }
+}
+
+// Start TikTok carousel animation after videos are loaded
+function startTikTokCarouselAnimation() {
+    const carousel = document.getElementById('tiktokCarousel');
+    if (!carousel) {
+        console.warn('⚠️ TikTok carousel not found');
+        return;
+    }
+    
+    // Check if there are video wrappers with content
+    const videoWrappers = carousel.querySelectorAll('.tiktok-video-wrapper');
+    if (videoWrappers.length === 0) {
+        console.warn('⚠️ No TikTok video wrappers found, animation not started');
+        return;
+    }
+    
+    // Check if iframes are loaded (videos are rendered)
+    const iframes = carousel.querySelectorAll('.tiktok-video-wrapper iframe');
+    if (iframes.length === 0) {
+        console.log('⏳ Waiting for TikTok iframes to load before starting animation...');
+        // Retry after a delay
+        setTimeout(startTikTokCarouselAnimation, 1000);
+        return;
+    }
+    
+    // Add animate class to start the animation
+    carousel.classList.add('animate');
+    console.log('✅ TikTok carousel animation started');
 }
 
 // Store map instance globally for updates

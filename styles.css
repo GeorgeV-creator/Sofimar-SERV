@@ -504,8 +504,13 @@ body {
 .tiktok-carousel {
     display: flex;
     gap: 2rem;
-    animation: tiktokScroll 30s linear infinite;
     width: fit-content;
+    /* Animation will be started via JavaScript after videos are loaded */
+    animation: none;
+}
+
+.tiktok-carousel.animate {
+    animation: tiktokScroll 30s linear infinite;
 }
 
 .tiktok-carousel:hover {
