@@ -292,23 +292,33 @@ def save_image_to_folder(image_data, filename=None):
         relative_path = f"images/{filename}"
         print(f"✅ Image saved successfully to: {relative_path}")
         
-        # Try to commit to GitHub if not in Vercel (local development)
-        if not os.environ.get('VERCEL'):
+        # ALWAYS try to commit to GitHub (works both locally and via API in Vercel)
+        is_vercel = os.environ.get('VERCEL')
+        
+        if not is_vercel:
+            # Local development - use git commands
+            print("🔄 Attempting to commit image to GitHub using git...")
             try:
-                commit_image_to_github(image_path, relative_path, image_bytes)
+                success = commit_image_to_github(image_path, relative_path, image_bytes)
+                if not success:
+                    print(f"⚠️ Git commit failed, but image saved locally at: {image_path}")
             except Exception as commit_error:
+                import traceback
                 print(f"⚠️ Could not commit image to GitHub: {str(commit_error)}")
+                print(f"Traceback: {traceback.format_exc()}")
                 print(f"⚠️ Image saved locally at: {image_path}")
                 print(f"⚠️ You may need to commit manually: git add {relative_path} && git commit -m 'Add image' && git push")
         else:
-            # In Vercel, we can't write to filesystem persistently
-            print("⚠️ WARNING: Vercel environment - file saved temporarily but won't persist after function ends")
-            print("⚠️ Attempting to upload to GitHub via API...")
-            # Try to upload to GitHub using API
+            # Vercel environment - use GitHub API
+            print("🔄 Vercel environment detected - uploading to GitHub via API...")
             try:
-                upload_image_to_github_via_api(relative_path, image_bytes)
+                success = upload_image_to_github_via_api(relative_path, image_bytes)
+                if not success:
+                    print(f"⚠️ GitHub API upload failed")
             except Exception as upload_error:
+                import traceback
                 print(f"⚠️ Could not upload image to GitHub via API: {str(upload_error)}")
+                print(f"Traceback: {traceback.format_exc()}")
                 print(f"⚠️ For production: Set GITHUB_TOKEN environment variable in Vercel")
         
         return relative_path
