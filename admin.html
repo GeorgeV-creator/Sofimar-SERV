@@ -135,7 +135,10 @@
             <div id="messagesTab" class="tab-content active">
                 <div class="tab-header">
                     <h2>Mesaje de Contact</h2>
-                    <button id="clearMessagesBtn" class="btn btn-danger">Șterge Toate</button>
+                    <div style="display: flex; gap: 1rem;">
+                        <button id="exportDataBtn" class="btn btn-secondary">📥 Exportă Excel</button>
+                        <button id="clearMessagesBtn" class="btn btn-danger">Șterge Toate</button>
+                    </div>
                 </div>
                 <div class="messages-list" id="messagesList">
                     <p class="empty-state">Nu există mesaje.</p>
@@ -251,11 +254,6 @@
                             <div id="passwordError" class="error-message"></div>
                             <div id="passwordSuccess" class="success-message"></div>
                         </form>
-                    </div>
-                    <div class="setting-section">
-                        <h3>Export Date</h3>
-                        <p>Exportă toate mesajele de contact într-un fișier Excel (XLSX).</p>
-                        <button id="exportDataBtn" class="btn btn-secondary">Exportă Mesaje</button>
                     </div>
                 </div>
             </div>
