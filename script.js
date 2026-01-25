@@ -456,6 +456,39 @@ async function loadTikTokVideos() {
     }
 }
 
+// Setup auto-replay for TikTok videos
+function setupTikTokAutoReplay() {
+    const iframes = document.querySelectorAll('.tiktok-video-wrapper iframe');
+    
+    if (iframes.length === 0) {
+        // Retry if iframes aren't loaded yet
+        setTimeout(setupTikTokAutoReplay, 1000);
+        return;
+    }
+    
+    // Setup periodic reload to restart videos
+    // TikTok embeds don't allow direct video control due to cross-origin restrictions
+    // So we reload the iframe periodically to restart videos
+    iframes.forEach((iframe) => {
+        if (!iframe.dataset.originalSrc) {
+            iframe.dataset.originalSrc = iframe.src;
+        }
+        
+        // Reload iframe every 60 seconds to restart video
+        setInterval(() => {
+            try {
+                const originalSrc = iframe.dataset.originalSrc || iframe.src;
+                iframe.src = '';
+                setTimeout(() => {
+                    iframe.src = originalSrc;
+                }, 100);
+            } catch (e) {
+                // Ignore errors
+            }
+        }, 60000); // Every 60 seconds
+    });
+}
+
 // Store map instance globally for updates
 let romaniaMapInstance = null;
 
