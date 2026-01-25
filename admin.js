@@ -490,7 +490,7 @@ function initializeEventListeners() {
             }
             
             const sourceValue = imageSource.value;
-            console.log('📝 Image source:', sourceValue);
+            // console.log('📝 Image source:', sourceValue);
             let image = '';
             
             if (sourceValue === 'upload') {
@@ -750,7 +750,7 @@ async function loadChatbotMessages() {
         return;
     }
     
-    console.log('Loading chatbot messages:', messages.length);
+    // console.log('Loading chatbot messages:', messages.length);
     
     if (messages.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații.</p>';
@@ -776,7 +776,7 @@ async function loadChatbotMessages() {
         }
     }
 
-    console.log('Grouped conversations:', conversations.length);
+    // console.log('Grouped conversations:', conversations.length);
 
     if (conversations.length === 0) {
         conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații. Mesajele pot fi doar de tip bot sau nu sunt grupate corect.</p>';
@@ -831,7 +831,7 @@ async function getChatbotMessages() {
         const response = await fetch(`${API_BASE_URL}/chatbot`);
         if (response.ok) {
             const messages = await response.json();
-            console.log('Retrieved chatbot messages from API:', messages);
+            // console.log('Retrieved chatbot messages from API:', messages);
             return Array.isArray(messages) ? messages : [];
         }
     } catch (error) {
@@ -1052,7 +1052,7 @@ function getDefaultLocations() {
 
 async function saveLocations(locations) {
     try {
-        console.log('📡 Saving locations:', locations.length, 'locations');
+        // console.log('📡 Saving locations:', locations.length, 'locations');
         const response = await fetch(`${API_BASE_URL}/locations`, {
             method: 'POST',
             headers: {
@@ -1068,7 +1068,7 @@ async function saveLocations(locations) {
         }
         
         const result = await response.json();
-        console.log('✅ Locations saved successfully:', result);
+        // console.log('✅ Locations saved successfully:', result);
     } catch (error) {
         console.error('❌ Error saving locations:', error);
         alert(`Eroare: ${error.message || 'serverul nu este disponibil'}. Locațiile nu au fost salvate.`);
@@ -2249,57 +2249,58 @@ function populateFormFields(texts) {
     setFieldValue('guarantee3Title', texts.guarantee3Title);
     setFieldValue('guarantee3Description', texts.guarantee3Description);
     
-    console.log('✅ Form fields refreshed with saved values');
+    // console.log('✅ Form fields refreshed with saved values');
 }
 
 async function loadSiteTexts() {
-    console.log('🔄 Loading site texts...');
+    // Minimal logging - removed for production
+    // console.log('🔄 Loading site texts...');
     
     // First, try to load from saved texts (API) to show user's modifications
     // This ensures the admin form shows the saved changes, not the static HTML
     let texts = await getSiteTexts();
-    console.log('📦 Texts from getSiteTexts:', texts);
-    console.log('📊 Keys count:', texts ? Object.keys(texts).length : 0);
+    // console.log('📦 Texts from getSiteTexts:', texts);
+    // console.log('📊 Keys count:', texts ? Object.keys(texts).length : 0);
     
     // Check if texts has error property (from API)
     if (texts && texts.error) {
-        console.warn('⚠️ Texts object contains error, treating as empty:', texts.error);
+        // console.warn('⚠️ Texts object contains error, treating as empty:', texts.error);
         texts = {};
     }
     
     // If no saved texts exist, load from HTML as fallback
     if (!texts || Object.keys(texts).length === 0) {
-        console.log('⚠️ No saved texts found, loading from HTML...');
+        // console.log('⚠️ No saved texts found, loading from HTML...');
         texts = await loadTextsFromHTML();
-        console.log('📄 Texts from HTML:', texts);
-        console.log('📊 HTML keys count:', texts ? Object.keys(texts).length : 0);
+        // console.log('📄 Texts from HTML:', texts);
+        // console.log('📊 HTML keys count:', texts ? Object.keys(texts).length : 0);
         
         // If HTML loading also failed, return empty
         if (!texts || Object.keys(texts).length === 0) {
-            console.error('❌ No texts found in saved storage or HTML!');
+            // console.error('❌ No texts found in saved storage or HTML!');
             return;
         }
     } else {
-        console.log('✅ Using saved texts from API');
+        // console.log('✅ Using saved texts from API');
     }
     
     // Final check - make sure we don't have error object
     if (texts && texts.error) {
-        console.error('❌ Final texts still contains error! Resetting to empty.');
+        // console.error('❌ Final texts still contains error! Resetting to empty.');
         texts = {};
     }
     
-    console.log('📋 Final texts to display:', texts);
-    console.log('📊 Final keys:', texts ? Object.keys(texts) : 'none');
+    // console.log('📋 Final texts to display:', texts);
+    // console.log('📊 Final keys:', texts ? Object.keys(texts) : 'none');
     
     // Populate form fields
-    console.log('Populating form fields...');
-    console.log('Available texts keys:', Object.keys(texts));
-    console.log('Sample text values:', {
-        heroTitle: texts.heroTitle,
-        service1Title: texts.service1Title,
-        guarantee1Title: texts.guarantee1Title
-    });
+    // console.log('Populating form fields...');
+    // console.log('Available texts keys:', Object.keys(texts));
+    // console.log('Sample text values:', {
+    //     heroTitle: texts.heroTitle,
+    //     service1Title: texts.service1Title,
+    //     guarantee1Title: texts.guarantee1Title
+    // });
     
     // Helper function to set value safely
     function setFieldValue(id, value) {
@@ -2308,33 +2309,25 @@ async function loadSiteTexts() {
             const oldValue = el.value;
             el.value = value || '';
             if (el.value !== oldValue) {
-                const preview = el.value ? (el.value.length > 100 ? el.value.substring(0, 100) + '...' : el.value) : '(empty)';
-                console.log(`✓ Set ${id}:`, preview);
-                // For service descriptions, log the full length to verify features are included
-                if (id.includes('service') && id.includes('Description')) {
-                    console.log(`  Full length: ${el.value.length} characters`);
-                    if (el.value.includes('--- FEATURE')) {
-                        console.log(`  ✓ Contains feature markers`);
-                    } else {
-                        console.warn(`  ⚠️ Does NOT contain feature markers - might be missing features!`);
-                    }
-                }
+                // Minimal logging - removed for production
+                // const preview = el.value ? (el.value.length > 100 ? el.value.substring(0, 100) + '...' : el.value) : '(empty)';
+                // console.log(`✓ Set ${id}:`, preview);
             }
             return true;
         } else {
-            console.warn(`✗ Field ${id} not found in DOM`);
+            // console.warn(`✗ Field ${id} not found in DOM`);
             return false;
         }
     }
     
     // Check if we have any texts to populate
     if (!texts || Object.keys(texts).length === 0) {
-        console.error('❌ No texts to populate! texts object is empty or undefined');
-        console.log('Current texts object:', texts);
+        // console.error('❌ No texts to populate! texts object is empty or undefined');
+        // console.log('Current texts object:', texts);
         return;
     }
     
-    console.log('📝 Populating form fields with', Object.keys(texts).length, 'text values...');
+    // console.log('📝 Populating form fields with', Object.keys(texts).length, 'text values...');
     
     // Populate all fields
     let populatedCount = 0;
@@ -2361,20 +2354,14 @@ async function loadSiteTexts() {
     if (setFieldValue('guarantee3Title', texts.guarantee3Title) && texts.guarantee3Title) populatedCount++;
     if (setFieldValue('guarantee3Description', texts.guarantee3Description) && texts.guarantee3Description) populatedCount++;
     
-    console.log(`✅ Form fields populated. ${populatedCount} fields have values.`);
+    // console.log(`✅ Form fields populated. ${populatedCount} fields have values.`);
     
     // Verify at least one field was populated
     const testField = document.getElementById('heroTitle');
     if (testField) {
-        if (testField.value) {
-            console.log('✅ Verified: heroTitle has value:', testField.value.substring(0, 50));
-        } else {
-            console.warn('⚠️ heroTitle field exists but is empty');
-            console.warn('⚠️ This means texts.heroTitle is:', texts.heroTitle);
-            console.warn('⚠️ Full texts object:', texts);
+        if (!testField.value) {
+            // console.warn('⚠️ heroTitle field exists but is empty');
         }
-    } else {
-        console.error('❌ heroTitle field does not exist in DOM!');
     }
 }
 
@@ -2389,25 +2376,25 @@ async function loadTextsFromHTML() {
         
         for (const path of paths) {
             try {
-                console.log(`Trying to fetch: ${path}`);
+                // console.log(`Trying to fetch: ${path}`);
                 response = await fetch(path);
                 if (response.ok) {
-                    console.log(`✅ Successfully fetched ${path}`);
+                    // console.log(`✅ Successfully fetched ${path}`);
                     break;
                 } else {
-                    console.warn(`❌ ${path} returned status: ${response.status}`);
+                    // console.warn(`❌ ${path} returned status: ${response.status}`);
                 }
             } catch (e) {
-                console.warn(`❌ Error fetching ${path}:`, e.message);
+                // console.warn(`❌ Error fetching ${path}:`, e.message);
             }
         }
         
         if (response && response.ok) {
             const html = await response.text();
-            console.log('📄 Fetched HTML, length:', html.length);
+            // console.log('📄 Fetched HTML, length:', html.length);
             
             if (html.length < 100) {
-                console.error('❌ HTML seems too short, might be an error page');
+                // console.error('❌ HTML seems too short, might be an error page');
                 return texts;
             }
             
@@ -2417,7 +2404,7 @@ async function loadTextsFromHTML() {
             // Check for parsing errors
             const parserError = doc.querySelector('parsererror');
             if (parserError) {
-                console.error('❌ HTML parsing error:', parserError.textContent);
+                // console.error('❌ HTML parsing error:', parserError.textContent);
                 return texts;
             }
             
@@ -2425,50 +2412,34 @@ async function loadTextsFromHTML() {
             const heroTitle = doc.querySelector('.hero-title');
             if (heroTitle) {
                 texts.heroTitle = heroTitle.textContent.trim();
-                console.log('✓ Found heroTitle:', texts.heroTitle.substring(0, 50));
-            } else {
-                console.warn('✗ .hero-title not found in HTML');
+                // console.log('✓ Found heroTitle:', texts.heroTitle.substring(0, 50));
             }
             
             const heroSubtitle = doc.querySelector('.hero-subtitle');
             if (heroSubtitle) {
                 texts.heroSubtitle = heroSubtitle.textContent.trim();
-                console.log('✓ Found heroSubtitle');
-            } else {
-                console.warn('✗ .hero-subtitle not found in HTML');
             }
             
             const heroDescription = doc.querySelector('.hero-description');
             if (heroDescription) {
                 texts.heroDescription = heroDescription.textContent.trim();
-                console.log('✓ Found heroDescription');
-            } else {
-                console.warn('✗ .hero-description not found in HTML');
             }
             
             const heroButton = doc.querySelector('.btn-hero');
             if (heroButton) {
                 texts.heroButtonText = heroButton.textContent.trim();
-                console.log('✓ Found heroButtonText:', texts.heroButtonText);
-            } else {
-                console.warn('✗ .btn-hero not found in HTML');
+                // console.log('✓ Found heroButtonText:', texts.heroButtonText);
             }
             
             // Load services section header
             const servicesHeader = doc.querySelector('#servicii .section-header h2');
             if (servicesHeader) {
                 texts.servicesTitle = servicesHeader.textContent.trim();
-                console.log('✓ Found servicesTitle:', texts.servicesTitle);
-            } else {
-                console.warn('✗ #servicii .section-header h2 not found');
             }
             
             const servicesSubtitle = doc.querySelector('#servicii .section-header p');
             if (servicesSubtitle) {
                 texts.servicesSubtitle = servicesSubtitle.textContent.trim();
-                console.log('✓ Found servicesSubtitle');
-            } else {
-                console.warn('✗ #servicii .section-header p not found');
             }
             
             // Load individual services
@@ -2477,14 +2448,10 @@ async function loadTextsFromHTML() {
                 const title = service1.querySelector('.service-title');
                 if (title) {
                     texts.service1Title = title.textContent.trim();
-                    console.log('✓ Found service1Title:', texts.service1Title);
-                } else {
-                    console.warn('✗ .service-title not found in service1');
                 }
                 const subtitle = service1.querySelector('.service-subtitle');
                 if (subtitle) {
                     texts.service1Subtitle = subtitle.textContent.trim();
-                    console.log('✓ Found service1Subtitle');
                 }
                 // Extract full content from .service-content (includes description + features)
                 // Convert to a readable text format for editing
@@ -2508,17 +2475,13 @@ async function loadTextsFromHTML() {
                         }
                     });
                     texts.service1Description = fullText.trim();
-                    console.log('✓ Found service1Description (full content with features)');
                 } else {
                     // Fallback to just description if content not found
                     const desc = service1.querySelector('.service-description');
                     if (desc) {
                         texts.service1Description = desc.textContent.trim();
-                        console.log('✓ Found service1Description (description only)');
                     }
                 }
-            } else {
-                console.warn('✗ .service-card[data-service="1"] not found');
             }
             
             const service2 = doc.querySelector('.service-card[data-service="2"]');
@@ -2526,7 +2489,6 @@ async function loadTextsFromHTML() {
                 const title = service2.querySelector('.service-title');
                 if (title) {
                     texts.service2Title = title.textContent.trim();
-                    console.log('✓ Found service2Title:', texts.service2Title);
                 }
                 const subtitle = service2.querySelector('.service-subtitle');
                 if (subtitle) {
@@ -2553,15 +2515,12 @@ async function loadTextsFromHTML() {
                         }
                     });
                     texts.service2Description = fullText.trim();
-                    console.log('✓ Found service2Description (full content with features)');
                 } else {
                     const desc = service2.querySelector('.service-description');
                     if (desc) {
                         texts.service2Description = desc.textContent.trim();
                     }
                 }
-            } else {
-                console.warn('✗ .service-card[data-service="2"] not found');
             }
             
             const service3 = doc.querySelector('.service-card[data-service="3"]');
@@ -2569,7 +2528,6 @@ async function loadTextsFromHTML() {
                 const title = service3.querySelector('.service-title');
                 if (title) {
                     texts.service3Title = title.textContent.trim();
-                    console.log('✓ Found service3Title:', texts.service3Title);
                 }
                 const subtitle = service3.querySelector('.service-subtitle');
                 if (subtitle) {
@@ -2596,24 +2554,18 @@ async function loadTextsFromHTML() {
                         }
                     });
                     texts.service3Description = fullText.trim();
-                    console.log('✓ Found service3Description (full content with features)');
                 } else {
                     const desc = service3.querySelector('.service-description');
                     if (desc) {
                         texts.service3Description = desc.textContent.trim();
                     }
                 }
-            } else {
-                console.warn('✗ .service-card[data-service="3"] not found');
             }
             
             // Load guarantee section
             const guaranteeHeader = doc.querySelector('.guarantee-header h2');
             if (guaranteeHeader) {
                 texts.guaranteeTitle = guaranteeHeader.textContent.trim();
-                console.log('✓ Found guaranteeTitle:', texts.guaranteeTitle);
-            } else {
-                console.warn('✗ .guarantee-header h2 not found');
             }
             
             const guarantee1 = doc.querySelector('.guarantee-card[data-guarantee="1"]');
@@ -2621,19 +2573,11 @@ async function loadTextsFromHTML() {
                 const title = guarantee1.querySelector('.guarantee-title');
                 if (title) {
                     texts.guarantee1Title = title.textContent.trim();
-                    console.log('✓ Found guarantee1Title:', texts.guarantee1Title);
-                } else {
-                    console.warn('✗ .guarantee-title not found in guarantee1');
                 }
                 const desc = guarantee1.querySelector('.guarantee-description');
                 if (desc) {
                     texts.guarantee1Description = desc.innerHTML.trim();
-                    console.log('✓ Found guarantee1Description');
-                } else {
-                    console.warn('✗ .guarantee-description not found in guarantee1');
                 }
-            } else {
-                console.warn('✗ .guarantee-card[data-guarantee="1"] not found');
             }
             
             const guarantee2 = doc.querySelector('.guarantee-card[data-guarantee="2"]');
@@ -2641,14 +2585,11 @@ async function loadTextsFromHTML() {
                 const title = guarantee2.querySelector('.guarantee-title');
                 if (title) {
                     texts.guarantee2Title = title.textContent.trim();
-                    console.log('✓ Found guarantee2Title:', texts.guarantee2Title);
                 }
                 const desc = guarantee2.querySelector('.guarantee-description');
                 if (desc) {
                     texts.guarantee2Description = desc.innerHTML.trim();
                 }
-            } else {
-                console.warn('✗ .guarantee-card[data-guarantee="2"] not found');
             }
             
             const guarantee3 = doc.querySelector('.guarantee-card[data-guarantee="3"]');
@@ -2656,26 +2597,23 @@ async function loadTextsFromHTML() {
                 const title = guarantee3.querySelector('.guarantee-title');
                 if (title) {
                     texts.guarantee3Title = title.textContent.trim();
-                    console.log('✓ Found guarantee3Title:', texts.guarantee3Title);
                 }
                 const desc = guarantee3.querySelector('.guarantee-description');
                 if (desc) {
                     texts.guarantee3Description = desc.innerHTML.trim();
                 }
-            } else {
-                console.warn('✗ .guarantee-card[data-guarantee="3"] not found');
             }
             
-            console.log('✅ Successfully parsed HTML, found', Object.keys(texts).length, 'text fields');
+            // console.log('✅ Successfully parsed HTML, found', Object.keys(texts).length, 'text fields');
         } else {
-            console.error('❌ Failed to fetch index.html - no valid response');
+            // console.error('❌ Failed to fetch index.html - no valid response');
         }
     } catch (error) {
-        console.error('❌ Could not load texts from HTML:', error);
-        console.error('Error details:', error.stack);
+        // console.error('❌ Could not load texts from HTML:', error);
+        // console.error('Error details:', error.stack);
     }
     
-    console.log('📋 Final loaded texts from HTML:', Object.keys(texts).length, 'keys');
+    // console.log('📋 Final loaded texts from HTML:', Object.keys(texts).length, 'keys');
     return texts;
 }
 
