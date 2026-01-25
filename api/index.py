@@ -101,8 +101,22 @@ def save_image_to_folder(image_data, filename=None):
         project_root = Path(__file__).parent.parent
         images_folder = project_root / 'images'
         
+        print(f"📁 Project root: {project_root}")
+        print(f"📁 Images folder path: {images_folder}")
+        print(f"📁 Images folder exists: {images_folder.exists()}")
+        
         # Create images folder if it doesn't exist
-        images_folder.mkdir(exist_ok=True)
+        try:
+            images_folder.mkdir(exist_ok=True, mode=0o755)
+            print(f"✅ Images folder created/verified: {images_folder}")
+        except Exception as mkdir_error:
+            print(f"❌ Error creating images folder: {str(mkdir_error)}")
+            raise
+        
+        # Check if folder is writable
+        if not os.access(images_folder, os.W_OK):
+            print(f"❌ Images folder is not writable: {images_folder}")
+            raise PermissionError(f"Images folder is not writable: {images_folder}")
         
         # Generate filename if not provided
         if not filename:
@@ -116,27 +130,47 @@ def save_image_to_folder(image_data, filename=None):
             filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
         
         image_path = images_folder / filename
+        print(f"📝 Saving image to: {image_path}")
         
         # Handle base64 data
         if isinstance(image_data, str):
             if image_data.startswith('data:image/'):
                 # Extract base64 data from data URI
+                if ',' not in image_data:
+                    raise ValueError("Invalid base64 data URI format - missing comma")
                 header, encoded = image_data.split(',', 1)
+                print(f"📝 Decoding base64 image, header: {header[:50]}...")
                 image_bytes = base64.b64decode(encoded)
+                print(f"📝 Decoded image size: {len(image_bytes)} bytes")
             else:
                 # Assume it's already base64 without data URI
+                print(f"📝 Decoding base64 string (no data URI)")
                 image_bytes = base64.b64decode(image_data)
+                print(f"📝 Decoded image size: {len(image_bytes)} bytes")
         else:
             # Assume it's already binary
             image_bytes = image_data
+            print(f"📝 Using binary data, size: {len(image_bytes)} bytes")
         
         # Write to file
-        with open(image_path, 'wb') as f:
-            f.write(image_bytes)
+        try:
+            with open(image_path, 'wb') as f:
+                f.write(image_bytes)
+            print(f"✅ Image file written successfully: {image_path}")
+        except Exception as write_error:
+            print(f"❌ Error writing image file: {str(write_error)}")
+            raise
+        
+        # Verify file was created
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image file was not created: {image_path}")
+        
+        file_size = image_path.stat().st_size
+        print(f"✅ Image file verified: {image_path} ({file_size} bytes)")
         
         # Return relative path from project root
         relative_path = f"images/{filename}"
-        print(f"✅ Image saved to: {relative_path}")
+        print(f"✅ Image saved successfully to: {relative_path}")
         
         # In Vercel, warn that file won't persist but still return path
         if os.environ.get('VERCEL'):
@@ -147,7 +181,8 @@ def save_image_to_folder(image_data, filename=None):
         
     except Exception as e:
         import traceback
-        print(f"❌ Error saving image to folder: {str(e)}")
+        error_msg = f"Error saving image to folder: {str(e)}"
+        print(f"❌ {error_msg}")
         print(f"Traceback: {traceback.format_exc()}")
         return None
 
