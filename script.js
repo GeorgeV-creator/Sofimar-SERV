@@ -956,31 +956,23 @@ async function loadCertificatesOnPage() {
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
         }
         
-        // Wait for all images to load before hiding loading screen (minimum 3 seconds)
+        // Wait for all images to load before hiding loading screen
         if (loadingScreen && certificatesContent) {
             const allImages = [
                 ...certificatesGrid.querySelectorAll('img'),
                 ...accreditationsGrid.querySelectorAll('img')
             ];
             
-            const startTime = Date.now();
-            const minDisplayTime = 3000; // 3 seconds minimum
-            
             const hideLoadingScreen = () => {
-                const elapsedTime = Date.now() - startTime;
-                const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
-                
-                setTimeout(() => {
-                    loadingScreen.style.display = 'none';
-                    certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
-                }, remainingTime);
+                loadingScreen.style.display = 'none';
+                certificatesContent.style.display = 'grid'; // Use grid instead of block for two columns
             };
             
             if (allImages.length === 0) {
-                // No images to load, wait minimum 3 seconds
+                // No images to load, hide immediately
                 hideLoadingScreen();
             } else {
-                // Wait for all images to load, but ensure minimum 3 seconds display
+                // Wait for all images to load
                 let loadedCount = 0;
                 const totalImages = allImages.length;
                 let allImagesLoaded = false;
@@ -1004,14 +996,6 @@ async function loadCertificatesOnPage() {
                         img.addEventListener('error', checkAllLoaded); // Also count errors as "loaded"
                     }
                 });
-                
-                // Fallback: if images take too long, hide after 3 seconds anyway
-                setTimeout(() => {
-                    if (!allImagesLoaded) {
-                        allImagesLoaded = true;
-                        hideLoadingScreen();
-                    }
-                }, minDisplayTime);
             }
         }
     } else {
