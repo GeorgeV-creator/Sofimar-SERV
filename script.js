@@ -878,7 +878,7 @@ async function loadPartnersOnPage() {
     }).join('');
 }
 
-// Load certificates from API
+// Load certificates from API - optimized for fast loading
 async function loadCertificatesOnPage() {
     const certificatesGrid = document.getElementById('certificatesGrid');
     const accreditationsGrid = document.getElementById('accreditationsGrid');
@@ -895,8 +895,13 @@ async function loadCertificatesOnPage() {
     let certificates = [];
     
     try {
-        // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/certificates`);
+        // Fetch with cache and no-cors optimization
+        const response = await fetch(`${API_BASE_URL}/certificates`, {
+            cache: 'default',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
         if (response.ok) {
             certificates = await response.json();
             if (!Array.isArray(certificates)) {
@@ -913,7 +918,7 @@ async function loadCertificatesOnPage() {
         certificates = [];
     }
 
-    // Helper function to create certificate HTML
+    // Helper function to create certificate HTML - optimized
     const createCertificateHTML = (cert) => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         const imageSrc = isBase64 ? cert.image : cert.image;
@@ -922,11 +927,15 @@ async function loadCertificatesOnPage() {
         const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const escapedTitleForOnclick = escapedTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
+        // Use eager loading for faster display, add fetchpriority for above-the-fold images
+        const loadingAttr = isCertificatePage ? 'loading="eager"' : 'loading="lazy"';
+        const fetchPriority = isCertificatePage ? 'fetchpriority="high"' : '';
+        
         return `
             <div class="certificate-item">
                 <h3 class="certificate-title">${escapedTitle}</h3>
                 <div class="certificate-image-container" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
-                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" loading="lazy">
+                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" ${loadingAttr} ${fetchPriority} decoding="async">
                 </div>
             </div>
         `;
@@ -937,6 +946,7 @@ async function loadCertificatesOnPage() {
         const certs = certificates.filter(cert => (cert.type || 'certificat') === 'certificat');
         const accreds = certificates.filter(cert => (cert.type || 'certificat') === 'acreditare');
         
+        // Render immediately without waiting
         if (certificatesGrid) {
             certificatesGrid.innerHTML = certs.length > 0 
                 ? certs.map(createCertificateHTML).join('')
@@ -947,6 +957,22 @@ async function loadCertificatesOnPage() {
             accreditationsGrid.innerHTML = accreds.length > 0
                 ? accreds.map(createCertificateHTML).join('')
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
+        }
+        
+        // Preload first few images for instant display
+        if (certs.length > 0 || accreds.length > 0) {
+            const firstImages = [
+                ...(certs.length > 0 ? [certs[0].image] : []),
+                ...(accreds.length > 0 ? [accreds[0].image] : [])
+            ].filter(img => img && !img.startsWith('data:image'));
+            
+            firstImages.forEach(imgSrc => {
+                const link = document.createElement('link');
+                link.rel = 'preload';
+                link.as = 'image';
+                link.href = imgSrc;
+                document.head.appendChild(link);
+            });
         }
     } else {
         // Single grid (for index.html or other pages)
@@ -1348,32 +1374,29 @@ if (document.readyState === 'loading') {
         // Load site texts first (lightweight)
         loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
         
-        // Load heavy content after a short delay to not block initial render
-        setTimeout(() => {
-            if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
-                loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
-            }
-        }, 200);
+        // Load certificates immediately for certificate.html (no delay)
+        if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
+            loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+        }
         
+        // Load partners after certificates (small delay only for partners)
         setTimeout(() => {
             if (document.getElementById('partnersGrid')) {
                 loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
             }
-        }, 400);
+        }, 100);
     });
 } else {
-    // DOM already loaded - same lazy loading approach
+    // DOM already loaded - load certificates immediately
     loadSiteTexts().catch(err => console.error('Error loading site texts:', err));
-    setTimeout(() => {
-        if (document.getElementById('certificatesGrid')) {
-            loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
-        }
-    }, 200);
+    if (document.getElementById('certificatesGrid') || document.getElementById('accreditationsGrid')) {
+        loadCertificatesOnPage().catch(err => console.error('Error loading certificates:', err));
+    }
     setTimeout(() => {
         if (document.getElementById('partnersGrid')) {
             loadPartnersOnPage().catch(err => console.error('Error loading partners:', err));
         }
-    }, 400);
+    }, 100);
 }
 
 // Close modal when clicking outside
