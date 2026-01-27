@@ -2231,7 +2231,7 @@ async function loadTextsFromHTML() {
     try {
         // Try multiple paths
         let response = null;
-        const paths = ['/', '/index', '/index.html', 'index.html', './index.html', '../index.html'];
+        const paths = ['/index.html', 'index.html', './index.html', '../index.html'];
         
         for (const path of paths) {
             try {
