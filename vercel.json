@@ -1,35 +1,10 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py?path=/$1"
-    },
-    {
-      "source": "/certificate",
-      "destination": "/certificate.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/admin.html"
+      "source": "/api/:path*",
+      "destination": "/api/index.py"
     }
-  ],
-  "redirects": [
-    {
-      "source": "/index.html",
-      "destination": "/",
-      "permanent": true
-    },
-    {
-      "source": "/certificate.html",
-      "destination": "/certificate",
-      "permanent": true
-    },
-    {
-      "source": "/admin.html",
-      "destination": "/admin",
-      "permanent": true
-    }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
+
+
