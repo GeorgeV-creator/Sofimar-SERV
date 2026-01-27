@@ -31,6 +31,21 @@ const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_BLOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
+function safeParseJsonFromText(text) {
+    if (!text || !text.trim()) return null;
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        throw new Error('Serverul a returnat un răspuns invalid (nu e JSON). Verifică dacă API-ul rulează.');
+    }
+}
+
+/** Parse response body as JSON. Uses text() first to avoid SyntaxError when server returns HTML/non-JSON. */
+async function safeParseJson(response) {
+    const text = await response.text();
+    return safeParseJsonFromText(text);
+}
+
 // Initialize - load only essential data first
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
@@ -148,8 +163,8 @@ async function login(username, password) {
         // Try to get password from API
         const response = await fetch(`${API_BASE_URL}/admin-password`);
         if (response.ok) {
-            const result = await response.json();
-            const storedPassword = (result.password || DEFAULT_PASSWORD).trim();
+            const result = await safeParseJson(response);
+            const storedPassword = (result && result.password ? result.password : DEFAULT_PASSWORD).trim();
             
             // Minimal logging - only log errors
             // console.log('🔐 Login attempt:', {
@@ -690,7 +705,7 @@ async function getMessages() {
         // console.log('Fetching messages from API...');
         const response = await fetch(`${API_BASE_URL}/messages`);
         if (response.ok) {
-            const messages = await response.json();
+            const messages = await safeParseJson(response);
             // console.log('Messages loaded from API:', messages.length);
             return Array.isArray(messages) ? messages : [];
         }
@@ -830,7 +845,7 @@ async function getChatbotMessages() {
         // Try to fetch from API server
         const response = await fetch(`${API_BASE_URL}/chatbot`);
         if (response.ok) {
-            const messages = await response.json();
+            const messages = await safeParseJson(response);
             // console.log('Retrieved chatbot messages from API:', messages);
             return Array.isArray(messages) ? messages : [];
         }
@@ -920,11 +935,11 @@ async function deleteChatbotConversation(index) {
             fetch(`${API_BASE_URL}/chatbot?id=${encodeURIComponent(id)}`, {
                 method: 'DELETE'
             }).then(async (response) => {
+                const text = await response.text().catch(() => '');
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API error: ${response.status} - ${errorText}`);
+                    throw new Error(`API error: ${response.status} - ${text}`);
                 }
-                return response.json();
+                return safeParseJsonFromText(text);
             })
         );
         
@@ -981,7 +996,7 @@ async function getLocations() {
     try {
         const response = await fetch(`${API_BASE_URL}/locations`);
         if (response.ok) {
-            const locations = await response.json();
+            const locations = await safeParseJson(response);
             // Always return the array from API, even if empty (don't override with defaults)
             if (Array.isArray(locations)) {
                 return locations;
@@ -1060,14 +1075,12 @@ async function saveLocations(locations) {
             },
             body: JSON.stringify({ locations })
         });
-        
+        const text = await response.text().catch(() => '');
         if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error('❌ API error response:', response.status, errorText);
-            throw new Error(`Failed to save locations: ${response.status} ${errorText}`);
+            console.error('❌ API error response:', response.status, text);
+            throw new Error(`Failed to save locations: ${response.status} ${text}`);
         }
-        
-        const result = await response.json();
+        const result = safeParseJsonFromText(text);
         // console.log('✅ Locations saved successfully:', result);
     } catch (error) {
         console.error('❌ Error saving locations:', error);
@@ -1342,7 +1355,7 @@ async function getTikTokVideos() {
     try {
         const response = await fetch(`${API_BASE_URL}/tiktok-videos`);
         if (response.ok) {
-            const videos = await response.json();
+            const videos = await safeParseJson(response);
             return Array.isArray(videos) ? videos : [];
         }
     } catch (error) {
@@ -1454,7 +1467,7 @@ async function getCertificates() {
         // Try to fetch from API server
         const response = await fetch(`${API_BASE_URL}/certificates`);
         if (response.ok) {
-            const certificates = await response.json();
+            const certificates = await safeParseJson(response);
             // console.log('Retrieved certificates from API:', certificates.length);
             return Array.isArray(certificates) ? certificates : [];
         }
@@ -1487,23 +1500,14 @@ async function addCertificate(title, description, image, type = 'certificat') {
             },
             body: JSON.stringify(newCertificate)
         });
-        
+        const text = await response.text().catch(() => '');
         // console.log('📥 API response status:', response.status, response.statusText);
-        
-        if (response.ok) {
-            const result = await response.json();
-            // console.log('✅ Certificate saved to API:', result);
-        } else {
-            // Get error details from response
-            let errorText = '';
-            try {
-                errorText = await response.text();
-                console.error('❌ API error response:', response.status, errorText);
-            } catch (e) {
-                console.error('❌ Could not read error response:', e);
-            }
-            throw new Error(`API save failed: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+        if (!response.ok) {
+            console.error('❌ API error response:', response.status, text);
+            throw new Error(`API save failed: ${response.status} ${response.statusText}${text ? ' - ' + text : ''}`);
         }
+        const result = safeParseJsonFromText(text);
+        // console.log('✅ Certificate saved to API:', result);
     } catch (error) {
         console.error('❌ Error saving certificate:', error);
         const errorMessage = error.message || 'serverul nu este disponibil';
@@ -1597,7 +1601,7 @@ async function getPartners() {
         // Try to fetch from API server
         const response = await fetch(`${API_BASE_URL}/partners`);
         if (response.ok) {
-            const partners = await response.json();
+            const partners = await safeParseJson(response);
             // console.log('Retrieved partners from API:', partners);
             // Check if response has error
             if (partners && partners.error) {
@@ -1642,23 +1646,19 @@ async function addPartner(title, image) {
             },
             body: JSON.stringify(newPartner)
         });
-        
-        if (response.ok) {
-            const result = await response.json();
-            // console.log('✅ Partner saved to API:', result);
-            // Check if result has error
-            if (result && result.error) {
-                console.warn('⚠️ API returned error');
-                throw new Error('API returned error: ' + result.error);
-            }
-            // Update the partner with the ID from API
-            if (result && result.id) {
-                newPartner.id = result.id;
-            }
-        } else {
-            const errorText = await response.text();
-            console.error('❌ API save failed:', response.status, errorText);
+        const text = await response.text().catch(() => '');
+        if (!response.ok) {
+            console.error('❌ API save failed:', response.status, text);
             throw new Error('API save failed: ' + response.status);
+        }
+        const result = safeParseJsonFromText(text);
+        // console.log('✅ Partner saved to API:', result);
+        if (result && result.error) {
+            console.warn('⚠️ API returned error');
+            throw new Error('API returned error: ' + result.error);
+        }
+        if (result && result.id) {
+            newPartner.id = result.id;
         }
     } catch (error) {
         console.error('API server not available, partner not saved:', error);
@@ -1978,8 +1978,8 @@ async function changePassword() {
         if (!getResponse.ok) {
             throw new Error('Failed to get current password');
         }
-        const result = await getResponse.json();
-        const storedPassword = result.password || DEFAULT_PASSWORD;
+        const result = await safeParseJson(getResponse);
+        const storedPassword = (result && result.password) ? result.password : DEFAULT_PASSWORD;
 
         if (currentPassword !== storedPassword) {
             errorDiv.textContent = 'Parola curentă este incorectă!';
@@ -2103,7 +2103,7 @@ async function getSiteTexts() {
         // Try to fetch from API server
         const response = await fetch(`${API_BASE_URL}/site-texts`);
         if (response.ok) {
-            const texts = await response.json();
+            const texts = await safeParseJson(response);
             // console.log('📡 Got texts from API:', texts);
             
             // Check if API returned an error object
@@ -2167,10 +2167,10 @@ function saveSiteTexts() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(texts)
-    }).then(response => {
+    }).then(async response => {
         if (response.ok) {
             // console.log('Site texts saved to API');
-            return response.json();
+            return safeParseJson(response);
         } else {
             throw new Error('API response not OK');
         }
@@ -2698,7 +2698,7 @@ async function loadReviewsAdmin() {
         if (!response.ok) {
             throw new Error('Failed to load reviews');
         }
-        const reviews = await response.json();
+        const reviews = await safeParseJson(response);
         
         const reviewsList = document.getElementById('reviewsListAdmin');
         if (!reviewsList) return;
@@ -2746,7 +2746,7 @@ async function getReviews() {
     try {
         const response = await fetch(`${API_BASE_URL}/reviews`);
         if (response.ok) {
-            const reviews = await response.json();
+            const reviews = await safeParseJson(response);
             return Array.isArray(reviews) ? reviews : [];
         }
     } catch (error) {
@@ -2904,10 +2904,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(`${API_BASE_URL}/sync-google-reviews`, {
                     method: 'GET'
                 });
-                
-                const result = await response.json();
-                
-                if (result.error) {
+                const result = await safeParseJson(response);
+                if (!result) {
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                    statusDiv.textContent = 'Eroare: răspuns invalid de la server.';
+                } else if (result.error) {
                     statusDiv.style.background = '#f8d7da';
                     statusDiv.style.color = '#721c24';
                     statusDiv.innerHTML = `
@@ -2979,7 +2981,7 @@ async function getChatbotResponses() {
         if (!response.ok) {
             throw new Error('Failed to load chatbot responses');
         }
-        const responses = await response.json();
+        const responses = await safeParseJson(response);
         // Return as array of objects for counting
         return Object.keys(responses || {}).map(keyword => ({ keyword, response: responses[keyword] }));
     } catch (error) {
@@ -2995,7 +2997,7 @@ async function loadChatbotResponsesAdmin() {
         if (!response.ok) {
             throw new Error('Failed to load chatbot responses');
         }
-        const responses = await response.json();
+        const responses = await safeParseJson(response);
         
         const responsesList = document.getElementById('chatbotResponsesList');
         if (!responsesList) return;
@@ -3037,15 +3039,16 @@ function openChatbotResponseModal(keyword = null) {
     
     if (keyword) {
         fetch(`${API_BASE_URL}/chatbot-responses`)
-            .then(response => response.json())
+            .then(response => safeParseJson(response))
             .then(responses => {
-                if (responses[keyword]) {
+                if (responses && responses[keyword]) {
                     title.textContent = 'Editează Răspuns Chatbot';
                     document.getElementById('chatbotKeyword').value = keyword;
                     document.getElementById('chatbotKeyword').disabled = true;
                     document.getElementById('chatbotResponse').value = responses[keyword];
                 }
-            });
+            })
+            .catch(err => console.warn('Could not load chatbot responses for edit:', err));
     } else {
         title.textContent = 'Adaugă Răspuns Chatbot';
         form.reset();
@@ -3081,15 +3084,13 @@ async function saveChatbotResponse() {
             body: JSON.stringify({ keyword, response: responseText })
         });
         
+        const text = await response.text().catch(() => '');
         if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error('❌ API error response:', response.status, errorText);
-            throw new Error(`Failed to save chatbot response: ${response.status} ${errorText}`);
+            console.error('❌ API error response:', response.status, text);
+            throw new Error(`Failed to save chatbot response: ${response.status} ${text}`);
         }
-        
-        const result = await response.json();
+        const result = safeParseJsonFromText(text);
         // console.log('✅ Chatbot response saved successfully:', result);
-        
         await loadChatbotResponsesAdmin();
         closeChatbotResponseModal();
     } catch (error) {

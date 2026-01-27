@@ -19,3 +19,4 @@ DO UPDATE SET
 -- Verifică parola resetată
 SELECT id, password, last_updated FROM admin_password WHERE id = 1;
 
+
