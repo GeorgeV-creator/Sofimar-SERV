@@ -372,28 +372,29 @@ def handle_api_request(path, method, query, body_data):
         if method == 'OPTIONS':
             return 200, headers, ''
         
-        # Log original path for debugging
-        original_path = path
-        
         # In Vercel, path can be either:
         # 1. /api/test (full path) - remove /api/ prefix
-        # 2. /test (without /api/) - Vercel already stripped /api/
-        # 3. test (no leading slash) - already processed
+        # 2. /api/index.py?path=/messages (rewrite) - use query path
+        # 3. /test or test - already processed
         
-        # Remove /api/ prefix if present
+        path = (path or '').strip()
         if path.startswith('/api/'):
-            path = path[5:]  # Remove '/api/'
+            path = path[5:]
         elif path.startswith('api/'):
-            path = path[4:]  # Remove 'api/'
+            path = path[4:]
         elif path == '/api' or path == '/api/':
             path = ''
-        
-        # Remove leading slash if present (handles /test -> test)
         if path.startswith('/'):
             path = path[1:]
         
-        # Debug logging - enable in production too for troubleshooting
-        print(f"API Request: method={method}, original_path={original_path}, processed_path='{path}'")
+        # Vercel rewrite /api/* -> /api/index.py?path=/$1: use real path from query
+        if path == 'index.py' and query.get('path'):
+            path = query.pop('path') or ''
+            if isinstance(path, list):
+                path = path[0] if path else ''
+            path = (path or '').strip().lstrip('/').rstrip('/') or path
+        
+        path = (path or '').rstrip('/') or path
         
         # GET endpoints
         if method == 'GET':
