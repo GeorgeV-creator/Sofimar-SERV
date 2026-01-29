@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS chatbot_responses (
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp);
+CREATE INDEX IF NOT EXISTS idx_partners_timestamp ON partners(timestamp);
 CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp);
 
 

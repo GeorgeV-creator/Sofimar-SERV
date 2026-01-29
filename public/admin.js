@@ -1277,9 +1277,9 @@ async function loadCertificates() {
                 <div class="certificate-type-badge ${typeClass}">${typeLabel}</div>
                 <div class="certificate-image-wrapper-admin">
                     ${isBase64 
-                        ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail">`
+                        ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail" loading="lazy" decoding="async">`
                         : imageSrc 
-                            ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine%3C/text%3E%3C/svg%3E'">`
+                            ? `<img src="${imageSrc}" alt="${escapeHtml(cert.title || 'Certificat')}" class="certificate-thumbnail" loading="lazy" decoding="async" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine%3C/text%3E%3C/svg%3E'">`
                             : `<div class="certificate-no-image">📷 Fără imagine</div>`
                     }
                 </div>
@@ -1421,9 +1421,9 @@ async function loadPartners() {
             <div class="partner-item-admin">
                 <div class="partner-image-wrapper-admin">
                     ${isBase64 
-                        ? `<img src="${imageSrc}" alt="${escapeHtml(title)}" class="partner-thumbnail">`
+                        ? `<img src="${imageSrc}" alt="${escapeHtml(title)}" class="partner-thumbnail" loading="lazy" decoding="async">`
                         : imageSrc 
-                            ? `<img src="${imageSrc}" alt="${escapeHtml(title)}" class="partner-thumbnail" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'150\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'200\\' height=\\'150\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine%3C/text%3E%3C/svg%3E'">`
+                            ? `<img src="${imageSrc}" alt="${escapeHtml(title)}" class="partner-thumbnail" loading="lazy" decoding="async" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'150\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'200\\' height=\\'150\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine%3C/text%3E%3C/svg%3E'">`
                             : `<div class="partner-no-image">📷 Fără imagine</div>`
                     }
                 </div>

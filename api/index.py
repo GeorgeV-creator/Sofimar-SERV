@@ -46,34 +46,56 @@ NEON_DB_URL = (
 USE_NEON = bool(NEON_DB_URL)
 DB_FILE = '/tmp/site.db' if os.environ.get('VERCEL') else 'site.db'
 
+# Singleton Neon connection reuse (per Vercel worker) to avoid new connection per request
+_neon_conn = None
+_neon_cursor_factory = None
+
+class _NeonConnWrapper:
+    """Wrapper so .close() is no-op; we reuse the connection."""
+    __slots__ = ('_conn',)
+    def __init__(self, conn):
+        self._conn = conn
+    def close(self):
+        pass
+    def cursor(self, cursor_factory=None):
+        return self._conn.cursor(cursor_factory=cursor_factory)
+    def commit(self):
+        return self._conn.commit()
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
 def get_db_connection():
-    """Get database connection - Neon PostgreSQL or SQLite fallback"""
-    print(f"get_db_connection called: USE_NEON={USE_NEON}, has_db_url={bool(NEON_DB_URL)}")
-    
+    """Get database connection - Neon PostgreSQL (reused) or SQLite fallback"""
+    global _neon_conn, _neon_cursor_factory
+
     if USE_NEON and NEON_DB_URL:
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
-            
-            print(f"Attempting Neon database connection...")
-            
-            # Neon uses standard PostgreSQL connection string
-            # It supports IPv4 natively, no special handling needed
-            conn = psycopg2.connect(NEON_DB_URL, connect_timeout=10)
-            
-            print("✅ Neon connection successful!")
-            # RealDictCursor is a class, not an instance
-            return {'conn': conn, 'type': 'neon', 'cursor_factory': RealDictCursor, 'is_neon': True}
+            if _neon_cursor_factory is None:
+                _neon_cursor_factory = RealDictCursor
+
+            if _neon_conn is not None:
+                try:
+                    cur = _neon_conn.cursor()
+                    cur.execute("SELECT 1")
+                    cur.close()
+                except Exception:
+                    try:
+                        _neon_conn.close()
+                    except Exception:
+                        pass
+                    _neon_conn = None
+
+            if _neon_conn is None:
+                _neon_conn = psycopg2.connect(NEON_DB_URL, connect_timeout=10)
+            wrapped = _NeonConnWrapper(_neon_conn)
+            return {'conn': wrapped, 'type': 'neon', 'cursor_factory': _neon_cursor_factory, 'is_neon': True}
         except Exception as e:
             import traceback
-            error_msg = str(e)
-            print(f"❌ Neon connection error: {error_msg}")
-            print(f"Traceback: {traceback.format_exc()}")
-            # Fall through to SQLite
-    else:
-        print(f"⚠️ Not using Neon: USE_NEON={USE_NEON}, NEON_DB_URL={bool(NEON_DB_URL)}")
-    
-    print("Using SQLite database (fallback)")
+            _neon_conn = None
+            print(f"❌ Neon connection error: {str(e)}\n{traceback.format_exc()}")
+
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return {'conn': conn, 'type': 'sqlite', 'cursor_factory': None, 'is_neon': False}
@@ -358,16 +380,20 @@ def save_image_to_folder(image_data, filename=None):
         print(f"Traceback: {traceback.format_exc()}")
         return None
 
-def handle_api_request(path, method, query, body_data):
-    """Handle API request and return response"""
-    
-    headers = {
+def _api_headers(cache_max_age=None):
+    h = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Content-Type': 'application/json'
     }
-    
+    if cache_max_age is not None:
+        h['Cache-Control'] = f'public, max-age={cache_max_age}, s-maxage={cache_max_age}'
+    return h
+
+def handle_api_request(path, method, query, body_data):
+    """Handle API request and return response"""
+    headers = _api_headers()
     try:
         if method == 'OPTIONS':
             return 200, headers, ''
@@ -448,7 +474,7 @@ def handle_api_request(path, method, query, body_data):
                     cert_data['type'] = row_dict.get('type', 'certificat')
                     certificates.append(cert_data)
                 db['conn'].close()
-                return 200, headers, json.dumps(certificates, ensure_ascii=False)
+                return 200, _api_headers(300), json.dumps(certificates, ensure_ascii=False)
             
             elif path == 'partners':
                 db = get_db_connection()
@@ -457,7 +483,7 @@ def handle_api_request(path, method, query, body_data):
                 rows = cur.fetchall()
                 partners = [json.loads(dict(row)['data'] if db['type'] == 'neon' else row['data']) for row in rows]
                 db['conn'].close()
-                return 200, headers, json.dumps(partners, ensure_ascii=False)
+                return 200, _api_headers(300), json.dumps(partners, ensure_ascii=False)
             
             elif path == 'tiktok-videos':
                 db = get_db_connection()
@@ -468,10 +494,10 @@ def handle_api_request(path, method, query, body_data):
                     row_dict = dict(row) if db['type'] == 'neon' else row
                     videos = json.loads(row_dict['videos']) if isinstance(row_dict['videos'], str) else row_dict['videos']
                     db['conn'].close()
-                    return 200, headers, json.dumps(videos if isinstance(videos, list) else [], ensure_ascii=False)
+                    return 200, _api_headers(300), json.dumps(videos if isinstance(videos, list) else [], ensure_ascii=False)
                 db['conn'].close()
                 default_videos = ['7567003645250702614', '7564125179761167638', '7556587113244937475']
-                return 200, headers, json.dumps(default_videos, ensure_ascii=False)
+                return 200, _api_headers(300), json.dumps(default_videos, ensure_ascii=False)
             
             elif path == 'locations':
                 db = get_db_connection()
@@ -482,9 +508,9 @@ def handle_api_request(path, method, query, body_data):
                     row_dict = dict(row) if db['type'] == 'neon' else row
                     locations = json.loads(row_dict['data']) if isinstance(row_dict['data'], str) else row_dict['data']
                     db['conn'].close()
-                    return 200, headers, json.dumps(locations if isinstance(locations, list) else [], ensure_ascii=False)
+                    return 200, _api_headers(300), json.dumps(locations if isinstance(locations, list) else [], ensure_ascii=False)
                 db['conn'].close()
-                return 200, headers, json.dumps([], ensure_ascii=False)
+                return 200, _api_headers(300), json.dumps([], ensure_ascii=False)
             
             elif path == 'reviews':
                 db = get_db_connection()
@@ -493,7 +519,7 @@ def handle_api_request(path, method, query, body_data):
                 rows = cur.fetchall()
                 reviews = [dict(row) if db['type'] == 'neon' else {k: row[k] for k in row.keys()} for row in rows]
                 db['conn'].close()
-                return 200, headers, json.dumps(reviews, ensure_ascii=False)
+                return 200, _api_headers(300), json.dumps(reviews, ensure_ascii=False)
             
             elif path == 'sync-google-reviews':
                 # Sync reviews from Google Places API
