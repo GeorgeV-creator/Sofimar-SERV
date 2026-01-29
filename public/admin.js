@@ -1191,6 +1191,7 @@ async function loadCertificates() {
         return;
     }
 
+    const escId = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     certificatesList.innerHTML = certificates.map((cert, index) => {
         const certId = cert.id || `temp-${index}`;
         const isBase64 = cert.image && cert.image.startsWith('data:image');
@@ -1201,7 +1202,7 @@ async function loadCertificates() {
         const typeClass = certType === 'acreditare' ? 'cert-type-accreditare' : 'cert-type-certificat';
         
         return `
-            <div class="certificate-item-admin">
+            <div class="certificate-item-admin" data-cert-id="${escId(certId)}">
                 <div class="certificate-type-badge ${typeClass}">${typeLabel}</div>
                 <div class="certificate-image-wrapper-admin">
                     ${isBase64 
@@ -1214,9 +1215,7 @@ async function loadCertificates() {
                 <div class="certificate-info-admin">
                     <div class="certificate-title-admin">${escapeHtml(cert.title || 'Certificat fără titlu')}</div>
                     ${cert.description ? `<div class="certificate-description-admin">${escapeHtml(cert.description)}</div>` : ''}
-                    <button class="btn-certificate-delete" onclick="deleteCertificate('${certId}', ${index})" title="Șterge certificat">
-                        🗑️ Șterge
-                    </button>
+                    <button type="button" class="btn-certificate-delete" data-cert-id="${escId(certId)}" onclick="deleteCertificate(this)" title="Șterge certificat">🗑️ Șterge</button>
                 </div>
             </div>
         `;
@@ -1253,24 +1252,44 @@ async function addCertificate(title, description, image, type = 'certificat') {
     window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
-async function deleteCertificate(certId, index) {
-    if (!confirm('Ești sigur că vrei să ștergi acest certificat?')) {
-        return;
-    }
-
+async function deleteCertificate(btnOrId) {
+    const btn = typeof btnOrId === 'object' && btnOrId && btnOrId.nodeType === 1
+        ? btnOrId
+        : null;
+    const certId = btn
+        ? (btn.getAttribute('data-cert-id') || btn.closest('[data-cert-id]')?.getAttribute('data-cert-id'))
+        : String(btnOrId ?? '');
     if (!certId || certId.startsWith('temp-')) {
         alert('Eroare: certificatul nu are ID valid pentru ștergere.');
         return;
     }
-    const res = await apiRequest(`certificates?id=${encodeURIComponent(certId)}`, { method: 'DELETE' });
-    if (!res) return;
-    if (!res.ok) { alert('Eroare: certificatul nu a fost șters.'); return; }
+    if (!confirm('Ești sigur că vrei să ștergi acest certificat?')) return;
 
-    await loadCertificates();
-    updateStatistics();
-    
-    // Dispatch event to update certificate page if open
-    window.dispatchEvent(new CustomEvent('certificatesUpdated'));
+    const card = Array.from(document.querySelectorAll('[data-cert-id]')).find(el => el.getAttribute('data-cert-id') === certId);
+    if (!card) return;
+    const parent = card.parentElement;
+    const next = card.nextElementSibling;
+    const backup = card.cloneNode(true);
+
+    card.remove();
+
+    const rollback = () => {
+        if (next) parent.insertBefore(backup, next);
+        else parent.appendChild(backup);
+        alert('Eroare: certificatul nu a putut fi șters. Încearcă din nou.');
+    };
+
+    try {
+        const res = await apiRequest(`certificates?id=${encodeURIComponent(certId)}`, { method: 'DELETE' });
+        if (!res || !res.ok) {
+            rollback();
+            return;
+        }
+        if (typeof updateStatistics === 'function') updateStatistics();
+        window.dispatchEvent(new CustomEvent('certificatesUpdated'));
+    } catch (_) {
+        rollback();
+    }
 }
 
 // Partners Management
@@ -2288,141 +2307,96 @@ setInterval(() => {
     }
 }, 2000); // Refresh every 2 seconds when tabs are active
 
-// Reviews Management
+// Reviews Management (Custom – fără Google)
 async function loadReviewsAdmin() {
     const reviewsList = document.getElementById('reviewsListAdmin') || document.getElementById('reviewsList');
+    if (!reviewsList) return;
     try {
-        const res = await apiRequest('reviews');
+        const res = await apiRequest('admin/reviews');
         if (!res || !res.ok) throw new Error('Failed to load reviews');
         const reviews = await res.json();
-        if (!reviewsList) return;
         if (!Array.isArray(reviews) || reviews.length === 0) {
-            reviewsList.innerHTML = '<p class="empty-state">Nu există recenzii adăugate. Folosește butonul "Adaugă Recenzie" pentru a adăuga una nouă.</p>';
+            reviewsList.innerHTML = '<p class="empty-state">Nu există recenzii. Folosește „Adaugă recenzie” pentru a adăuga una.</p>';
             return;
         }
-        
-        reviewsList.innerHTML = reviews.map((review, index) => {
-            const stars = '⭐'.repeat(review.rating);
-            const formattedDate = new Date(review.date).toLocaleDateString('ro-RO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-            
-            return `
-                <div class="review-item-admin">
-                    <div class="review-header-admin">
-                        <div>
-                            <div class="review-author-admin">${escapeHtml(review.author)}</div>
-                            <div class="review-date-admin">📅 ${formattedDate}</div>
-                            <div class="review-rating-admin">${stars}</div>
-                        </div>
-                        <div class="review-actions-admin">
-                            <button class="btn btn-secondary" onclick="editReview('${review.id || index}', ${index})">Editează</button>
-                            <button class="btn btn-danger" onclick="deleteReview('${review.id || index}', ${index})">Șterge</button>
-                        </div>
+        const he = s => (s ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const attr = s => he(s).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        reviewsList.innerHTML = reviews.map(r => {
+            const id = String(r.id || '');
+            const name = he(r.name);
+            const rating = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 1));
+            const stars = '⭐'.repeat(rating);
+            const raw = (r.comment || '').toString();
+            const comment = he(raw).slice(0, 300) + (raw.length > 300 ? '…' : '');
+            const date = he(r.date || '');
+            const approved = r.approved ? ' ✓ Aprobat' : ' (în așteptare)';
+            return `<div class="review-item-admin" data-id="review-${attr(id)}">
+                <div class="review-header-admin">
+                    <div>
+                        <div class="review-author-admin">${name}</div>
+                        <div class="review-date-admin">📅 ${date}${approved}</div>
+                        <div class="review-rating-admin">${stars}</div>
                     </div>
-                    <div class="review-text-admin">${escapeHtml(review.text)}</div>
+                    <div class="review-actions-admin">
+                        <button type="button" class="btn btn-danger" data-review-id="${attr(id)}" onclick="deleteReview(this.getAttribute('data-review-id'))">Șterge</button>
+                    </div>
                 </div>
-            `;
+                <div class="review-text-admin">${comment}</div>
+            </div>`;
         }).join('');
     } catch (e) {
-        if (reviewsList) reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
+        reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
     }
 }
 
-async function getReviews() {
-    const res = await apiRequest('reviews');
-    if (!res || !res.ok) return [];
-    const reviews = await res.json().catch(() => []);
-    return Array.isArray(reviews) ? reviews : [];
-}
-
-function openReviewModal(index = null) {
+function openReviewModal() {
     const modal = document.getElementById('reviewModal');
     const form = document.getElementById('addReviewForm');
     const title = document.getElementById('reviewModalTitle');
-    
-    if (index !== null) {
-        getReviews().then(reviews => {
-            const review = reviews[index];
-            if (review) {
-                title.textContent = 'Editează Recenzie';
-                document.getElementById('reviewEditId').value = review.id || index;
-                document.getElementById('reviewAuthor').value = review.author;
-                document.getElementById('reviewRating').value = review.rating;
-                document.getElementById('reviewText').value = review.text;
-                document.getElementById('reviewDate').value = review.date;
-            }
-        });
-    } else {
-        title.textContent = 'Adaugă Recenzie';
-        form.reset();
-        document.getElementById('reviewEditId').value = '';
-        document.getElementById('reviewDate').value = new Date().toISOString().split('T')[0];
-    }
-    
+    if (!modal || !form) return;
+    title.textContent = 'Adaugă recenzie';
+    form.reset();
+    const r = document.getElementById('adminReviewRating');
+    const chk = document.getElementById('adminReviewApproved');
+    if (r) r.value = 5;
+    if (chk) chk.checked = false;
     modal.classList.add('active');
 }
 
 function closeReviewModal() {
     const modal = document.getElementById('reviewModal');
-    modal.classList.remove('active');
-    document.getElementById('addReviewForm').reset();
-    document.getElementById('reviewEditId').value = '';
+    const form = document.getElementById('addReviewForm');
+    if (modal) modal.classList.remove('active');
+    if (form) form.reset();
 }
 
 async function saveReview() {
-    const author = document.getElementById('reviewAuthor').value.trim();
-    const rating = parseInt(document.getElementById('reviewRating').value);
-    const text = document.getElementById('reviewText').value.trim();
-    const date = document.getElementById('reviewDate').value;
-    const editId = document.getElementById('reviewEditId').value;
-    
-    if (!author || !rating || !text || !date) {
-        alert('Te rugăm să completezi toate câmpurile!');
+    const name = (document.getElementById('adminReviewName')?.value || '').trim();
+    const comment = (document.getElementById('adminReviewComment')?.value || '').trim();
+    const rating = parseInt(document.getElementById('adminReviewRating')?.value, 10) || 5;
+    const approved = !!document.getElementById('adminReviewApproved')?.checked;
+    if (!name || !comment) {
+        alert('Completează numele și mesajul.');
         return;
     }
-    
     try {
-        const reviewData = {
-            author,
-            rating,
-            text,
-            date
-        };
-        
-        if (editId) {
-            reviewData.id = editId;
-        }
-        
-        const res = await apiRequest('reviews', { method: 'POST', body: reviewData });
-        if (!res) return;
-        if (!res.ok) throw new Error('Failed to save review');
-        await loadReviewsAdmin();
+        const res = await apiRequest('admin/reviews', { method: 'POST', body: { name, rating, comment, approved } });
+        if (!res || !res.ok) throw new Error('Eroare');
         closeReviewModal();
-    } catch (e) {
-        alert('Eroare la salvarea recenziei. Te rugăm să încerci din nou.');
-    }
-}
-
-async function deleteReview(reviewId, index) {
-    if (!confirm('Ești sigur că vrei să ștergi această recenzie?')) {
-        return;
-    }
-    
-    try {
-        const res = await apiRequest(`reviews?id=${encodeURIComponent(reviewId)}`, { method: 'DELETE' });
-        if (!res) return;
-        if (!res.ok) throw new Error('Failed to delete review');
         await loadReviewsAdmin();
+        if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
     } catch (e) {
-        alert('Eroare la ștergerea recenziei. Te rugăm să încerci din nou.');
+        alert('Eroare la salvarea recenziei.');
     }
 }
 
-function editReview(reviewId, index) {
-    openReviewModal(index);
+function deleteReview(reviewId) {
+    if (!confirm('Ștergi această recenzie?')) return;
+    const el = document.querySelector(`[data-id="review-${(reviewId || '').toString().replace(/"/g, '&quot;')}"]`);
+    if (el) el.remove();
+    apiRequest(`admin/reviews?id=${encodeURIComponent(reviewId)}`, { method: 'DELETE' })
+        .then(async (res) => { if (!res || !res.ok) throw new Error(); if (typeof updateStatistics === 'function') updateStatistics().catch(() => {}); })
+        .catch(() => { loadReviewsAdmin(); alert('Eroare la ștergere.'); });
 }
 
 // Event listeners for reviews
@@ -2450,60 +2424,6 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewModal.addEventListener('click', (e) => {
             if (e.target === reviewModal) {
                 closeReviewModal();
-            }
-        });
-    }
-    
-    const syncGoogleReviewsBtn = document.getElementById('syncGoogleReviewsBtn');
-    if (syncGoogleReviewsBtn) {
-        syncGoogleReviewsBtn.addEventListener('click', async () => {
-            const statusDiv = document.getElementById('syncStatus');
-            const btn = syncGoogleReviewsBtn;
-            
-            btn.disabled = true;
-            btn.textContent = 'Sincronizare...';
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = '#fff3cd';
-            statusDiv.style.color = '#856404';
-            statusDiv.textContent = 'Se sincronizează recenziile de pe Google...';
-            
-            try {
-                const response = await apiRequest('sync-google-reviews');
-                if (!response) { btn.disabled = false; btn.textContent = '🔄 Sincronizează de pe Google'; statusDiv.style.display = 'none'; return; }
-                const result = await response.json().catch(() => ({}));
-                
-                if (result.error) {
-                    statusDiv.style.background = '#f8d7da';
-                    statusDiv.style.color = '#721c24';
-                    statusDiv.innerHTML = `
-                        <strong>Eroare:</strong> ${result.error}<br>
-                        <small>Pentru a sincroniza recenziile de pe Google, trebuie să configurezi:<br>
-                        1. GOOGLE_PLACES_API_KEY - API key de la Google Cloud Console<br>
-                        2. GOOGLE_PLACE_ID - ID-ul locației tale Google Business</small>
-                    `;
-                } else if (result.success) {
-                    statusDiv.style.background = '#d4edda';
-                    statusDiv.style.color = '#155724';
-                    statusDiv.textContent = `✅ Sincronizare reușită! ${result.synced} recenzii noi adăugate din ${result.total} recenzii totale.`;
-                    await loadReviewsAdmin();
-                } else {
-                    statusDiv.style.background = '#d1ecf1';
-                    statusDiv.style.color = '#0c5460';
-                    statusDiv.textContent = result.message || 'Sincronizare completă.';
-                    await loadReviewsAdmin();
-                }
-            } catch (error) {
-                console.error('Error syncing reviews:', error);
-                statusDiv.style.background = '#f8d7da';
-                statusDiv.style.color = '#721c24';
-                statusDiv.textContent = 'Eroare la sincronizare: ' + error.message;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🔄 Sincronizează de pe Google';
-                
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
-                }, 5000);
             }
         });
     }

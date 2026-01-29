@@ -62,6 +62,41 @@ def _check_password(raw, hashed):
 def _looks_like_hash(s):
     return isinstance(s, str) and ('scrypt:' in s or 'pbkdf2:' in s or ('$' in s and len(s) > 20))
 
+def _ensure_reviews_table(db):
+    """Create reviews table (id, name, rating, comment, date, approved) if not exists."""
+    cur = get_cursor(db)
+    try:
+        if db['type'] == 'neon':
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                    comment TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    approved BOOLEAN NOT NULL DEFAULT false
+                )
+            """)
+        else:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                    comment TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    approved INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+        db['conn'].commit()
+    except Exception:
+        pass
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
 def cleanup_old_messages(db, cur, days=5):
     """Delete chatbot messages older than specified days"""
     try:
@@ -566,6 +601,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                 if not t or not _verify_jwt(t):
                     return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
                 db = get_db_connection()
+                _ensure_reviews_table(db)
                 cur = get_cursor(db)
                 is_neon = db['type'] == 'neon'
                 counts = {}
@@ -652,147 +688,34 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             
             elif path == 'reviews':
                 db = get_db_connection()
+                _ensure_reviews_table(db)
                 cur = get_cursor(db)
-                cur.execute("SELECT id, author, rating, text, date FROM reviews ORDER BY timestamp DESC")
+                if db['type'] == 'neon':
+                    cur.execute("SELECT id, name, rating, comment, date FROM reviews WHERE approved = true ORDER BY date DESC")
+                else:
+                    cur.execute("SELECT id, name, rating, comment, date FROM reviews WHERE approved = 1 ORDER BY date DESC")
                 rows = cur.fetchall()
                 reviews = [dict(row) if db['type'] == 'neon' else {k: row[k] for k in row.keys()} for row in rows]
                 db['conn'].close()
                 return 200, _api_headers(300), json.dumps(reviews, ensure_ascii=False)
-            
-            elif path == 'sync-google-reviews':
-                # Sync reviews from Google Places API
-                try:
-                    google_api_key = os.environ.get('GOOGLE_PLACES_API_KEY')
-                    google_place_id = os.environ.get('GOOGLE_PLACE_ID')
-                    
-                    if not google_api_key or not google_place_id:
-                        return 400, headers, json.dumps({
-                            'error': 'Google Places API not configured. Please set GOOGLE_PLACES_API_KEY and GOOGLE_PLACE_ID environment variables.',
-                            'success': False
-                        }, ensure_ascii=False)
-                    
-                    # Fetch reviews from Google Places API
-                    import urllib.request
-                    import urllib.error
-                    
-                    # Google Places API endpoint for reviews
-                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={google_place_id}&fields=reviews&key={google_api_key}"
-                    
-                    print(f"🔄 Fetching reviews from Google Places API...")
-                    print(f"📡 URL: {url.replace(google_api_key, '***')}")
-                    
-                    req = urllib.request.Request(url)
-                    req.add_header('User-Agent', 'Sofimar-SERV-Review-Sync')
-                    
-                    try:
-                        with urllib.request.urlopen(req, timeout=10) as response:
-                            data = json.loads(response.read().decode('utf-8'))
-                            
-                            if data.get('status') != 'OK':
-                                error_msg = f"Google Places API error: {data.get('status', 'UNKNOWN')} - {data.get('error_message', 'No error message')}"
-                                print(f"❌ {error_msg}")
-                                return 400, headers, json.dumps({
-                                    'error': error_msg,
-                                    'success': False
-                                }, ensure_ascii=False)
-                            
-                            reviews_data = data.get('result', {}).get('reviews', [])
-                            print(f"✅ Fetched {len(reviews_data)} reviews from Google Places API")
-                            
-                            if not reviews_data:
-                                return 200, headers, json.dumps({
-                                    'success': True,
-                                    'message': 'No reviews found on Google Places',
-                                    'synced': 0,
-                                    'total': 0
-                                }, ensure_ascii=False)
-                            
-                            # Save reviews to database
-                            db = get_db_connection()
-                            cur = get_cursor(db)
-                            
-                            synced_count = 0
-                            for review in reviews_data:
-                                try:
-                                    # Extract review data
-                                    author_name = review.get('author_name', 'Anonim')
-                                    rating = review.get('rating', 5)
-                                    text = review.get('text', '')
-                                    time = review.get('time', 0)
-                                    
-                                    # Convert timestamp to date
-                                    review_date = datetime.fromtimestamp(time).isoformat() if time else datetime.now().isoformat()
-                                    
-                                    # Check if review already exists (by author and text hash)
-                                    import hashlib
-                                    text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
-                                    
-                                    # Check for existing review
-                                    if db['type'] == 'neon':
-                                        check_sql = "SELECT id FROM reviews WHERE author = %s AND text = %s"
-                                        cur.execute(check_sql, (author_name, text))
-                                    else:
-                                        check_sql = "SELECT id FROM reviews WHERE author = ? AND text = ?"
-                                        cur.execute(check_sql, (author_name, text))
-                                    
-                                    existing = cur.fetchone()
-                                    
-                                    if not existing:
-                                        # Insert new review
-                                        review_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
-                                        timestamp = datetime.now().isoformat()
-                                        
-                                        if db['type'] == 'neon':
-                                            insert_sql = "INSERT INTO reviews (id, author, rating, text, date, timestamp) VALUES (%s, %s, %s, %s, %s, %s)"
-                                            cur.execute(insert_sql, (review_id, author_name, rating, text, review_date, timestamp))
-                                        else:
-                                            insert_sql = "INSERT INTO reviews (id, author, rating, text, date, timestamp) VALUES (?, ?, ?, ?, ?, ?)"
-                                            cur.execute(insert_sql, (review_id, author_name, rating, text, review_date, timestamp))
-                                        
-                                        synced_count += 1
-                                        print(f"✅ Added review from {author_name} (rating: {rating})")
-                                    
-                                except Exception as review_error:
-                                    print(f"⚠️ Error processing review: {str(review_error)}")
-                                    continue
-                            
-                            db['conn'].commit()
-                            db['conn'].close()
-                            
-                            print(f"✅ Synced {synced_count} new reviews from {len(reviews_data)} total Google reviews")
-                            
-                            return 200, headers, json.dumps({
-                                'success': True,
-                                'synced': synced_count,
-                                'total': len(reviews_data),
-                                'message': f'Synced {synced_count} new reviews from Google Places'
-                            }, ensure_ascii=False)
-                            
-                    except urllib.error.HTTPError as e:
-                        error_body = e.read().decode('utf-8') if e.fp else 'No error body'
-                        error_msg = f"HTTP Error {e.code}: {error_body}"
-                        print(f"❌ {error_msg}")
-                        return 500, headers, json.dumps({
-                            'error': error_msg,
-                            'success': False
-                        }, ensure_ascii=False)
-                    except urllib.error.URLError as e:
-                        error_msg = f"URL Error: {str(e)}"
-                        print(f"❌ {error_msg}")
-                        return 500, headers, json.dumps({
-                            'error': error_msg,
-                            'success': False
-                        }, ensure_ascii=False)
-                    
-                except Exception as e:
-                    import traceback
-                    error_msg = f"Error syncing Google reviews: {str(e)}"
-                    print(f"❌ {error_msg}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    return 500, headers, json.dumps({
-                        'error': error_msg,
-                        'success': False
-                    }, ensure_ascii=False)
+
+            elif path == 'admin/reviews':
+                if not _require_auth():
+                    return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+                db = get_db_connection()
+                _ensure_reviews_table(db)
+                cur = get_cursor(db)
+                cur.execute("SELECT id, name, rating, comment, date, approved FROM reviews ORDER BY date DESC")
+                rows = cur.fetchall()
+                is_neon = db['type'] == 'neon'
+                out = []
+                for row in rows:
+                    r = dict(row) if is_neon else {k: row[k] for k in row.keys()}
+                    if not is_neon and 'approved' in r:
+                        r['approved'] = bool(r['approved'])
+                    out.append(r)
+                db['conn'].close()
+                return 200, headers, json.dumps(out, ensure_ascii=False)
             
             elif path == 'chatbot-responses':
                 db = get_db_connection()
@@ -919,6 +842,77 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     print(f"Error in POST /messages: {str(e)}")
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
+
+            elif path == 'reviews':
+                try:
+                    name = (data.get('name') or '').strip()
+                    comment = (data.get('comment') or '').strip()
+                    rating = data.get('rating')
+                    if not name or not comment or rating is None:
+                        return 400, headers, json.dumps({'error': 'Lipsește name, rating sau comment'}, ensure_ascii=False)
+                    r = int(rating)
+                    if r < 1 or r > 5:
+                        return 400, headers, json.dumps({'error': 'Rating între 1 și 5'}, ensure_ascii=False)
+                    rid = datetime.now().strftime('%Y%m%d%H%M%S') + uuid.uuid4().hex[:8]
+                    dt = datetime.now().strftime('%Y-%m-%d')
+                    db = get_db_connection()
+                    _ensure_reviews_table(db)
+                    cur = get_cursor(db)
+                    if db['type'] == 'neon':
+                        cur.execute(
+                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, false)",
+                            (rid, name, r, comment, dt)
+                        )
+                    else:
+                        cur.execute(
+                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, 0)",
+                            (rid, name, r, comment, dt)
+                        )
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'id': rid}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /reviews: {str(e)}")
+                    print(traceback.format_exc())
+                    return 500, headers, json.dumps({'error': str(e)}, ensure_ascii=False)
+
+            elif path == 'admin/reviews':
+                if not _require_auth():
+                    return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+                try:
+                    name = (data.get('name') or '').strip()
+                    comment = (data.get('comment') or '').strip()
+                    rating = data.get('rating')
+                    approved = bool(data.get('approved', False))
+                    if not name or not comment or rating is None:
+                        return 400, headers, json.dumps({'error': 'Lipsește name, rating sau comment'}, ensure_ascii=False)
+                    r = int(rating)
+                    if r < 1 or r > 5:
+                        return 400, headers, json.dumps({'error': 'Rating între 1 și 5'}, ensure_ascii=False)
+                    rid = datetime.now().strftime('%Y%m%d%H%M%S') + uuid.uuid4().hex[:8]
+                    dt = datetime.now().strftime('%Y-%m-%d')
+                    db = get_db_connection()
+                    _ensure_reviews_table(db)
+                    cur = get_cursor(db)
+                    if db['type'] == 'neon':
+                        cur.execute(
+                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, %s)",
+                            (rid, name, r, comment, dt, approved)
+                        )
+                    else:
+                        cur.execute(
+                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, ?)",
+                            (rid, name, r, comment, dt, 1 if approved else 0)
+                        )
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'id': rid}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in POST /admin/reviews: {str(e)}")
+                    print(traceback.format_exc())
+                    return 500, headers, json.dumps({'error': str(e)}, ensure_ascii=False)
             
             elif path == 'certificates':
                 try:
@@ -1443,9 +1437,10 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
             
-            elif path == 'reviews':
+            elif path == 'admin/reviews':
                 try:
                     db = get_db_connection()
+                    _ensure_reviews_table(db)
                     cur = get_cursor(db)
                     sql = "DELETE FROM reviews WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM reviews WHERE id = ?"
                     cur.execute(sql, (item_id,))
@@ -1454,7 +1449,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
                 except Exception as e:
                     import traceback
-                    print(f"Error in DELETE /reviews: {str(e)}")
+                    print(f"Error in DELETE /admin/reviews: {str(e)}")
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
             

@@ -64,15 +64,17 @@ CREATE TABLE IF NOT EXISTS locations (
     last_updated TEXT NOT NULL
 );
 
--- Reviews table
+-- Reviews table (Custom Reviews – fără Google Places)
 CREATE TABLE IF NOT EXISTS reviews (
     id TEXT PRIMARY KEY,
-    author TEXT NOT NULL,
-    rating INTEGER NOT NULL,
-    text TEXT NOT NULL,
+    name TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT NOT NULL,
     date TEXT NOT NULL,
-    timestamp TEXT NOT NULL
+    approved BOOLEAN NOT NULL DEFAULT false
 );
+CREATE INDEX IF NOT EXISTS idx_reviews_approved ON reviews(approved);
+CREATE INDEX IF NOT EXISTS idx_reviews_date ON reviews(date);
 
 -- Chatbot responses table
 CREATE TABLE IF NOT EXISTS chatbot_responses (
@@ -84,8 +86,6 @@ CREATE TABLE IF NOT EXISTS chatbot_responses (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_certificates_id ON certificates(id);
 CREATE INDEX IF NOT EXISTS idx_certificates_timestamp ON certificates(timestamp);
 CREATE INDEX IF NOT EXISTS idx_partners_timestamp ON partners(timestamp);
-CREATE INDEX IF NOT EXISTS idx_reviews_timestamp ON reviews(timestamp);
-
-

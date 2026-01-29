@@ -666,8 +666,10 @@ body {
 }
 
 .certificate-image-container {
+    position: relative;
     width: 100%;
-    height: 300px;
+    aspect-ratio: 4 / 3;
+    min-height: 200px;
     overflow: hidden;
     border-radius: 8px;
     cursor: pointer;
@@ -677,11 +679,39 @@ body {
     justify-content: center;
 }
 
+.certificate-skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        #e8e8e8 0%,
+        #f0f0f0 50%,
+        #e8e8e8 100%
+    );
+    background-size: 200% 100%;
+    animation: certificate-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.certificate-image-container.loaded .certificate-skeleton {
+    display: none;
+}
+
+@keyframes certificate-skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 .certificate-image {
+    position: relative;
     width: 100%;
     height: 100%;
     object-fit: contain;
-    transition: transform 0.3s ease;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.3s ease;
+}
+
+.certificate-image-container.loaded .certificate-image {
+    opacity: 1;
 }
 
 .certificate-image-container:hover .certificate-image {
@@ -1158,6 +1188,68 @@ body {
     cursor: default;
     width: fit-content;
     min-width: 120px;
+}
+
+.reviews-form-wrap {
+    max-width: 560px;
+    margin: 4rem auto 0;
+    padding: 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(26, 95, 63, 0.1);
+}
+
+.reviews-form-title {
+    margin: 0 0 1.25rem 0;
+    font-size: 1.35rem;
+    color: var(--text-dark);
+}
+
+.review-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.review-form .form-group label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.review-form input[type="text"],
+.review-form textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.star-rating {
+    display: flex;
+    gap: 0.25rem;
+    font-size: 1.75rem;
+}
+
+.star-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #ddd;
+    transition: color 0.2s;
+}
+
+.star-btn:hover,
+.star-btn.active {
+    color: #FFB800;
+}
+
+.review-form-message {
+    margin-top: 0.75rem;
+    font-size: 0.95rem;
 }
 
 .partner-item img {
@@ -1709,7 +1801,7 @@ body {
     }
     
     .certificate-image-container {
-        height: 250px;
+        min-height: 180px;
     }
 }
 

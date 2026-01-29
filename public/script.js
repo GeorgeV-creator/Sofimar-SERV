@@ -847,14 +847,12 @@ async function loadCertificatesOnPage() {
         }
     }
 
-    // Helper function to create certificate HTML - optimized
+    // Helper function to create certificate HTML - lazy loading, skeleton, fade-in
     const createCertificateHTML = (cert) => {
         const isBase64 = cert.image && cert.image.startsWith('data:image');
         let imageSrc = cert.image || '';
         
-        // If image is a path (not base64), ensure it starts with / for absolute path
         if (!isBase64 && imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('/') && !imageSrc.startsWith('data:')) {
-            // Add leading slash if it's a relative path like "images/file.jpg"
             imageSrc = imageSrc.startsWith('images/') ? '/' + imageSrc : imageSrc;
         }
         
@@ -863,29 +861,24 @@ async function loadCertificatesOnPage() {
         const escapedImageSrc = imageSrc.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const escapedTitleForOnclick = escapedTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         
-        // Use eager loading for faster display, add fetchpriority for above-the-fold images
-        const loadingAttr = isCertificatePage ? 'loading="eager"' : 'loading="lazy"';
-        const fetchPriority = isCertificatePage ? 'fetchpriority="high"' : '';
-        
-        // Add error handler for missing images
-        const onErrorHandler = `this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine indisponibilă%3C/text%3E%3C/svg%3E';`;
+        const onErrorHandler = `this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'300\\' height=\\'200\\'%3E%3Crect fill=\\'%23f0f0f0\\' width=\\'300\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E📷 Imagine indisponibilă%3C/text%3E%3C/svg%3E'; this.closest('.certificate-image-container').classList.add('loaded');`;
+        const onLoadHandler = `this.closest('.certificate-image-container').classList.add('loaded');`;
         
         return `
             <div class="certificate-item">
                 <h3 class="certificate-title">${escapedTitle}</h3>
                 <div class="certificate-image-container" onclick="openCertificateModal('${escapedImageSrc}', '${escapedTitleForOnclick}')">
-                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" ${loadingAttr} ${fetchPriority} decoding="async" onerror="${onErrorHandler}">
+                    <div class="certificate-skeleton" aria-hidden="true"></div>
+                    <img src="${escapedImageSrc}" alt="${escapedTitle}" class="certificate-image" loading="lazy" decoding="async" onload="${onLoadHandler}" onerror="${onErrorHandler}">
                 </div>
             </div>
         `;
     };
 
     if (isCertificatePage) {
-        // Separate certificates and accreditations
         const certs = certificates.filter(cert => (cert.type || 'certificat') === 'certificat');
         const accreds = certificates.filter(cert => (cert.type || 'certificat') === 'acreditare');
         
-        // Render immediately without waiting
         if (certificatesGrid) {
             certificatesGrid.innerHTML = certs.length > 0 
                 ? certs.map(createCertificateHTML).join('')
@@ -896,22 +889,6 @@ async function loadCertificatesOnPage() {
             accreditationsGrid.innerHTML = accreds.length > 0
                 ? accreds.map(createCertificateHTML).join('')
                 : '<p class="empty-state">Nu există acreditări disponibile.</p>';
-        }
-        
-        // Preload first few images for instant display
-        if (certs.length > 0 || accreds.length > 0) {
-            const firstImages = [
-                ...(certs.length > 0 ? [certs[0].image] : []),
-                ...(accreds.length > 0 ? [accreds[0].image] : [])
-            ].filter(img => img && !img.startsWith('data:image'));
-            
-            firstImages.forEach(imgSrc => {
-                const link = document.createElement('link');
-                link.rel = 'preload';
-                link.as = 'image';
-                link.href = imgSrc;
-                document.head.appendChild(link);
-            });
         }
     } else {
         // Single grid (for index.html or other pages)
@@ -1390,92 +1367,123 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Load Google Reviews - Random 6 on each page refresh
+// Custom reviews (GET /api/reviews – approved only)
 async function loadReviews() {
     const reviewsContainer = document.getElementById('reviewsContainer');
     if (!reviewsContainer) return;
 
     try {
-        // Load all reviews from API
         const response = await fetch(`${API_BASE_URL}/reviews`);
-        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API error:', response.status, errorText);
             reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
             return;
         }
-        
         const allReviews = await response.json();
-        
-        // Check if response is valid array
-        if (!Array.isArray(allReviews)) {
-            console.error('Invalid reviews data:', allReviews);
-            reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
-            return;
-        }
-        
-        if (allReviews.length === 0) {
+        if (!Array.isArray(allReviews) || allReviews.length === 0) {
             reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
             return;
         }
 
-        // Select 6 random reviews
         const shuffled = [...allReviews].sort(() => 0.5 - Math.random());
         const selectedReviews = shuffled.slice(0, 6);
 
         reviewsContainer.innerHTML = selectedReviews.map(review => {
-            // Validate review data
-            if (!review.author || !review.rating || !review.text || !review.date) {
-                console.warn('Invalid review data:', review);
-                return '';
-            }
-            
-            const stars = '⭐'.repeat(review.rating);
-            const initials = review.author.split(' ').map(n => n[0]).join('').toUpperCase();
-            
-            let formattedDate;
+            const name = review.name || review.author || 'Anonim';
+            const text = review.comment || review.text || '';
+            const rating = review.rating || 0;
+            const date = review.date || '';
+            if (!rating || !text) return '';
+            const stars = '⭐'.repeat(rating);
+            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            let formattedDate = date;
             try {
-                formattedDate = new Date(review.date).toLocaleDateString('ro-RO', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-            } catch (e) {
-                formattedDate = review.date;
-            }
-
+                const d = new Date(date);
+                if (!isNaN(d)) formattedDate = d.toLocaleDateString('ro-RO', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch (e) {}
             return `
                 <div class="review-card">
                     <div class="review-header">
-                        <div class="review-avatar">${initials}</div>
+                        <div class="review-avatar">${escapeHtml(initials)}</div>
                         <div class="review-author">
-                            <h4 class="review-author-name">${escapeHtml(review.author)}</h4>
-                            <p class="review-date">${formattedDate}</p>
+                            <h4 class="review-author-name">${escapeHtml(name)}</h4>
+                            <p class="review-date">${escapeHtml(formattedDate)}</p>
                         </div>
                     </div>
-                    <div class="review-rating">
-                        ${stars}
-                    </div>
-                    <p class="review-text">${escapeHtml(review.text)}</p>
+                    <div class="review-rating">${stars}</div>
+                    <p class="review-text">${escapeHtml(text)}</p>
                 </div>
             `;
         }).join('');
-
     } catch (error) {
-        console.error('Error loading reviews:', error);
         reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
     }
 }
 
-// Load reviews when page loads
+function initReviewForm() {
+    const form = document.getElementById('reviewForm');
+    const msgEl = document.getElementById('reviewFormMessage');
+    const starRating = document.getElementById('starRating');
+    const reviewRating = document.getElementById('reviewRating');
+    if (!form || !starRating || !reviewRating) return;
+
+    let currentRating = 5;
+    starRating.querySelectorAll('.star-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentRating = parseInt(btn.getAttribute('data-rating'), 10);
+            reviewRating.value = currentRating;
+            starRating.querySelectorAll('.star-btn').forEach(b => {
+                const r = parseInt(b.getAttribute('data-rating'), 10);
+                b.classList.toggle('active', r <= currentRating);
+                b.style.color = r <= currentRating ? '#FFB800' : '#ddd';
+            });
+        });
+    });
+    starRating.querySelectorAll('.star-btn').forEach(b => {
+        const r = parseInt(b.getAttribute('data-rating'), 10);
+        b.style.color = r <= 5 ? '#FFB800' : '#ddd';
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = (document.getElementById('reviewName')?.value || '').trim();
+        const comment = (document.getElementById('reviewComment')?.value || '').trim();
+        const rating = parseInt(reviewRating.value, 10) || 5;
+        if (!name || !comment) {
+            if (msgEl) { msgEl.textContent = 'Completează numele și mesajul.'; msgEl.style.color = '#c00'; }
+            return;
+        }
+        if (msgEl) msgEl.textContent = '';
+        try {
+            const res = await fetch(`${API_BASE_URL}/reviews`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, rating, comment })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                if (msgEl) { msgEl.textContent = 'Mulțumim! Recenzia a fost trimisă și va apărea după aprobare.'; msgEl.style.color = 'var(--primary-color, #1a5f3f)'; }
+                form.reset();
+                reviewRating.value = '5';
+                currentRating = 5;
+                starRating.querySelectorAll('.star-btn').forEach(b => { b.style.color = '#FFB800'; });
+            } else {
+                if (msgEl) { msgEl.textContent = data.error || 'Eroare la trimitere.'; msgEl.style.color = '#c00'; }
+            }
+        } catch (err) {
+            if (msgEl) { msgEl.textContent = 'Eroare de conexiune.'; msgEl.style.color = '#c00'; }
+        }
+    });
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         loadReviews();
         loadChatbotResponses();
+        initReviewForm();
     });
 } else {
     loadReviews();
     loadChatbotResponses();
+    initReviewForm();
 }
 

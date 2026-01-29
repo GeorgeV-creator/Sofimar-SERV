@@ -92,8 +92,7 @@
                 <div class="partners-grid" id="partnersGrid"></div>
             </div>
             <div id="reviewsTab" class="tab-content">
-                <div class="tab-header"><h2>Gestionare Recenzii</h2><button id="syncGoogleReviewsBtn" class="btn btn-primary">🔄 Sincronizează de pe Google</button></div>
-                <div id="syncStatus" style="display: none; padding: 1rem; margin: 1rem 0; border-radius: 8px;"></div>
+                <div class="tab-header"><h2>Gestionare Recenzii</h2><button id="addReviewBtn" class="btn btn-primary">+ Adaugă recenzie</button></div>
                 <div class="reviews-list" id="reviewsList"></div>
             </div>
             <div id="chatbot-responsesTab" class="tab-content">
@@ -197,6 +196,19 @@
             <form id="addChatbotResponseForm" onsubmit="event.preventDefault(); saveChatbotResponse();">
                 <div class="form-group"><label for="chatbotKeyword">Cuvânt Cheie *</label><input type="text" id="chatbotKeyword" placeholder="Ex: buna, salut, preturi" required /><small>Cuvânt sau expresie care activează acest răspuns (în lowercase)</small></div>
                 <div class="form-group"><label for="chatbotResponse">Răspuns *</label><textarea id="chatbotResponse" rows="5" placeholder="Scrie răspunsul automat aici..." required></textarea></div>
+                <button type="submit" class="btn btn-primary">Salvează</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="reviewModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span><h2 id="reviewModalTitle">Adaugă recenzie</h2>
+            <form id="addReviewForm">
+                <div class="form-group"><label for="adminReviewName">Nume *</label><input type="text" id="adminReviewName" placeholder="Ex: Maria P." required /></div>
+                <div class="form-group"><label for="adminReviewRating">Rating (1–5) *</label><input type="number" id="adminReviewRating" min="1" max="5" value="5" required /></div>
+                <div class="form-group"><label for="adminReviewComment">Mesaj *</label><textarea id="adminReviewComment" rows="4" placeholder="Recenzie (ex. de pe Facebook/Google)..." required></textarea></div>
+                <div class="form-group"><label><input type="checkbox" id="adminReviewApproved" /> Aprobat (vizibil pe site)</label></div>
                 <button type="submit" class="btn btn-primary">Salvează</button>
             </form>
         </div>

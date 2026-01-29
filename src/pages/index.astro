@@ -197,6 +197,32 @@
             <div class="reviews-container" id="reviewsContainer">
                 <div class="reviews-loading"><p>Se încarcă recenziile...</p></div>
             </div>
+            <div class="reviews-form-wrap">
+                <h3 class="reviews-form-title">Lasă-ne o recenzie</h3>
+                <form id="reviewForm" class="review-form">
+                    <div class="form-group">
+                        <label for="reviewName">Nume</label>
+                        <input type="text" id="reviewName" name="name" required placeholder="Numele tău" />
+                    </div>
+                    <div class="form-group">
+                        <label>Rating</label>
+                        <div class="star-rating" id="starRating" role="group" aria-label="Rating 1–5 stele">
+                            <button type="button" class="star-btn" data-rating="1" aria-label="1 stea">★</button>
+                            <button type="button" class="star-btn" data-rating="2" aria-label="2 stele">★</button>
+                            <button type="button" class="star-btn" data-rating="3" aria-label="3 stele">★</button>
+                            <button type="button" class="star-btn" data-rating="4" aria-label="4 stele">★</button>
+                            <button type="button" class="star-btn" data-rating="5" aria-label="5 stele">★</button>
+                        </div>
+                        <input type="hidden" id="reviewRating" name="rating" value="5" />
+                    </div>
+                    <div class="form-group">
+                        <label for="reviewComment">Mesaj</label>
+                        <textarea id="reviewComment" name="comment" required rows="4" placeholder="Spune-ne ce părere ai..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Trimite recenzia</button>
+                    <p id="reviewFormMessage" class="review-form-message"></p>
+                </form>
+            </div>
         </div>
     </section>
 
