@@ -63,14 +63,14 @@ def _looks_like_hash(s):
     return isinstance(s, str) and ('scrypt:' in s or 'pbkdf2:' in s or ('$' in s and len(s) > 20))
 
 def _ensure_reviews_table(db):
-    """Create reviews table (id, name, rating, comment, date, approved) if not exists."""
+    """Create reviews table (id, author, rating, comment, date, approved) if not exists."""
     cur = get_cursor(db)
     try:
         if db['type'] == 'neon':
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS reviews (
                     id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
+                    author TEXT NOT NULL,
                     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
                     comment TEXT NOT NULL,
                     date TEXT NOT NULL,
@@ -81,7 +81,7 @@ def _ensure_reviews_table(db):
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS reviews (
                     id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
+                    author TEXT NOT NULL,
                     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
                     comment TEXT NOT NULL,
                     date TEXT NOT NULL,
@@ -699,9 +699,9 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                 _ensure_reviews_table(db)
                 cur = get_cursor(db)
                 if db['type'] == 'neon':
-                    cur.execute("SELECT id, name, rating, comment, date FROM reviews WHERE approved = true ORDER BY date DESC")
+                    cur.execute("SELECT id, author, rating, comment, date FROM reviews WHERE approved = true ORDER BY date DESC")
                 else:
-                    cur.execute("SELECT id, name, rating, comment, date FROM reviews WHERE approved = 1 ORDER BY date DESC")
+                    cur.execute("SELECT id, author, rating, comment, date FROM reviews WHERE approved = 1 ORDER BY date DESC")
                 rows = cur.fetchall()
                 reviews = [dict(row) if db['type'] == 'neon' else {k: row[k] for k in row.keys()} for row in rows]
                 db['conn'].close()
@@ -713,7 +713,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                 db = get_db_connection()
                 _ensure_reviews_table(db)
                 cur = get_cursor(db)
-                cur.execute("SELECT id, name, rating, comment, date, approved FROM reviews ORDER BY date DESC")
+                cur.execute("SELECT id, author, rating, comment, date, approved FROM reviews ORDER BY date DESC")
                 rows = cur.fetchall()
                 is_neon = db['type'] == 'neon'
                 out = []
@@ -853,11 +853,11 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
 
             elif path == 'reviews':
                 try:
-                    name = (data.get('name') or '').strip()
+                    author = (data.get('author') or data.get('name') or '').strip()
                     comment = (data.get('comment') or '').strip()
                     rating = data.get('rating')
-                    if not name or not comment or rating is None:
-                        return 400, headers, json.dumps({'error': 'Lipsește name, rating sau comment'}, ensure_ascii=False)
+                    if not author or not comment or rating is None:
+                        return 400, headers, json.dumps({'error': 'Lipsește author, rating sau comment'}, ensure_ascii=False)
                     r = int(rating)
                     if r < 1 or r > 5:
                         return 400, headers, json.dumps({'error': 'Rating între 1 și 5'}, ensure_ascii=False)
@@ -868,13 +868,13 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     cur = get_cursor(db)
                     if db['type'] == 'neon':
                         cur.execute(
-                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, false)",
-                            (rid, name, r, comment, dt)
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, false)",
+                            (rid, author, r, comment, dt)
                         )
                     else:
                         cur.execute(
-                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, 0)",
-                            (rid, name, r, comment, dt)
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, 0)",
+                            (rid, author, r, comment, dt)
                         )
                     db['conn'].commit()
                     db['conn'].close()
@@ -889,15 +889,15 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                 if not _require_auth():
                     return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
                 try:
-                    name = (data.get('name') or '').strip()
+                    author = (data.get('author') or data.get('name') or '').strip()
                     comment = (data.get('comment') or '').strip()
                     rating = data.get('rating')
                     if 'approved' in data:
                         approved = bool(data.get('approved'))
                     else:
                         approved = True
-                    if not name or not comment or rating is None:
-                        return 400, headers, json.dumps({'error': 'Lipsește name, rating sau comment'}, ensure_ascii=False)
+                    if not author or not comment or rating is None:
+                        return 400, headers, json.dumps({'error': 'Lipsește author, rating sau comment'}, ensure_ascii=False)
                     r = int(rating)
                     if r < 1 or r > 5:
                         return 400, headers, json.dumps({'error': 'Rating între 1 și 5'}, ensure_ascii=False)
@@ -908,13 +908,13 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     cur = get_cursor(db)
                     if db['type'] == 'neon':
                         cur.execute(
-                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, %s)",
-                            (rid, name, r, comment, dt, approved)
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, %s)",
+                            (rid, author, r, comment, dt, approved)
                         )
                     else:
                         cur.execute(
-                            "INSERT INTO reviews (id, name, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, ?)",
-                            (rid, name, r, comment, dt, 1 if approved else 0)
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, ?)",
+                            (rid, author, r, comment, dt, 1 if approved else 0)
                         )
                     db['conn'].commit()
                     db['conn'].close()

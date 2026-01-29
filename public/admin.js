@@ -2341,7 +2341,7 @@ function closeReviewModal() {
 
 function buildReviewRowHtml(r, attr) {
     const id = String(r.id || '');
-    const name = (s => (s ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'))(r.name);
+    const author = (s => (s ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'))(r.author ?? r.name);
     const rating = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 1));
     const stars = '⭐'.repeat(rating);
     const raw = (r.comment || '').toString();
@@ -2353,7 +2353,7 @@ function buildReviewRowHtml(r, attr) {
     return `<div class="review-item-admin" data-id="review-${aid}" ${r._temp ? 'data-temp="1"' : ''}>
         <div class="review-header-admin">
             <div>
-                <div class="review-author-admin">${name}</div>
+                <div class="review-author-admin">${author}</div>
                 <div class="review-date-admin">📅 ${date}${approved}</div>
                 <div class="review-rating-admin">${stars}</div>
             </div>
@@ -2366,11 +2366,11 @@ function buildReviewRowHtml(r, attr) {
 }
 
 async function saveReview() {
-    const name = (document.getElementById('adminReviewName')?.value || '').trim();
+    const author = (document.getElementById('adminReviewName')?.value || '').trim();
     const comment = (document.getElementById('adminReviewComment')?.value || '').trim();
     const rating = Math.min(5, Math.max(1, parseInt(document.getElementById('adminReviewRating')?.value, 10) || 5));
     const approved = !!document.getElementById('adminReviewApproved')?.checked;
-    if (!name || !comment) {
+    if (!author || !comment) {
         alert('Completează numele și mesajul.');
         return;
     }
@@ -2382,7 +2382,7 @@ async function saveReview() {
     const tempId = 'pending-' + Date.now();
     const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
     const dt = new Date().toISOString().slice(0, 10);
-    const optimistic = { id: tempId, name, rating, comment, date: dt, approved, _temp: true };
+    const optimistic = { id: tempId, author, rating, comment, date: dt, approved, _temp: true };
     const rowHtml = buildReviewRowHtml(optimistic, attr);
     const wasEmpty = list.querySelector('.empty-state');
     if (wasEmpty) {
@@ -2392,7 +2392,7 @@ async function saveReview() {
     }
 
     try {
-        const res = await apiRequest('admin/reviews', { method: 'POST', body: { name, rating, comment, approved } });
+        const res = await apiRequest('admin/reviews', { method: 'POST', body: { author, rating, comment, approved } });
         if (!res || !res.ok) throw new Error('Eroare');
         if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
         await loadReviewsAdmin();

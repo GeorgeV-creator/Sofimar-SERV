@@ -1388,7 +1388,7 @@ async function loadReviews() {
         const selectedReviews = shuffled.slice(0, 6);
 
         reviewsContainer.innerHTML = selectedReviews.map(review => {
-            const name = review.name || review.author || 'Anonim';
+            const name = review.author || review.name || 'Anonim';
             const text = review.comment || review.text || '';
             const rating = review.rating || 0;
             const date = review.date || '';
@@ -1445,10 +1445,10 @@ function initReviewForm() {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = (document.getElementById('reviewName')?.value || '').trim();
+        const author = (document.getElementById('reviewName')?.value || '').trim();
         const comment = (document.getElementById('reviewComment')?.value || '').trim();
         const rating = parseInt(reviewRating.value, 10) || 5;
-        if (!name || !comment) {
+        if (!author || !comment) {
             if (msgEl) { msgEl.textContent = 'Completează numele și mesajul.'; msgEl.style.color = '#c00'; }
             return;
         }
@@ -1457,7 +1457,7 @@ function initReviewForm() {
             const res = await fetch(`${API_BASE_URL}/reviews`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, rating, comment })
+                body: JSON.stringify({ author, rating, comment })
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {

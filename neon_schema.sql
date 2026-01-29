@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS locations (
 -- Reviews table (Custom Reviews – fără Google Places)
 CREATE TABLE IF NOT EXISTS reviews (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    author TEXT NOT NULL,
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT NOT NULL,
     date TEXT NOT NULL,
