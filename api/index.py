@@ -630,9 +630,17 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             elif path == 'messages':
                 db = get_db_connection()
                 cur = get_cursor(db)
-                cur.execute("SELECT data FROM messages ORDER BY timestamp DESC")
+                cur.execute("SELECT id, data, timestamp FROM messages ORDER BY timestamp DESC")
                 rows = cur.fetchall()
-                messages = [json.loads(dict(row)['data'] if db['type'] == 'neon' else row['data']) for row in rows]
+                is_neon = db['type'] == 'neon'
+                messages = []
+                for row in rows:
+                    r = dict(row) if is_neon else {k: row[k] for k in row.keys()}
+                    blob = json.loads(r['data']) if isinstance(r['data'], str) else r['data']
+                    out = dict(blob) if isinstance(blob, dict) else {}
+                    out['id'] = r['id']
+                    out['timestamp'] = r.get('timestamp') or out.get('timestamp') or ''
+                    messages.append(out)
                 db['conn'].close()
                 return 200, headers, json.dumps(messages, ensure_ascii=False)
             
@@ -822,7 +830,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             except json.JSONDecodeError as e:
                 return 400, headers, json.dumps({'error': f'Invalid JSON: {str(e)}'}, ensure_ascii=False)
             
-            if path != 'messages' and not _require_auth():
+            if path != 'messages' and path != 'reviews' and not _require_auth():
                 return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
             
             if path == 'messages':
@@ -884,7 +892,10 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     name = (data.get('name') or '').strip()
                     comment = (data.get('comment') or '').strip()
                     rating = data.get('rating')
-                    approved = bool(data.get('approved', False))
+                    if 'approved' in data:
+                        approved = bool(data.get('approved'))
+                    else:
+                        approved = True
                     if not name or not comment or rating is None:
                         return 400, headers, json.dumps({'error': 'Lipsește name, rating sau comment'}, ensure_ascii=False)
                     r = int(rating)
@@ -907,7 +918,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                         )
                     db['conn'].commit()
                     db['conn'].close()
-                    return 200, headers, json.dumps({'success': True, 'id': rid}, ensure_ascii=False)
+                    return 200, headers, json.dumps({'success': True, 'id': rid, 'date': dt}, ensure_ascii=False)
                 except Exception as e:
                     import traceback
                     print(f"Error in POST /admin/reviews: {str(e)}")

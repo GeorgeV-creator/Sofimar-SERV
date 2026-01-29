@@ -521,12 +521,14 @@ async function loadMessages() {
     const messages = await getMessages();
     console.log('Total messages to display:', messages.length);
     
-    if (messages.length === 0) {
+    const withId = messages.filter((msg) => msg && msg.id);
+    if (withId.length === 0) {
         messagesList.innerHTML = '<p class="empty-state">Nu există mesaje.</p>';
         return;
     }
 
-    messagesList.innerHTML = messages.map((msg, index) => {
+    const escId = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    messagesList.innerHTML = withId.map((msg) => {
         const date = new Date(msg.timestamp);
         const dateStr = date.toLocaleString('ro-RO', {
             year: 'numeric',
@@ -535,9 +537,9 @@ async function loadMessages() {
             hour: '2-digit',
             minute: '2-digit'
         });
-
+        const mid = escId(String(msg.id));
         return `
-            <div class="message-item">
+            <div class="message-item" data-message-id="${mid}">
                 <div class="message-header">
                     <div class="message-meta">
                         <div class="message-name">${escapeHtml(msg.name)}</div>
@@ -545,7 +547,7 @@ async function loadMessages() {
                         <div class="message-date">📅 ${dateStr}</div>
                     </div>
                     <div class="message-actions">
-                        <button class="message-delete" onclick="deleteMessage(${index})">Șterge</button>
+                        <button type="button" class="message-delete" data-message-id="${mid}" onclick="deleteMessage(this)">Șterge</button>
                     </div>
                 </div>
                 <div class="message-content">${escapeHtml(msg.message)}</div>
@@ -573,17 +575,33 @@ async function clearMessages() {
     updateStatistics();
 }
 
-async function deleteMessage(index) {
-    const messages = await getMessages();
-    const messageToDelete = messages[index];
-    
-    if (messageToDelete && messageToDelete.id) {
-        const res = await apiRequest(`messages?id=${encodeURIComponent(messageToDelete.id)}`, { method: 'DELETE' });
-        if (!res) return;
-        if (!res.ok) { alert('Eroare: mesajul nu a fost șters.'); return; }
+async function deleteMessage(btnOrId) {
+    const btn = typeof btnOrId === 'object' && btnOrId && btnOrId.nodeType === 1 ? btnOrId : null;
+    const mid = btn ? (btn.getAttribute('data-message-id') || btn.closest('[data-message-id]')?.getAttribute('data-message-id')) : String(btnOrId ?? '');
+    if (!mid) { alert('Eroare: ID mesaj lipsă.'); return; }
+    if (!confirm('Ștergi acest mesaj?')) return;
+
+    const card = Array.from(document.querySelectorAll('[data-message-id]')).find(el => el.getAttribute('data-message-id') === mid);
+    if (!card) return;
+    const parent = card.parentElement;
+    const next = card.nextElementSibling;
+    const backup = card.cloneNode(true);
+
+    card.remove();
+
+    const rollback = () => {
+        if (next) parent.insertBefore(backup, next);
+        else parent.appendChild(backup);
+        alert('Eroare: mesajul nu a putut fi șters. Încearcă din nou.');
+    };
+
+    try {
+        const res = await apiRequest(`messages?id=${encodeURIComponent(mid)}`, { method: 'DELETE' });
+        if (!res || !res.ok) { rollback(); return; }
+        if (typeof updateStatistics === 'function') updateStatistics();
+    } catch (_) {
+        rollback();
     }
-    await loadMessages();
-    updateStatistics();
 }
 
 // Chatbot Messages Management
@@ -636,9 +654,13 @@ async function loadChatbotMessages() {
     const tabsContainer = document.getElementById('chatbotTabsContainer');
     if (tabsContainer) tabsContainer.style.display = 'none';
     
-    // Display all conversations in a simple list
+    const escId = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const idsAttr = (arr) => arr.filter(Boolean).map(escId).join(',');
     conversationsDiv.style.display = 'block';
-    conversationsDiv.innerHTML = conversations.map((conv, index) => {
+    conversationsDiv.innerHTML = conversations.map((conv) => {
+        const ids = [conv.userMessage?.id, conv.botMessage?.id].filter(Boolean);
+        if (ids.length === 0) return '';
+        const idsStr = idsAttr(ids);
         const date = new Date(conv.timestamp);
         const dateStr = date.toLocaleString('ro-RO', {
             year: 'numeric',
@@ -647,12 +669,11 @@ async function loadChatbotMessages() {
             hour: '2-digit',
             minute: '2-digit'
         });
-        
         return `
-            <div class="conversation-item">
+            <div class="conversation-item" data-chatbot-ids="${idsStr}">
                 <div class="conversation-header">
                     <div class="conversation-date">📅 ${dateStr}</div>
-                    <button class="conversation-delete" onclick="deleteChatbotConversation(${index})">Șterge</button>
+                    <button type="button" class="conversation-delete" onclick="deleteChatbotConversation(this)">Șterge</button>
                 </div>
                 <div class="conversation-messages">
                     <div class="chatbot-message user">
@@ -668,7 +689,7 @@ async function loadChatbotMessages() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).filter(Boolean).join('');
 }
 
 async function getChatbotMessages() {
@@ -688,65 +709,36 @@ async function clearChatbotMessages() {
     alert('Toate conversațiile au fost șterse cu succes!');
 }
 
-async function deleteChatbotConversation(index) {
-    if (!confirm('Ești sigur că vrei să ștergi această conversație?')) {
-        return;
-    }
-    
-    // Get current conversations structure (same as in loadChatbotMessages)
-    const messages = await getChatbotMessages();
-    const conversations = [];
-    
-    // Group messages into conversations (same logic as loadChatbotMessages)
-    for (let i = 0; i < messages.length; i++) {
-        if (messages[i].type === 'user') {
-            const conversation = {
-                userMessage: messages[i],
-                botMessage: messages[i + 1] && messages[i + 1].type === 'bot' ? messages[i + 1] : null,
-                timestamp: messages[i].timestamp
-            };
-            conversations.push(conversation);
-            if (messages[i + 1] && messages[i + 1].type === 'bot') {
-                i++; // Skip bot message as it's already included
-            }
-        }
-    }
-
-    // Sort by timestamp (newest first) to match display order
-    conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    // Get the conversation at the specified index
-    const toRemove = conversations[index];
-    if (!toRemove) {
-        alert('Eroare: conversația nu a fost găsită.');
-        return;
-    }
-
-    // Collect IDs to delete
-    const idsToDelete = [];
-    if (toRemove.userMessage && toRemove.userMessage.id) {
-        idsToDelete.push(toRemove.userMessage.id);
-    }
-    if (toRemove.botMessage && toRemove.botMessage.id) {
-        idsToDelete.push(toRemove.botMessage.id);
-    }
-
+async function deleteChatbotConversation(btn) {
+    const card = btn && btn.nodeType === 1 ? btn.closest('.conversation-item') : null;
+    const idsRaw = card ? card.getAttribute('data-chatbot-ids') : '';
+    const idsToDelete = idsRaw ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
     if (idsToDelete.length === 0) {
         alert('Eroare: nu pot șterge conversația (lipsește ID-ul).');
         return;
     }
+    if (!confirm('Ștergi această conversație?')) return;
+
+    const parent = card.parentElement;
+    const next = card.nextElementSibling;
+    const backup = card.cloneNode(true);
+
+    card.remove();
+
+    const rollback = () => {
+        if (next) parent.insertBefore(backup, next);
+        else parent.appendChild(backup);
+        alert('Eroare: conversația nu a putut fi ștearsă. Încearcă din nou.');
+    };
 
     try {
         for (const id of idsToDelete) {
             const res = await apiRequest(`chatbot?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-            if (!res) return;
-            if (!res.ok) throw new Error('Delete failed');
+            if (!res || !res.ok) throw new Error('Delete failed');
         }
-        await loadChatbotMessages();
-        updateStatistics();
-        alert('Conversația a fost ștearsă cu succes!');
-    } catch (e) {
-        alert('Eroare: conversația nu a fost ștearsă.');
+        if (typeof updateStatistics === 'function') updateStatistics();
+    } catch (_) {
+        rollback();
     }
 }
 
@@ -2319,31 +2311,8 @@ async function loadReviewsAdmin() {
             reviewsList.innerHTML = '<p class="empty-state">Nu există recenzii. Folosește „Adaugă recenzie” pentru a adăuga una.</p>';
             return;
         }
-        const he = s => (s ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const attr = s => he(s).replace(/"/g, '&quot;').replace(/'/g, "\\'");
-        reviewsList.innerHTML = reviews.map(r => {
-            const id = String(r.id || '');
-            const name = he(r.name);
-            const rating = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 1));
-            const stars = '⭐'.repeat(rating);
-            const raw = (r.comment || '').toString();
-            const comment = he(raw).slice(0, 300) + (raw.length > 300 ? '…' : '');
-            const date = he(r.date || '');
-            const approved = r.approved ? ' ✓ Aprobat' : ' (în așteptare)';
-            return `<div class="review-item-admin" data-id="review-${attr(id)}">
-                <div class="review-header-admin">
-                    <div>
-                        <div class="review-author-admin">${name}</div>
-                        <div class="review-date-admin">📅 ${date}${approved}</div>
-                        <div class="review-rating-admin">${stars}</div>
-                    </div>
-                    <div class="review-actions-admin">
-                        <button type="button" class="btn btn-danger" data-review-id="${attr(id)}" onclick="deleteReview(this.getAttribute('data-review-id'))">Șterge</button>
-                    </div>
-                </div>
-                <div class="review-text-admin">${comment}</div>
-            </div>`;
-        }).join('');
+        const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        reviewsList.innerHTML = reviews.map(r => buildReviewRowHtml(r, attr)).join('');
     } catch (e) {
         reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
     }
@@ -2359,7 +2328,7 @@ function openReviewModal() {
     const r = document.getElementById('adminReviewRating');
     const chk = document.getElementById('adminReviewApproved');
     if (r) r.value = 5;
-    if (chk) chk.checked = false;
+    if (chk) chk.checked = true;
     modal.classList.add('active');
 }
 
@@ -2370,22 +2339,69 @@ function closeReviewModal() {
     if (form) form.reset();
 }
 
+function buildReviewRowHtml(r, attr) {
+    const id = String(r.id || '');
+    const name = (s => (s ?? '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'))(r.name);
+    const rating = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 1));
+    const stars = '⭐'.repeat(rating);
+    const raw = (r.comment || '').toString();
+    const comment = (raw.slice(0, 300) + (raw.length > 300 ? '…' : '')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const date = (r.date || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const approved = r.approved ? ' ✓ Aprobat' : ' (în așteptare)';
+    const esc = attr || (x => String(x ?? '').replace(/"/g, '&quot;').replace(/'/g, "\\'"));
+    const aid = esc(id);
+    return `<div class="review-item-admin" data-id="review-${aid}" ${r._temp ? 'data-temp="1"' : ''}>
+        <div class="review-header-admin">
+            <div>
+                <div class="review-author-admin">${name}</div>
+                <div class="review-date-admin">📅 ${date}${approved}</div>
+                <div class="review-rating-admin">${stars}</div>
+            </div>
+            <div class="review-actions-admin">
+                <button type="button" class="btn btn-danger" data-review-id="${aid}" onclick="deleteReview(this.getAttribute('data-review-id'))">Șterge</button>
+            </div>
+        </div>
+        <div class="review-text-admin">${comment}</div>
+    </div>`;
+}
+
 async function saveReview() {
     const name = (document.getElementById('adminReviewName')?.value || '').trim();
     const comment = (document.getElementById('adminReviewComment')?.value || '').trim();
-    const rating = parseInt(document.getElementById('adminReviewRating')?.value, 10) || 5;
+    const rating = Math.min(5, Math.max(1, parseInt(document.getElementById('adminReviewRating')?.value, 10) || 5));
     const approved = !!document.getElementById('adminReviewApproved')?.checked;
     if (!name || !comment) {
         alert('Completează numele și mesajul.');
         return;
     }
+    const list = document.getElementById('reviewsListAdmin') || document.getElementById('reviewsList');
+    if (!list) return;
+
+    closeReviewModal();
+
+    const tempId = 'pending-' + Date.now();
+    const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    const dt = new Date().toISOString().slice(0, 10);
+    const optimistic = { id: tempId, name, rating, comment, date: dt, approved, _temp: true };
+    const rowHtml = buildReviewRowHtml(optimistic, attr);
+    const wasEmpty = list.querySelector('.empty-state');
+    if (wasEmpty) {
+        list.innerHTML = rowHtml;
+    } else {
+        list.insertAdjacentHTML('afterbegin', rowHtml);
+    }
+
     try {
         const res = await apiRequest('admin/reviews', { method: 'POST', body: { name, rating, comment, approved } });
         if (!res || !res.ok) throw new Error('Eroare');
-        closeReviewModal();
-        await loadReviewsAdmin();
         if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
+        await loadReviewsAdmin();
     } catch (e) {
+        const el = list.querySelector('[data-temp="1"]');
+        if (el) el.remove();
+        if (list.querySelectorAll('.review-item-admin').length === 0) {
+            list.innerHTML = '<p class="empty-state">Nu există recenzii. Folosește „Adaugă recenzie” pentru a adăuga una.</p>';
+        }
         alert('Eroare la salvarea recenziei.');
     }
 }
