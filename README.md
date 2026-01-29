@@ -37,4 +37,4 @@ Dacă build-ul eșuează cu `psycopg2` / `pg_config` / „building from source�
 1. **Șterge cache-ul de build**: Vercel → Project → Settings → General → **Build Cache** → Clear.
 2. **Redeploy** după clear cache.
 3. Folosim doar `psycopg2-binary` (nu `psycopg2`) în `requirements.txt` și `api/requirements.txt`; `runtime.txt` = `python-3.12`.
-4. **`installCommand`** în `vercel.json`: `pip install -r requirements.txt && npm install` (Vercel folosește pip preinstalat; nu uv).
+4. **`installCommand`** în `vercel.json`: `pip install --break-system-packages -r requirements.txt && npm install` (evită PEP 668; singura cale de install Python).

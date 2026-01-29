@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "pip install -r requirements.txt && npm install",
+  "installCommand": "pip install --break-system-packages -r requirements.txt && npm install",
   "rewrites": [
     {
       "source": "/api/(.*)",
