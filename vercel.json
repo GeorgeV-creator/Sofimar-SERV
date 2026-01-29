@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install && uv python install 3.12 && uv pip install --python 3.12 -r requirements.txt",
   "rewrites": [
     {
       "source": "/api/(.*)",

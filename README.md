@@ -37,4 +37,4 @@ Dacă build-ul eșuează cu `psycopg2` / `pg_config` / „building from source�
 1. **Șterge cache-ul de build**: Vercel → Project → Settings → General → **Build Cache** → Clear.
 2. **Redeploy** după clear cache.
 3. Folosim doar `psycopg2-binary` (nu `psycopg2`) în `requirements.txt` și `api/requirements.txt`; `runtime.txt` = `python-3.12`.
-4. **`.python-version`** cu `3.12` forțează `uv` să folosească Python 3.12 la install (evită 3.14, fără wheel-uri pentru psycopg2-binary).
+4. **`.python-version`** cu `3.12` + **`installCommand`** în `vercel.json` care rulează `uv python install 3.12 && uv pip install --python 3.12 -r requirements.txt` (evită 3.14, fără wheel-uri pentru psycopg2-binary).
