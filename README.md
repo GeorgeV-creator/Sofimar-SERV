@@ -29,3 +29,11 @@ Output în `dist/`. Conținutul din `public/` (CSS, JS, images, videos) este cop
 - `src/pages/` – paginile Astro (index, certificate, admin).
 - `public/` – styles, scripts, images, videos (servite la root).
 - `api/` – serverless Python (Neon/SQLite).
+
+## Troubleshooting Vercel (psycopg2)
+
+Dacă build-ul eșuează cu `psycopg2` / `pg_config` / „building from source”:
+
+1. **Șterge cache-ul de build**: Vercel → Project → Settings → General → **Build Cache** → Clear.
+2. **Redeploy** după clear cache.
+3. Folosim doar `psycopg2-binary` (nu `psycopg2`) în `requirements.txt` și `api/requirements.txt`; `runtime.txt` = `python-3.12`.
