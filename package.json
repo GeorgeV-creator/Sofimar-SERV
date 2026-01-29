@@ -2,7 +2,7 @@
   "name": "sofimar-serv",
   "type": "module",
   "version": "1.0.0",
-  "engines": { "node": ">=18" },
+  "engines": { "node": "18.x" },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
