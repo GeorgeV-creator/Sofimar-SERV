@@ -31,6 +31,11 @@ npm-debug.log*
 *.tmp
 *.temp
 
+# Astro / Node
+node_modules/
+dist/
+.astro/
+
 # Database files (contain user data)
 # Note: JSON files are now tracked in repository
 # messages.json

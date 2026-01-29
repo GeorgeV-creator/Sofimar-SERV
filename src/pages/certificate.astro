@@ -1,0 +1,71 @@
+---
+---
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Certificate - Sofimar SERV | Protecție Profesională Certificată</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preload" as="fetch" href="/api/certificates" crossorigin />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><h1><a href="/" style="text-decoration: none; color: inherit;">Sofimar SERV</a></h1></div>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+            <ul class="nav-menu"><li><a href="/">Acasă</a></li></ul>
+        </div>
+    </nav>
+
+    <section class="certificates-gallery-section" style="padding-top: 120px;">
+        <div class="container">
+            <div class="section-header">
+                <h2>Certificate și Acreditări</h2>
+                <p>Standardele de calitate și certificările care dovedesc profesionalismul nostru</p>
+            </div>
+            <div class="certificates-two-columns" id="certificatesContent">
+                <div class="certificates-column">
+                    <h3 class="column-title">Certificate</h3>
+                    <div class="certificates-showcase" id="certificatesGrid"></div>
+                </div>
+                <div class="certificates-column">
+                    <h3 class="column-title">Acreditări</h3>
+                    <div class="certificates-showcase" id="accreditationsGrid"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="certificate-modal" id="certificateModal">
+        <div class="certificate-modal-content">
+            <span class="certificate-modal-close" onclick="closeCertificateModal()">&times;</span>
+            <img id="modalCertificateImage" src="" alt="Certificat" />
+            <h3 id="modalCertificateTitle"></h3>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-simple"><h3>Sofimar SERV</h3><p>Protecție Profesională Certificată</p></div>
+            <div class="footer-bottom"><p>&copy; 2026 Sofimar SERV. Toate drepturile rezervate.</p></div>
+        </div>
+    </footer>
+
+    <script is:inline>
+        (function() {
+            var api = (window.location.hostname.includes('vercel.app') || !window.location.hostname.includes('localhost'))
+                ? window.location.protocol + '//' + window.location.hostname + '/api'
+                : 'http://' + window.location.hostname + ':8001/api';
+            fetch(api + '/certificates', { cache: 'default', headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(d) { window.__certificatesData = Array.isArray(d) ? d : []; })
+                .catch(function() { window.__certificatesData = []; });
+        })();
+    </script>
+    <script src="/script.js"></script>
+</body>
+</html>

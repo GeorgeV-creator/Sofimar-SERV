@@ -1,0 +1,240 @@
+---
+// Astro passes nothing; we output static HTML.
+---
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sofimar SERV - Deratizare, Dezinsecție, Dezinfecție | Protecție Profesională Certificată</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand"><h1>Sofimar SERV</h1></div>
+            <button class="mobile-menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+            <ul class="nav-menu">
+                <li><a href="#acasa">Acasă</a></li>
+                <li><a href="#servicii">Servicii</a></li>
+                <li><a href="#garantie">Garanție</a></li>
+                <li><a href="#tiktok">TikTok</a></li>
+                <li><a href="/certificate">Certificate</a></li>
+                <li><a href="#locations">Locații</a></li>
+                <li><a href="#parteneri">Parteneri</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="#recenzii">Recenzii</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section id="acasa" class="hero">
+        <video class="hero-video" autoplay muted loop playsinline disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" preload="auto">
+            <source src="/videos/cinematic.mp4" type="video/mp4" />
+        </video>
+        <div class="hero-overlay"></div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-glass-container">
+                    <h1 class="hero-title">Sofimar SERV</h1>
+                    <h2 class="hero-subtitle">Protecție Profesională Certificată pentru Locuința Dumneavoastră</h2>
+                    <p class="hero-description">
+                        Locuința dumneavoastră merită cel mai înalt nivel de protecție. Sofimar SERV oferă servicii profesionale de Deratizare, Dezinsecție și Dezinfecție (DDD), certificate la standarde europene, concepute pentru a vă securiza spațiul rezidențial împotriva riscurilor de sănătate și a daunelor materiale. Aducem standardele industriale de siguranță direct la dumneavoastră acasă.
+                    </p>
+                    <div class="hero-button-container">
+                        <a href="#servicii" class="btn btn-hero">Descoperă Serviciile</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="servicii" class="services">
+        <div class="container">
+            <div class="section-header">
+                <h2>Serviciile Noastre</h2>
+                <p>Trei piloni fundamentali pentru protecția completă a locuinței dumneavoastră</p>
+            </div>
+            <div class="services-grid">
+                <div class="service-card" data-service="1">
+                    <h3 class="service-title">1. Dezinsecție</h3>
+                    <p class="service-subtitle">Eliminarea Avansată a Insectelor</p>
+                    <div class="service-content">
+                        <p class="service-description">Folosim tehnici profesionale de dezinsecție pentru a elimina dăunătorii precum gândacii, ploșnițele, furnicile și puricii – mulți dintre aceștia fiind purtători de milioane de germeni.</p>
+                        <div class="service-feature"><h4>Tratament de Precizie</h4><p>Utilizăm insecticide profesionale, cu miros redus, în formulă micro-încapsulată și metode non-chimice, vizând strict locurile de ascunzătoare (crăpături, goluri și zone de cuibărit) pentru a preveni expunerea inutilă.</p></div>
+                        <div class="service-feature"><h4>Controlul Ciclului de Viață</h4><p>Pentru dăunătorii persistenți, cum ar fi ploșnițele, garantăm un tratament în minim două etape (la un interval de 18-21 de zile). Acest protocol este esențial pentru a rupe ciclul lor reproductiv și a elimina larvele nou-eclozate.</p></div>
+                        <div class="service-feature"><h4>Siguranță Prioritară</h4><p>Toate intervențiile sunt efectuate de tehnicieni certificați CEPA, asigurând eficacitate maximă cu risc minim pentru familie și animalele de companie.</p></div>
+                    </div>
+                </div>
+                <div class="service-card" data-service="2">
+                    <h3 class="service-title">2. Deratizare</h3>
+                    <p class="service-subtitle">Controlul Securizat al Rozătoarelor</p>
+                    <div class="service-content">
+                        <p class="service-description">Rozătoarele (șoarecii și șobolanii) sunt vectori majori de boli (ex: Salmonela, Leptospiroză) și cauzează daune structurale. Deratizarea noastră rezidențială este discretă, sigură și eficientă.</p>
+                        <div class="service-feature"><h4>Stații Sigure de Momeală</h4><p>Implementăm momeli anticoagulante de uz profesional, securizate strict în stații rezistente la deschidere accidentală. Aceste stații previn accesul copiilor și al animalelor de companie, vizând exclusiv populația de rozătoare.</p></div>
+                        <div class="service-feature"><h4>Managementul Neofobiei</h4><p>Protocoalele noastre țin cont de neofobie (frica rozătoarelor de obiecte noi), utilizând tipuri și amplasamente specifice de momeală pentru a asigura consumul și eliminarea lor.</p></div>
+                        <div class="service-feature"><h4>Apărare Perimetrală</h4><p>Identificăm și tratăm punctele de acces exterioare (subsoluri, fundații, curți) pentru a crea o barieră protectoare în jurul proprietății.</p></div>
+                    </div>
+                </div>
+                <div class="service-card" data-service="3">
+                    <h3 class="service-title">3. Dezinfecție</h3>
+                    <p class="service-subtitle">Igienizare Profundă a Locuinței</p>
+                    <div class="service-content">
+                        <p class="service-description">Ideală pentru recuperarea post-îmbolnăvire, curățenia de sezon sau după o infestare cu dăunători, dezinfecția noastră neutralizează agenții patogeni (viruși, bacterii, fungi) din aer și de pe suprafețe.</p>
+                        <div class="service-feature"><h4>Nebulizare Avansată</h4><p>Utilizăm tehnologia de Nebulizare Uscată (ex: sistemul Nocospray cu Peroxid de Hidrogen H<sub>2</sub>O<sub>2</sub>) pentru a genera o ceață gazoasă care ajunge la 100% din volumul aerului și al suprafețelor dintr-o cameră, inclusiv în spatele mobilierului și în sistemele de ventilație.</p></div>
+                        <div class="service-feature"><h4>Formulă Non-Corozivă</h4><p>Această metodă este extrem de eficientă fără a utiliza substanțe chimice dure care pot deteriora obiectele casnice. Agentul se descompune natural în apă și oxigen, fără a lăsa reziduuri toxice.</p></div>
+                        <div class="service-feature"><h4>Asigurarea Sănătății</h4><p>Acest serviciu oferă garanția documentată a unui mediu de viață igienizat profund și lipsit de agenți patogeni.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="garantie" class="guarantee">
+        <div class="container">
+            <div class="guarantee-content">
+                <div class="guarantee-header"><h2>Încredere și Garanție</h2></div>
+                <div class="guarantee-grid">
+                    <div class="guarantee-card" data-guarantee="1">
+                        <div class="guarantee-icon">🏆</div>
+                        <h3 class="guarantee-title">Profesioniști Certificați</h3>
+                        <p class="guarantee-description">Suntem prima firmă din România certificată cu standardul european de calitate <strong>ISO 16.636 (CEPA Certified®)</strong>, ceea ce înseamnă că procedurile noastre sunt recunoscute la nivel internațional ca fiind cele mai bune practici.</p>
+                    </div>
+                    <div class="guarantee-card highlight" data-guarantee="2">
+                        <div class="guarantee-icon">300%</div>
+                        <h3 class="guarantee-title">GARANȚIE 300%</h3>
+                        <p class="guarantee-description">Garanția noastră triplă oferă proprietarilor o liniște și un angajament de neegalat pentru o soluție permanentă.</p>
+                    </div>
+                    <div class="guarantee-card" data-guarantee="3">
+                        <div class="guarantee-icon">⚡</div>
+                        <h3 class="guarantee-title">Intervenție Rapidă</h3>
+                        <p class="guarantee-description">Oferim intervenție în maximum <strong>24 de ore</strong> pentru probleme urgente în zonele noastre de acoperire națională.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tiktok" class="tiktok-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Urmăriți-ne pe TikTok</h2>
+                <p>Descoperiți serviciile noastre și sfaturi utile în videoclipurile noastre</p>
+            </div>
+            <div class="tiktok-carousel-container">
+                <div class="tiktok-carousel" id="tiktokCarousel"></div>
+            </div>
+            <div class="tiktok-cta">
+                <a href="https://www.tiktok.com/@sofimar_serv.srl" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Urmărește-ne pe TikTok</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="locations" class="locations-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Punctele Noastre de Lucru</h2>
+                <p>Găsiți cel mai apropiat punct de lucru pentru serviciile noastre</p>
+            </div>
+            <div class="map-section"><div id="romaniaMap" class="romania-map"></div></div>
+        </div>
+    </section>
+
+    <section id="parteneri" class="partners-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Partenerii Noștri</h2>
+                <p>Colaborăm cu parteneri de încredere pentru servicii de calitate</p>
+            </div>
+            <div class="partners-grid" id="partnersGrid"></div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="section-header">
+                <h2>Contactați-ne</h2>
+                <p>Suntem aici pentru a vă ajuta să protejați locuința dumneavoastră</p>
+            </div>
+            <div class="contact-content">
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <div class="contact-icon">📞</div>
+                        <div><h4>Telefon</h4><p>Sună-ne pentru consultație gratuită</p></div>
+                    </div>
+                    <div class="contact-item email-item" data-email="contact@sofimarserv.ro">
+                        <div class="contact-icon">📧</div>
+                        <div><h4>Email</h4><p>Trimite-ne un mesaj</p><span class="email-tooltip">contact@sofimarserv.ro</span></div>
+                    </div>
+                    <div class="contact-item">
+                        <div class="contact-icon">📍</div>
+                        <div><h4>Acoperire Națională</h4><p>Servicii disponibile în toată România</p></div>
+                    </div>
+                </div>
+                <div class="contact-form-container">
+                    <form class="contact-form" id="contactForm">
+                        <div class="form-group"><label for="name">Nume complet</label><input type="text" id="name" name="name" required /></div>
+                        <div class="form-group"><label for="phone">Telefon</label><input type="tel" id="phone" name="phone" required /></div>
+                        <div class="form-group"><label for="email">Email</label><input type="email" id="email" name="email" required /></div>
+                        <div class="form-group"><label for="message">Mesaj</label><textarea id="message" name="message" rows="5" required></textarea></div>
+                        <button type="submit" class="btn btn-primary">Trimite Mesajul</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="recenzii" class="reviews-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Recenziile Clienților Noștri</h2>
+                <p>Descoperiți ce spun clienții despre serviciile noastre</p>
+            </div>
+            <div class="reviews-container" id="reviewsContainer">
+                <div class="reviews-loading"><p>Se încarcă recenziile...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-simple"><h3>Sofimar SERV</h3><p>Protecție Profesională Certificată</p></div>
+            <div class="footer-bottom"><p>&copy; 2026 Sofimar SERV. Toate drepturile rezervate.</p></div>
+        </div>
+    </footer>
+
+    <div class="chatbot-container" id="chatbotContainer">
+        <div class="chatbot-header">
+            <div class="chatbot-header-info">
+                <div class="chatbot-avatar">💬</div>
+                <div><h4>Asistent Sofimar SERV</h4><p>Online</p></div>
+            </div>
+            <button class="chatbot-close" id="chatbotClose">×</button>
+        </div>
+        <div class="chatbot-messages" id="chatbotMessages">
+            <div class="message bot-message">
+                <div class="message-content">Bună ziua! 👋 Sunt asistentul virtual al Sofimar SERV. Cu ce vă pot ajuta astăzi? Puteți întreba despre serviciile noastre de deratizare, dezinsecție sau dezinfecție.</div>
+            </div>
+        </div>
+        <div class="chatbot-input-container">
+            <input type="text" id="chatbotInput" placeholder="Scrieți mesajul dumneavoastră..." />
+            <button id="chatbotSend">➤</button>
+        </div>
+    </div>
+    <button class="chatbot-toggle" id="chatbotToggle"><span class="chatbot-icon">💬</span><span class="chatbot-badge">1</span></button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script is:inline>
+        window.addEventListener('load', function() {
+            if (typeof L === 'undefined') {
+                var c = document.getElementById('romaniaMap'); if (c) c.innerHTML = '<div style="padding:2rem;text-align:center;color:#e76f51;"><p>⚠️ Eroare: Nu s-a putut încărca harta.</p></div>';
+            }
+        });
+    </script>
+    <script src="/script.js"></script>
+</body>
+</html>
