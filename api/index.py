@@ -19,6 +19,49 @@ from pathlib import Path
 # OpenAI API Key - can be set via environment variable OPENAI_API_KEY
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
+# JWT & auth
+JWT_SECRET = os.environ.get('JWT_SECRET') or 'dev-secret-change-in-production'
+JWT_ALG = 'HS256'
+JWT_EXP_SECONDS = 24 * 60 * 60  # 24h
+ADMIN_USERNAME = 'admin'
+
+def _create_jwt(sub):
+    import jwt
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    payload = {'sub': sub, 'iat': now, 'exp': now + timedelta(seconds=JWT_EXP_SECONDS)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+
+def _verify_jwt(token):
+    import jwt
+    from datetime import datetime
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        return payload if payload.get('sub') == ADMIN_USERNAME else None
+    except Exception:
+        return None
+
+def _get_bearer_token(headers):
+    if headers is None:
+        return None
+    if not hasattr(headers, 'get'):
+        return None
+    auth = headers.get('Authorization') or headers.get('authorization')
+    if not auth or not str(auth).strip().lower().startswith('bearer '):
+        return None
+    return str(auth).strip()[7:].strip()
+
+def _hash_password(raw):
+    from werkzeug.security import generate_password_hash
+    return generate_password_hash(raw, method='scrypt')
+
+def _check_password(raw, hashed):
+    from werkzeug.security import check_password_hash
+    return check_password_hash(hashed, raw)
+
+def _looks_like_hash(s):
+    return isinstance(s, str) and ('scrypt:' in s or 'pbkdf2:' in s or ('$' in s and len(s) > 20))
+
 def cleanup_old_messages(db, cur, days=5):
     """Delete chatbot messages older than specified days"""
     try:
@@ -383,15 +426,15 @@ def save_image_to_folder(image_data, filename=None):
 def _api_headers(cache_max_age=None):
     h = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Content-Type': 'application/json'
     }
     if cache_max_age is not None:
         h['Cache-Control'] = f'public, max-age={cache_max_age}, s-maxage={cache_max_age}'
     return h
 
-def handle_api_request(path, method, query, body_data):
+def handle_api_request(path, method, query, body_data, request_headers=None):
     """Handle API request and return response"""
     headers = _api_headers()
     try:
@@ -415,6 +458,65 @@ def handle_api_request(path, method, query, body_data):
                 path = path[0] if path else ''
             path = (path or '').strip().lstrip('/').rstrip('/') or path
         path = (path or '').rstrip('/') or path
+        
+        # ----- POST /login (no auth) -----
+        if method == 'POST' and path == 'login':
+            try:
+                login_body = body_data if isinstance(body_data, dict) else (json.loads(body_data) if isinstance(body_data, str) and body_data.strip() else {})
+            except json.JSONDecodeError:
+                return 400, headers, json.dumps({'error': 'Invalid JSON'}, ensure_ascii=False)
+            username = (login_body.get('username') or '').strip()
+            password = login_body.get('password') or ''
+            if username != ADMIN_USERNAME or not password:
+                return 401, headers, json.dumps({'error': 'Invalid credentials'}, ensure_ascii=False)
+            db = get_db_connection()
+            cur = get_cursor(db)
+            is_neon = db['type'] == 'neon'
+            cur.execute("SELECT password FROM admin_password WHERE id = 1 LIMIT 1")
+            row = cur.fetchone()
+            stored = (dict(row)['password'] if row else None) if is_neon else (row['password'] if row else None)
+            db['conn'].close()
+            ok = False
+            if not stored:
+                h = _hash_password('admin123')
+                db2 = get_db_connection()
+                cur2 = get_cursor(db2)
+                ts = datetime.now().isoformat()
+                if db2['type'] == 'neon':
+                    cur2.execute("INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password, last_updated = EXCLUDED.last_updated", (h, ts))
+                else:
+                    cur2.execute("INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)", (h, ts))
+                db2['conn'].commit()
+                db2['conn'].close()
+                ok = _check_password(password, h)
+            elif _looks_like_hash(stored):
+                ok = _check_password(password, stored)
+            else:
+                ok = (password == stored)
+                if ok:
+                    h = _hash_password(password)
+                    db2 = get_db_connection()
+                    cur2 = get_cursor(db2)
+                    ts = datetime.now().isoformat()
+                    if db2['type'] == 'neon':
+                        cur2.execute("INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password, last_updated = EXCLUDED.last_updated", (h, ts))
+                    else:
+                        cur2.execute("INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)", (h, ts))
+                    db2['conn'].commit()
+                    db2['conn'].close()
+            if not ok:
+                return 401, headers, json.dumps({'error': 'Invalid credentials'}, ensure_ascii=False)
+            token = _create_jwt(ADMIN_USERNAME)
+            if hasattr(token, 'decode'):
+                token = token.decode('utf-8')
+            return 200, headers, json.dumps({'token': token}, ensure_ascii=False)
+        
+        # ----- Auth for protected routes -----
+        def _require_auth():
+            t = _get_bearer_token(request_headers)
+            if not t or not _verify_jwt(t):
+                return False
+            return True
         
         # GET endpoints
         if method == 'GET':
@@ -452,6 +554,42 @@ def handle_api_request(path, method, query, body_data):
                     'has_neon_db_url': bool(NEON_DB_URL),
                     'database': db_status
                 }, ensure_ascii=False)
+            
+            elif path == 'validate':
+                t = _get_bearer_token(request_headers)
+                if not t or not _verify_jwt(t):
+                    return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+                return 200, headers, json.dumps({'ok': True}, ensure_ascii=False)
+            
+            elif path == 'stats':
+                t = _get_bearer_token(request_headers)
+                if not t or not _verify_jwt(t):
+                    return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+                db = get_db_connection()
+                cur = get_cursor(db)
+                is_neon = db['type'] == 'neon'
+                counts = {}
+                for name, sql, key in [
+                    ('messages', "SELECT COUNT(*) AS n FROM messages", 'n'),
+                    ('certificates', "SELECT COUNT(*) AS n FROM certificates", 'n'),
+                    ('partners', "SELECT COUNT(*) AS n FROM partners", 'n'),
+                    ('reviews', "SELECT COUNT(*) AS n FROM reviews", 'n'),
+                    ('chatbot_messages', "SELECT COUNT(*) AS n FROM chatbot_messages", 'n'),
+                    ('chatbot_responses', "SELECT COUNT(*) AS n FROM chatbot_responses", 'n'),
+                ]:
+                    cur.execute(sql)
+                    r = cur.fetchone()
+                    counts[name] = int((dict(r) if is_neon else r)[key])
+                cur.execute("SELECT videos FROM tiktok_videos WHERE id = 1 LIMIT 1")
+                r = cur.fetchone()
+                v = (dict(r) if is_neon else r)['videos'] if r else '[]'
+                counts['tiktok'] = len(json.loads(v) if isinstance(v, str) else v)
+                cur.execute("SELECT data FROM locations WHERE id = 1 LIMIT 1")
+                r = cur.fetchone()
+                d = (dict(r) if is_neon else r)['data'] if r else '[]'
+                counts['locations'] = len(json.loads(d) if isinstance(d, str) else d)
+                db['conn'].close()
+                return 200, headers, json.dumps(counts, ensure_ascii=False)
             
             elif path == 'messages':
                 db = get_db_connection()
@@ -722,15 +860,6 @@ def handle_api_request(path, method, query, body_data):
                     # Return empty object instead of 500 error
                     return 200, headers, json.dumps({}, ensure_ascii=False)
             
-            elif path == 'admin-password':
-                db = get_db_connection()
-                cur = get_cursor(db)
-                cur.execute("SELECT password FROM admin_password WHERE id = 1")
-                row = cur.fetchone()
-                password = dict(row)['password'] if row and db['type'] == 'neon' else (row['password'] if row else 'admin123')
-                db['conn'].close()
-                return 200, headers, json.dumps({'password': password}, ensure_ascii=False)
-            
             elif path == 'chatbot' or path == 'chatbot-messages':
                 # Get chatbot messages
                 try:
@@ -769,6 +898,9 @@ def handle_api_request(path, method, query, body_data):
                 data = body_data if isinstance(body_data, dict) else json.loads(body_data) if isinstance(body_data, str) else {}
             except json.JSONDecodeError as e:
                 return 400, headers, json.dumps({'error': f'Invalid JSON: {str(e)}'}, ensure_ascii=False)
+            
+            if path != 'messages' and not _require_auth():
+                return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
             
             if path == 'messages':
                 try:
@@ -1031,18 +1163,33 @@ def handle_api_request(path, method, query, body_data):
                     return 500, headers, json.dumps({'error': f'Failed to save site texts: {error_msg}', 'success': False}, ensure_ascii=False)
             
             elif path == 'admin-password':
-                password = data.get('password')
-                if not password:
-                    return 400, headers, json.dumps({'error': 'Missing password'}, ensure_ascii=False)
-                
+                current = data.get('currentPassword') or data.get('current')
+                new_pass = data.get('newPassword') or data.get('password')
+                if not new_pass or len(new_pass) < 6:
+                    return 400, headers, json.dumps({'error': 'Missing or weak new password (min 6 chars)'}, ensure_ascii=False)
                 db = get_db_connection()
                 cur = get_cursor(db)
-                last_updated = datetime.now().isoformat()
-                sql = "INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = %s, last_updated = %s" if db['type'] == 'neon' else "INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)"
-                if db['type'] == 'neon':
-                    cur.execute(sql, (password, last_updated, password, last_updated))
+                is_neon = db['type'] == 'neon'
+                cur.execute("SELECT password FROM admin_password WHERE id = 1 LIMIT 1")
+                row = cur.fetchone()
+                stored = (dict(row)['password'] if row else None) if is_neon else (row['password'] if row else None)
+                if not stored:
+                    db['conn'].close()
+                    return 400, headers, json.dumps({'error': 'No password set'}, ensure_ascii=False)
+                if _looks_like_hash(stored):
+                    if not current or not _check_password(current, stored):
+                        db['conn'].close()
+                        return 401, headers, json.dumps({'error': 'Current password incorrect'}, ensure_ascii=False)
                 else:
-                    cur.execute(sql, (password, last_updated))
+                    if not current or current != stored:
+                        db['conn'].close()
+                        return 401, headers, json.dumps({'error': 'Current password incorrect'}, ensure_ascii=False)
+                hashed = _hash_password(new_pass)
+                last_updated = datetime.now().isoformat()
+                if is_neon:
+                    cur.execute("INSERT INTO admin_password (id, password, last_updated) VALUES (1, %s, %s) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password, last_updated = EXCLUDED.last_updated", (hashed, last_updated))
+                else:
+                    cur.execute("INSERT OR REPLACE INTO admin_password (id, password, last_updated) VALUES (1, ?, ?)", (hashed, last_updated))
                 db['conn'].commit()
                 db['conn'].close()
                 return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
@@ -1214,6 +1361,8 @@ def handle_api_request(path, method, query, body_data):
         
         # DELETE endpoints
         elif method == 'DELETE':
+            if not _require_auth():
+                return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
             # Check for 'all' parameter first (for clearing all items)
             if query.get('all') == '1':
                 if path == 'messages':
@@ -1403,7 +1552,7 @@ class handler(BaseHTTPRequestHandler):
                         body_data = body_str
             
             # Handle request
-            status_code, headers, body = handle_api_request(path, method, query, body_data)
+            status_code, headers, body = handle_api_request(path, method, query, body_data, self.headers)
             
             # Send response
             self.send_response(status_code)

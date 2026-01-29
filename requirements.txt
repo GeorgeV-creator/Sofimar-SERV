@@ -1,2 +1,4 @@
-psycopg2-binary
-openai
+psycopg2-binary==2.9.9
+openai==1.12.0
+PyJWT==2.8.0
+Werkzeug==3.0.1

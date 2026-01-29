@@ -5,11 +5,8 @@ const API_BASE_URL = window.location.hostname.includes('vercel.app') || window.l
     ? `${window.location.protocol}//${window.location.hostname}/api`
     : `http://${window.location.hostname}:8001/api`;
 
-// Default credentials (în producție, ar trebui să fie pe server)
-const DEFAULT_USERNAME = 'admin';
-const DEFAULT_PASSWORD = 'admin123';
-
 // Storage keys
+const STORAGE_KEY_TOKEN = 'sofimar_admin_token';
 const STORAGE_KEY_MESSAGES = 'sofimar_contact_messages';
 const STORAGE_KEY_CHATBOT_MESSAGES = 'sofimar_chatbot_messages';
 const STORAGE_KEY_VIDEOS = 'sofimar_tiktok_videos';
@@ -21,21 +18,57 @@ const STORAGE_KEY_AUTH = 'sofimar_admin_auth';
 const STORAGE_KEY_PASSWORD = 'sofimar_admin_password';
 const STORAGE_KEY_SITE_TEXTS = 'sofimar_site_texts';
 
-// Initialize - load only essential data first
+function getToken() { return localStorage.getItem(STORAGE_KEY_TOKEN); }
+function setToken(t) { localStorage.setItem(STORAGE_KEY_TOKEN, t); localStorage.setItem(STORAGE_KEY_AUTH, 'true'); }
+function clearToken() { localStorage.removeItem(STORAGE_KEY_TOKEN); localStorage.removeItem(STORAGE_KEY_AUTH); }
+
+function showSpinner(show) {
+    const el = document.getElementById('adminSpinner');
+    if (el) el.style.display = show ? 'flex' : 'none';
+}
+
+async function apiRequest(endpoint, opts = {}) {
+    const token = getToken();
+    const method = (opts.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...opts.headers };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const config = { method, headers };
+    if (opts.body != null && method !== 'GET') config.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+    const res = await fetch(`${API_BASE_URL}/${endpoint}`, config);
+    if (res.status === 401) {
+        clearToken();
+        showLogin();
+        if (typeof opts.on401 === 'function') opts.on401(); else alert('Sesiune expirată. Te rugăm să te loghezi din nou.');
+        return null;
+    }
+    return res;
+}
+
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     initializeEventListeners();
-    // Load only statistics initially, other data will load on tab switch (lazy loading)
-    updateStatistics().catch(err => console.error('Error loading statistics:', err));
 });
 
-// Authentication
-function checkAuth() {
-    const auth = localStorage.getItem(STORAGE_KEY_AUTH);
-    if (auth === 'true') {
-        showDashboard();
-    } else {
+async function checkAuth() {
+    const token = getToken();
+    if (!token) { showLogin(); return; }
+    showSpinner(true);
+    try {
+        const res = await apiRequest('validate');
+        if (!res) return;
+        if (res.ok) {
+            showDashboard();
+            updateStatistics().catch(() => {});
+        } else {
+            clearToken();
+            showLogin();
+        }
+    } catch (e) {
+        clearToken();
         showLogin();
+    } finally {
+        showSpinner(false);
     }
 }
 
@@ -47,62 +80,55 @@ function showLogin() {
 function showDashboard() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminDashboard').style.display = 'block';
-    loadData();
 }
 
 async function login(username, password) {
-    if (username !== DEFAULT_USERNAME) {
-        return false;
-    }
-    
+    showSpinner(true);
+    const errEl = document.getElementById('loginError');
     try {
-        // Try to get password from API
-        const response = await fetch(`${API_BASE_URL}/admin-password`);
-        if (response.ok) {
-            const result = await response.json();
-            const storedPassword = result.password || DEFAULT_PASSWORD;
-            if (password === storedPassword) {
-                localStorage.setItem(STORAGE_KEY_AUTH, 'true');
-                showDashboard();
-                return true;
-            }
+        const res = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: (username || '').trim(), password: password || '' })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.token) {
+            errEl.textContent = data.error || 'Utilizator sau parolă incorectă!';
+            errEl.classList.add('show');
+            return false;
         }
-    } catch (error) {
-        console.warn('API server not available, using default password:', error);
-        // Fallback to default password if API is not available
-        if (password === DEFAULT_PASSWORD) {
-            localStorage.setItem(STORAGE_KEY_AUTH, 'true');
-            showDashboard();
-            return true;
-        }
+        setToken(data.token);
+        const v = await apiRequest('validate');
+        if (!v) return false;
+        if (!v.ok) { clearToken(); errEl.textContent = 'Validare eșuată.'; errEl.classList.add('show'); return false; }
+        errEl.textContent = '';
+        errEl.classList.remove('show');
+        showDashboard();
+        updateStatistics().catch(() => {});
+        return true;
+    } catch (e) {
+        errEl.textContent = 'Eroare de conexiune. Încearcă din nou.';
+        errEl.classList.add('show');
+        return false;
+    } finally {
+        showSpinner(false);
     }
-    return false;
 }
 
 function logout() {
-    localStorage.removeItem(STORAGE_KEY_AUTH);
+    clearToken();
     showLogin();
-    document.getElementById('loginForm').reset();
+    const f = document.getElementById('loginForm');
+    if (f) f.reset();
 }
 
 // Event Listeners
 function initializeEventListeners() {
-    // Login form
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('loginError');
-            
-            if (await login(username, password)) {
-                errorDiv.textContent = '';
-                errorDiv.classList.remove('show');
-            } else {
-                errorDiv.textContent = 'Utilizator sau parolă incorectă!';
-                errorDiv.classList.add('show');
-            }
+            await login(document.getElementById('username').value, document.getElementById('password').value);
         });
     }
 
@@ -435,36 +461,34 @@ function initializeEventListeners() {
     });
 }
 
-// Tab switching with lazy loading
-function switchTab(tabName) {
-    // Remove active class from all tabs and contents
+async function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    const tabEl = document.getElementById(`${tabName}Tab`);
+    if (tabBtn) tabBtn.classList.add('active');
+    if (tabEl) tabEl.classList.add('active');
 
-    // Add active class to selected tab
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}Tab`).classList.add('active');
-
-    // Load data for the tab only when it's opened (lazy loading for performance)
-    if (tabName === 'messages') {
-        loadMessages().catch(err => console.error('Error loading messages:', err));
-    } else if (tabName === 'chatbot') {
-        loadChatbotMessages().catch(err => console.error('Error loading chatbot messages:', err));
-    } else if (tabName === 'locations') {
-        loadLocations();
-    } else if (tabName === 'tiktok') {
-        loadTikTokVideos();
-    } else if (tabName === 'certificates') {
-        loadCertificates();
-    } else if (tabName === 'partners') {
-        loadPartners();
-    } else if (tabName === 'reviews') {
-        loadReviewsAdmin();
-    } else if (tabName === 'chatbot-responses') {
-        loadChatbotResponsesAdmin();
-    } else if (tabName === 'settings') {
-        // Settings tab - no action needed
-        console.log('Settings tab opened');
+    const loads = {
+        messages: () => loadMessages(),
+        chatbot: () => loadChatbotMessages(),
+        locations: () => loadLocations(),
+        tiktok: () => loadTikTokVideos(),
+        certificates: () => loadCertificates(),
+        partners: () => loadPartners(),
+        reviews: () => loadReviewsAdmin(),
+        'chatbot-responses': () => loadChatbotResponsesAdmin()
+    };
+    const load = loads[tabName];
+    if (load) {
+        showSpinner(true);
+        try {
+            await load();
+        } catch (e) {
+            console.error('Tab load error:', e);
+        } finally {
+            showSpinner(false);
+        }
     }
 }
 
@@ -531,21 +555,10 @@ async function loadMessages() {
 }
 
 async function getMessages() {
-    try {
-        // Try to fetch from API server
-        console.log('Fetching messages from API...');
-        const response = await fetch(`${API_BASE_URL}/messages`);
-        if (response.ok) {
-            const messages = await response.json();
-            console.log('Messages loaded from API:', messages.length);
-            return Array.isArray(messages) ? messages : [];
-        }
-        console.warn('API response not OK:', response.status);
-    } catch (error) {
-        console.error('API server not available, messages not loaded:', error);
-    }
-
-    return [];
+    const res = await apiRequest('messages');
+    if (!res || !res.ok) return [];
+    const messages = await res.json().catch(() => []);
+    return Array.isArray(messages) ? messages : [];
 }
 
 async function saveMessages(messages) {
@@ -554,14 +567,8 @@ async function saveMessages(messages) {
 }
 
 async function clearMessages() {
-    try {
-        // Try to delete from API server
-        await fetch(`${API_BASE_URL}/messages?all=1`, {
-            method: 'DELETE'
-        });
-    } catch (error) {
-        console.error('API server not available, messages not cleared:', error);
-    }
+    const res = await apiRequest('messages?all=1', { method: 'DELETE' });
+    if (!res) return;
     await loadMessages();
     updateStatistics();
 }
@@ -571,16 +578,9 @@ async function deleteMessage(index) {
     const messageToDelete = messages[index];
     
     if (messageToDelete && messageToDelete.id) {
-        try {
-            // Try to delete from API server
-            await fetch(`${API_BASE_URL}/messages?id=${messageToDelete.id}`, {
-                method: 'DELETE'
-            });
-        } catch (error) {
-            console.error('API server not available, message not deleted:', error);
-            alert('Eroare: serverul nu este disponibil. Mesajul nu a fost șters.');
-            return;
-        }
+        const res = await apiRequest(`messages?id=${encodeURIComponent(messageToDelete.id)}`, { method: 'DELETE' });
+        if (!res) return;
+        if (!res.ok) { alert('Eroare: mesajul nu a fost șters.'); return; }
     }
     await loadMessages();
     updateStatistics();
@@ -672,44 +672,20 @@ async function loadChatbotMessages() {
 }
 
 async function getChatbotMessages() {
-    try {
-        // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/chatbot`);
-        if (response.ok) {
-            const messages = await response.json();
-            console.log('Retrieved chatbot messages from API:', messages);
-            return Array.isArray(messages) ? messages : [];
-        }
-    } catch (error) {
-        console.error('API server not available, chatbot messages not loaded:', error);
-    }
-
-    return [];
+    const res = await apiRequest('chatbot');
+    if (!res || !res.ok) return [];
+    const messages = await res.json().catch(() => []);
+    return Array.isArray(messages) ? messages : [];
 }
 
 async function clearChatbotMessages() {
-    if (!confirm('Ești sigur că vrei să ștergi toate conversațiile chatbot-ului?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/chatbot?all=1`, {
-            method: 'DELETE'
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API error response:', response.status, errorText);
-            throw new Error(`API error: ${response.status}`);
-        }
-        
-        await loadChatbotMessages();
-        updateStatistics();
-        alert('Toate conversațiile au fost șterse cu succes!');
-    } catch (error) {
-        console.error('API server not available, chatbot messages not cleared:', error);
-        alert('Eroare: serverul nu este disponibil. Conversațiile nu au fost șterse.');
-    }
+    if (!confirm('Ești sigur că vrei să ștergi toate conversațiile chatbot-ului?')) return;
+    const res = await apiRequest('chatbot?all=1', { method: 'DELETE' });
+    if (!res) return;
+    if (!res.ok) { alert('Eroare: conversațiile nu au fost șterse.'); return; }
+    await loadChatbotMessages();
+    updateStatistics();
+    alert('Toate conversațiile au fost șterse cu succes!');
 }
 
 async function deleteChatbotConversation(index) {
@@ -761,27 +737,16 @@ async function deleteChatbotConversation(index) {
     }
 
     try {
-        // Delete all messages in the conversation
-        const deletePromises = idsToDelete.map(id => 
-            fetch(`${API_BASE_URL}/chatbot?id=${encodeURIComponent(id)}`, {
-                method: 'DELETE'
-            }).then(async (response) => {
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API error: ${response.status} - ${errorText}`);
-                }
-                return response.json();
-            })
-        );
-        
-        await Promise.all(deletePromises);
-        
+        for (const id of idsToDelete) {
+            const res = await apiRequest(`chatbot?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+            if (!res) return;
+            if (!res.ok) throw new Error('Delete failed');
+        }
         await loadChatbotMessages();
         updateStatistics();
         alert('Conversația a fost ștearsă cu succes!');
-    } catch (error) {
-        console.error('Error deleting conversation:', error);
-        alert('Eroare: serverul nu este disponibil. Conversația nu a fost ștearsă.');
+    } catch (e) {
+        alert('Eroare: conversația nu a fost ștearsă.');
     }
 }
 
@@ -825,10 +790,9 @@ async function loadLocations() {
 
 async function getLocations() {
     try {
-        const response = await fetch(`${API_BASE_URL}/locations`);
-        if (response.ok) {
-            const locations = await response.json();
-            // Always return the array from API, even if empty (don't override with defaults)
+        const res = await apiRequest('locations');
+        if (res && res.ok) {
+            const locations = await res.json();
             if (Array.isArray(locations)) {
                 return locations;
             }
@@ -897,28 +861,12 @@ function getDefaultLocations() {
 }
 
 async function saveLocations(locations) {
-    try {
-        console.log('📡 Saving locations:', locations.length, 'locations');
-        const response = await fetch(`${API_BASE_URL}/locations`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ locations })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error('❌ API error response:', response.status, errorText);
-            throw new Error(`Failed to save locations: ${response.status} ${errorText}`);
-        }
-        
-        const result = await response.json();
-        console.log('✅ Locations saved successfully:', result);
-    } catch (error) {
-        console.error('❌ Error saving locations:', error);
-        alert(`Eroare: ${error.message || 'serverul nu este disponibil'}. Locațiile nu au fost salvate.`);
-        throw error;
+    const res = await apiRequest('locations', { method: 'POST', body: { locations } });
+    if (!res) return;
+    if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        alert(`Eroare: locațiile nu au fost salvate. ${t || res.status}`);
+        throw new Error('Save failed');
     }
 }
 
@@ -1185,36 +1133,16 @@ async function loadTikTokVideos() {
 }
 
 async function getTikTokVideos() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tiktok-videos`);
-        if (response.ok) {
-            const videos = await response.json();
-            return Array.isArray(videos) ? videos : [];
-        }
-    } catch (error) {
-        console.error('API server not available:', error);
-    }
-    // Default videos if API fails
-    return ['7567003645250702614', '7564125179761167638', '7556587113244937475'];
+    const res = await apiRequest('tiktok-videos');
+    if (!res || !res.ok) return ['7567003645250702614', '7564125179761167638', '7556587113244937475'];
+    const videos = await res.json().catch(() => []);
+    return Array.isArray(videos) ? videos : ['7567003645250702614', '7564125179761167638', '7556587113244937475'];
 }
 
 async function saveTikTokVideos(videos) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tiktok-videos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ videos })
-        });
-        if (!response.ok) {
-            throw new Error('Failed to save videos');
-        }
-    } catch (error) {
-        console.error('Error saving TikTok videos:', error);
-        alert('Eroare: serverul nu este disponibil. Video-urile nu au fost salvate.');
-        throw error;
-    }
+    const res = await apiRequest('tiktok-videos', { method: 'POST', body: { videos } });
+    if (!res) return;
+    if (!res.ok) throw new Error('Failed to save videos');
 }
 
 async function addTikTokVideo(videoId) {
@@ -1296,19 +1224,10 @@ async function loadCertificates() {
 }
 
 async function getCertificates() {
-    try {
-        // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/certificates`);
-        if (response.ok) {
-            const certificates = await response.json();
-            console.log('Retrieved certificates from API:', certificates.length);
-            return Array.isArray(certificates) ? certificates : [];
-        }
-    } catch (error) {
-        console.error('API server not available, certificates not loaded:', error);
-    }
-
-    return [];
+    const res = await apiRequest('certificates');
+    if (!res || !res.ok) return [];
+    const certificates = await res.json().catch(() => []);
+    return Array.isArray(certificates) ? certificates : [];
 }
 
 function saveCertificates(certificates) {
@@ -1317,51 +1236,20 @@ function saveCertificates(certificates) {
 }
 
 async function addCertificate(title, description, image, type = 'certificat') {
-    // Create new certificate object
     const newCertificate = { title, description, image, type };
-    console.log('🔄 Adding new certificate:', { title, type, imageLength: image ? image.length : 0 });
-    
     try {
-        // Try to save to API server
-        const url = `${API_BASE_URL}/certificates`;
-        console.log('📡 Sending POST request to:', url);
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(newCertificate)
-        });
-        
-        console.log('📥 API response status:', response.status, response.statusText);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Certificate saved to API:', result);
-        } else {
-            // Get error details from response
-            let errorText = '';
-            try {
-                errorText = await response.text();
-                console.error('❌ API error response:', response.status, errorText);
-            } catch (e) {
-                console.error('❌ Could not read error response:', e);
-            }
-            throw new Error(`API save failed: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+        const res = await apiRequest('certificates', { method: 'POST', body: newCertificate });
+        if (!res) return;
+        if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            throw new Error(`API save failed: ${res.status} ${t || ''}`);
         }
-    } catch (error) {
-        console.error('❌ Error saving certificate:', error);
-        const errorMessage = error.message || 'serverul nu este disponibil';
-        alert(`Eroare: ${errorMessage}. Certificatul nu a fost salvat.`);
+    } catch (e) {
+        alert(`Eroare: ${e.message || 'serverul nu este disponibil'}. Certificatul nu a fost salvat.`);
         return;
     }
-    
-    // Reload display
     await loadCertificates();
     updateStatistics();
-    
-    // Dispatch event to update certificate page if open
     window.dispatchEvent(new CustomEvent('certificatesUpdated'));
 }
 
@@ -1370,24 +1258,13 @@ async function deleteCertificate(certId, index) {
         return;
     }
 
-    // Try to delete from API server if ID exists
-    if (certId && !certId.startsWith('temp-')) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/certificates?id=${certId}`, {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                console.log('Certificate deleted from API');
-            }
-        } catch (error) {
-            console.error('API server not available, certificate not deleted:', error);
-            alert('Eroare: serverul nu este disponibil. Certificatul nu a fost șters.');
-            return;
-        }
-    } else {
+    if (!certId || certId.startsWith('temp-')) {
         alert('Eroare: certificatul nu are ID valid pentru ștergere.');
         return;
     }
+    const res = await apiRequest(`certificates?id=${encodeURIComponent(certId)}`, { method: 'DELETE' });
+    if (!res) return;
+    if (!res.ok) { alert('Eroare: certificatul nu a fost șters.'); return; }
 
     await loadCertificates();
     updateStatistics();
@@ -1439,33 +1316,11 @@ async function loadPartners() {
 }
 
 async function getPartners() {
-    try {
-        // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/partners`);
-        if (response.ok) {
-            const partners = await response.json();
-            console.log('Retrieved partners from API:', partners);
-            // Check if response has error
-            if (partners && partners.error) {
-                console.warn('⚠️ API returned error');
-                throw new Error('API returned error');
-            }
-            // Ensure it's an array
-            if (Array.isArray(partners)) {
-                console.log('✅ Partners from API:', partners.length);
-                return partners;
-            } else {
-                console.warn('⚠️ Partners from API is not an array');
-                throw new Error('Partners is not an array');
-            }
-        } else {
-            throw new Error('API response not OK: ' + response.status);
-        }
-    } catch (error) {
-        console.error('API server not available, partners not loaded:', error);
-    }
-
-    return [];
+    const res = await apiRequest('partners');
+    if (!res || !res.ok) return [];
+    const partners = await res.json().catch(() => []);
+    if (partners && partners.error) return [];
+    return Array.isArray(partners) ? partners : [];
 }
 
 function savePartners(partners) {
@@ -1474,82 +1329,33 @@ function savePartners(partners) {
 }
 
 async function addPartner(title, image) {
-    // Create new partner object
     const newPartner = { title, image };
-    console.log('🔄 Adding new partner:', { title, imageLength: image ? image.length : 0 });
-    
     try {
-        // Try to save to API server
-        console.log('📡 Attempting to save partner to API...');
-        const response = await fetch(`${API_BASE_URL}/partners`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(newPartner)
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Partner saved to API:', result);
-            // Check if result has error
-            if (result && result.error) {
-                console.warn('⚠️ API returned error');
-                throw new Error('API returned error: ' + result.error);
-            }
-            // Update the partner with the ID from API
-            if (result && result.id) {
-                newPartner.id = result.id;
-            }
-        } else {
-            const errorText = await response.text();
-            console.error('❌ API save failed:', response.status, errorText);
-            throw new Error('API save failed: ' + response.status);
-        }
-    } catch (error) {
-        console.error('API server not available, partner not saved:', error);
-        alert('Eroare: serverul nu este disponibil. Partenerul nu a fost salvat.');
+        const res = await apiRequest('partners', { method: 'POST', body: newPartner });
+        if (!res) return;
+        if (!res.ok) throw new Error('API save failed: ' + res.status);
+        const result = await res.json().catch(() => ({}));
+        if (result && result.id) newPartner.id = result.id;
+    } catch (e) {
+        alert('Eroare: partenerul nu a fost salvat.');
         return;
     }
-    
-    // Reload display
-    console.log('🔄 Reloading partners display...');
     await loadPartners();
     updateStatistics();
-    
-    // Dispatch event to update partners section if open
     window.dispatchEvent(new CustomEvent('partnersUpdated'));
-    console.log('✅ Partner added successfully!');
 }
 
 async function deletePartner(partnerId, index) {
-    if (!confirm('Ești sigur că vrei să ștergi acest partner?')) {
-        return;
-    }
-    
-    // Try to delete from API server if ID exists
-    if (partnerId && !partnerId.startsWith('temp-')) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/partners?id=${partnerId}`, {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                console.log('Partner deleted from API');
-            }
-        } catch (error) {
-            console.error('API server not available, partner not deleted:', error);
-            alert('Eroare: serverul nu este disponibil. Partenerul nu a fost șters.');
-            return;
-        }
-    } else {
+    if (!confirm('Ești sigur că vrei să ștergi acest partner?')) return;
+    if (!partnerId || partnerId.startsWith('temp-')) {
         alert('Eroare: partenerul nu are ID valid pentru ștergere.');
         return;
     }
-
+    const res = await apiRequest(`partners?id=${encodeURIComponent(partnerId)}`, { method: 'DELETE' });
+    if (!res) return;
+    if (!res.ok) { alert('Eroare: partenerul nu a fost șters.'); return; }
     await loadPartners();
     updateStatistics();
-    
-    // Dispatch event to update partners section if open
     window.dispatchEvent(new CustomEvent('partnersUpdated'));
 }
 
@@ -1574,67 +1380,19 @@ function closePartnerModal() {
     document.getElementById('partnerImagePreview').innerHTML = '';
 }
 
-// Statistics
 async function updateStatistics() {
-    const messages = await getMessages();
-    const chatbotMessages = await getChatbotMessages();
-    const videos = await getTikTokVideos();
-    const certificates = await getCertificates();
-    const partners = await getPartners();
-    
-    // Count chatbot conversations (user messages)
-    const chatbotConversations = chatbotMessages.filter(msg => msg.type === 'user').length;
-    
-    // Count locations
-    const locations = await getLocations();
-    const totalLocations = locations.length;
-
-    document.getElementById('totalMessages').textContent = messages.length;
-    document.getElementById('totalVideos').textContent = videos.length;
-    document.getElementById('totalCertificates').textContent = certificates.length;
-    document.getElementById('totalChatbotMessages').textContent = chatbotConversations;
-    
-    // Update locations count if element exists
-    const totalLocationsEl = document.getElementById('totalLocations');
-    if (totalLocationsEl) {
-        totalLocationsEl.textContent = totalLocations;
-    }
-    
-    // Update partners count
-    const totalPartnersEl = document.getElementById('totalPartners');
-    if (totalPartnersEl) {
-        totalPartnersEl.textContent = partners.length;
-    }
-    
-    // Update reviews count
-    try {
-        const reviews = await getReviews();
-        const totalReviewsEl = document.getElementById('totalReviews');
-        if (totalReviewsEl) {
-            totalReviewsEl.textContent = reviews.length;
-        }
-    } catch (error) {
-        console.warn('Could not load reviews count:', error);
-        const totalReviewsEl = document.getElementById('totalReviews');
-        if (totalReviewsEl) {
-            totalReviewsEl.textContent = '0';
-        }
-    }
-    
-    // Update chatbot responses count
-    try {
-        const chatbotResponses = await getChatbotResponses();
-        const totalChatbotResponsesEl = document.getElementById('totalChatbotResponses');
-        if (totalChatbotResponsesEl) {
-            totalChatbotResponsesEl.textContent = chatbotResponses.length;
-        }
-    } catch (error) {
-        console.warn('Could not load chatbot responses count:', error);
-        const totalChatbotResponsesEl = document.getElementById('totalChatbotResponses');
-        if (totalChatbotResponsesEl) {
-            totalChatbotResponsesEl.textContent = '0';
-        }
-    }
+    const res = await apiRequest('stats');
+    if (!res || !res.ok) return;
+    const c = await res.json().catch(() => ({}));
+    const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+    set('totalMessages', c.messages ?? 0);
+    set('totalVideos', c.tiktok ?? 0);
+    set('totalCertificates', c.certificates ?? 0);
+    set('totalChatbotMessages', c.chatbot_messages ?? 0);
+    set('totalLocations', c.locations ?? 0);
+    set('totalPartners', c.partners ?? 0);
+    set('totalReviews', c.reviews ?? 0);
+    set('totalChatbotResponses', c.chatbot_responses ?? 0);
 }
 
 // Modals
@@ -1819,43 +1577,22 @@ async function changePassword() {
     }
 
     try {
-        // Get current password from API
-        const getResponse = await fetch(`${API_BASE_URL}/admin-password`);
-        if (!getResponse.ok) {
-            throw new Error('Failed to get current password');
-        }
-        const result = await getResponse.json();
-        const storedPassword = result.password || DEFAULT_PASSWORD;
-
-        if (currentPassword !== storedPassword) {
-            errorDiv.textContent = 'Parola curentă este incorectă!';
+        const res = await apiRequest('admin-password', {
+            method: 'POST',
+            body: { currentPassword, newPassword }
+        });
+        if (!res) return;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            errorDiv.textContent = data.error || 'Parola nu a fost schimbată.';
             errorDiv.classList.add('show');
             return;
         }
-
-        // Save new password to API
-        const saveResponse = await fetch(`${API_BASE_URL}/admin-password`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ password: newPassword })
-        });
-
-        if (!saveResponse.ok) {
-            throw new Error('Failed to save password');
-        }
-
         successDiv.textContent = 'Parola a fost schimbată cu succes!';
         successDiv.classList.add('show');
-        
         document.getElementById('changePasswordForm').reset();
-        
-        setTimeout(() => {
-            successDiv.classList.remove('show');
-        }, 3000);
-    } catch (error) {
-        console.error('Error changing password:', error);
+        setTimeout(() => successDiv.classList.remove('show'), 3000);
+    } catch (e) {
         errorDiv.textContent = 'Eroare: serverul nu este disponibil. Parola nu a fost schimbată.';
         errorDiv.classList.add('show');
     }
@@ -1943,32 +1680,11 @@ async function exportMessages() {
 
 // Site Texts Management
 async function getSiteTexts() {
-    console.log('🔍 getSiteTexts() called');
-    
-    try {
-        // Try to fetch from API server
-        const response = await fetch(`${API_BASE_URL}/site-texts`);
-        if (response.ok) {
-            const texts = await response.json();
-            console.log('📡 Got texts from API:', texts);
-            
-            // Check if API returned an error object
-            if (texts && texts.error) {
-                console.warn('⚠️ API returned error:', texts.error);
-            } else if (texts && typeof texts === 'object') {
-                console.log('✅ Returning texts from API, keys:', Object.keys(texts).length);
-                return texts;
-            }
-        } else {
-            console.warn('⚠️ API response not OK, status:', response.status);
-        }
-    } catch (error) {
-        console.warn('⚠️ API server not available, site texts not loaded:', error.message);
-    }
-    
-    // Return empty object - no defaults
-    console.log('⚠️ Returning empty object - no texts found');
-    return {};
+    const res = await apiRequest('site-texts');
+    if (!res || !res.ok) return {};
+    const texts = await res.json().catch(() => ({}));
+    if (texts && texts.error) return {};
+    return (texts && typeof texts === 'object') ? texts : {};
 }
 
 function saveSiteTexts() {
@@ -2006,54 +1722,27 @@ function saveSiteTexts() {
         return;
     }
     
-    // Save to API
-    fetch(`${API_BASE_URL}/site-texts`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(texts)
-    }).then(response => {
-        if (response.ok) {
-            console.log('Site texts saved to API');
-            return response.json();
-        } else {
-            throw new Error('API response not OK');
-        }
-    }).catch(error => {
-        console.error('API server not available, site texts not saved:', error);
-        const errorDiv = document.getElementById('siteTextsError');
-        if (errorDiv) {
-            errorDiv.textContent = 'Eroare: serverul nu este disponibil. Textele nu au fost salvate.';
-            errorDiv.classList.add('show');
-        }
-    });
-    
-    // Show success message
     const successDiv = document.getElementById('siteTextsSuccess');
     const errorDiv = document.getElementById('siteTextsError');
-    if (successDiv) {
-        successDiv.textContent = 'Textele au fost salvate cu succes!';
-        successDiv.style.display = 'block';
+    const runSave = async () => {
+        const res = await apiRequest('site-texts', { method: 'POST', body: texts });
+        if (!res) {
+            if (errorDiv) { errorDiv.textContent = 'Sesiune expirată. Textele nu au fost salvate.'; errorDiv.classList.add('show'); }
+            return;
+        }
+        if (!res.ok) {
+            if (errorDiv) { errorDiv.textContent = 'Eroare: textele nu au fost salvate.'; errorDiv.classList.add('show'); }
+            return;
+        }
+        if (successDiv) { successDiv.textContent = 'Textele au fost salvate cu succes!'; successDiv.style.display = 'block'; successDiv.classList.add('show'); }
         if (errorDiv) errorDiv.style.display = 'none';
-        
-        setTimeout(() => {
-            successDiv.style.display = 'none';
-        }, 3000);
-    }
-    
-    // Update the form fields with the saved values (so admin shows what was saved)
-    // This ensures the admin form reflects the saved values, not the old HTML content
-    setTimeout(() => {
-        console.log('🔄 Refreshing form with saved values...');
+        setTimeout(() => { if (successDiv) successDiv.style.display = 'none'; }, 3000);
         populateFormFields(texts);
-    }, 150);
-    
-    // Dispatch event to update index.html if open (same tab only)
-    // For cross-tab updates, index.html will poll the API periodically
-    setTimeout(() => {
         window.dispatchEvent(new CustomEvent('siteTextsUpdated'));
-    }, 100);
+    };
+    runSave().catch(() => {
+        if (errorDiv) { errorDiv.textContent = 'Eroare: serverul nu este disponibil. Textele nu au fost salvate.'; errorDiv.classList.add('show'); }
+    });
 }
 
 // Helper function to populate form fields with text values
@@ -2601,16 +2290,12 @@ setInterval(() => {
 
 // Reviews Management
 async function loadReviewsAdmin() {
+    const reviewsList = document.getElementById('reviewsListAdmin') || document.getElementById('reviewsList');
     try {
-        const response = await fetch(`${API_BASE_URL}/reviews`);
-        if (!response.ok) {
-            throw new Error('Failed to load reviews');
-        }
-        const reviews = await response.json();
-        
-        const reviewsList = document.getElementById('reviewsListAdmin');
+        const res = await apiRequest('reviews');
+        if (!res || !res.ok) throw new Error('Failed to load reviews');
+        const reviews = await res.json();
         if (!reviewsList) return;
-        
         if (!Array.isArray(reviews) || reviews.length === 0) {
             reviewsList.innerHTML = '<p class="empty-state">Nu există recenzii adăugate. Folosește butonul "Adaugă Recenzie" pentru a adăuga una nouă.</p>';
             return;
@@ -2641,26 +2326,16 @@ async function loadReviewsAdmin() {
                 </div>
             `;
         }).join('');
-    } catch (error) {
-        console.error('Error loading reviews:', error);
-        const reviewsList = document.getElementById('reviewsListAdmin');
-        if (reviewsList) {
-            reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
-        }
+    } catch (e) {
+        if (reviewsList) reviewsList.innerHTML = '<p class="empty-state">Eroare la încărcarea recenziilor.</p>';
     }
 }
 
 async function getReviews() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/reviews`);
-        if (response.ok) {
-            const reviews = await response.json();
-            return Array.isArray(reviews) ? reviews : [];
-        }
-    } catch (error) {
-        console.error('Error fetching reviews:', error);
-    }
-    return [];
+    const res = await apiRequest('reviews');
+    if (!res || !res.ok) return [];
+    const reviews = await res.json().catch(() => []);
+    return Array.isArray(reviews) ? reviews : [];
 }
 
 function openReviewModal(index = null) {
@@ -2721,22 +2396,12 @@ async function saveReview() {
             reviewData.id = editId;
         }
         
-        const response = await fetch(`${API_BASE_URL}/reviews`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(reviewData)
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to save review');
-        }
-        
+        const res = await apiRequest('reviews', { method: 'POST', body: reviewData });
+        if (!res) return;
+        if (!res.ok) throw new Error('Failed to save review');
         await loadReviewsAdmin();
         closeReviewModal();
-    } catch (error) {
-        console.error('Error saving review:', error);
+    } catch (e) {
         alert('Eroare la salvarea recenziei. Te rugăm să încerci din nou.');
     }
 }
@@ -2747,17 +2412,11 @@ async function deleteReview(reviewId, index) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/reviews?id=${reviewId}`, {
-            method: 'DELETE'
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete review');
-        }
-        
+        const res = await apiRequest(`reviews?id=${encodeURIComponent(reviewId)}`, { method: 'DELETE' });
+        if (!res) return;
+        if (!res.ok) throw new Error('Failed to delete review');
         await loadReviewsAdmin();
-    } catch (error) {
-        console.error('Error deleting review:', error);
+    } catch (e) {
         alert('Eroare la ștergerea recenziei. Te rugăm să încerci din nou.');
     }
 }
@@ -2809,11 +2468,9 @@ document.addEventListener('DOMContentLoaded', () => {
             statusDiv.textContent = 'Se sincronizează recenziile de pe Google...';
             
             try {
-                const response = await fetch(`${API_BASE_URL}/sync-google-reviews`, {
-                    method: 'GET'
-                });
-                
-                const result = await response.json();
+                const response = await apiRequest('sync-google-reviews');
+                if (!response) { btn.disabled = false; btn.textContent = '🔄 Sincronizează de pe Google'; statusDiv.style.display = 'none'; return; }
+                const result = await response.json().catch(() => ({}));
                 
                 if (result.error) {
                     statusDiv.style.background = '#f8d7da';
@@ -2882,32 +2539,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Get chatbot responses
 async function getChatbotResponses() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/chatbot-responses`);
-        if (!response.ok) {
-            throw new Error('Failed to load chatbot responses');
-        }
-        const responses = await response.json();
-        // Return as array of objects for counting
-        return Object.keys(responses || {}).map(keyword => ({ keyword, response: responses[keyword] }));
-    } catch (error) {
-        console.error('Error fetching chatbot responses:', error);
-        return [];
-    }
+    const res = await apiRequest('chatbot-responses');
+    if (!res || !res.ok) return [];
+    const responses = await res.json().catch(() => ({}));
+    return Object.keys(responses || {}).map(keyword => ({ keyword, response: responses[keyword] }));
 }
 
 // Chatbot Responses Management Functions
 async function loadChatbotResponsesAdmin() {
+    const responsesList = document.getElementById('chatbotResponsesList');
+    if (!responsesList) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/chatbot-responses`);
-        if (!response.ok) {
-            throw new Error('Failed to load chatbot responses');
-        }
-        const responses = await response.json();
-        
-        const responsesList = document.getElementById('chatbotResponsesList');
-        if (!responsesList) return;
-        
+        const res = await apiRequest('chatbot-responses');
+        if (!res || !res.ok) throw new Error('Failed to load');
+        const responses = await res.json();
         if (!responses || Object.keys(responses).length === 0) {
             responsesList.innerHTML = '<p class="empty-state">Nu există răspunsuri configurate. Folosește butonul "Adaugă Răspuns" pentru a adăuga unul nou.</p>';
             return;
@@ -2944,16 +2589,18 @@ function openChatbotResponseModal(keyword = null) {
     const title = document.getElementById('chatbotResponseModalTitle');
     
     if (keyword) {
-        fetch(`${API_BASE_URL}/chatbot-responses`)
-            .then(response => response.json())
-            .then(responses => {
-                if (responses[keyword]) {
-                    title.textContent = 'Editează Răspuns Chatbot';
-                    document.getElementById('chatbotKeyword').value = keyword;
-                    document.getElementById('chatbotKeyword').disabled = true;
-                    document.getElementById('chatbotResponse').value = responses[keyword];
-                }
-            });
+        (async () => {
+            const res = await apiRequest('chatbot-responses');
+            if (!res || !res.ok) return;
+            const responses = await res.json().catch(() => ({}));
+            if (responses && responses[keyword]) {
+                title.textContent = 'Editează Răspuns Chatbot';
+                const kw = document.getElementById('chatbotKeyword');
+                const r = document.getElementById('chatbotResponse');
+                if (kw) { kw.value = keyword; kw.disabled = true; }
+                if (r) r.value = responses[keyword];
+            }
+        })();
     } else {
         title.textContent = 'Adaugă Răspuns Chatbot';
         form.reset();
@@ -2980,29 +2627,13 @@ async function saveChatbotResponse() {
     }
     
     try {
-        console.log('📡 Saving chatbot response:', { keyword, responseLength: responseText.length });
-        const response = await fetch(`${API_BASE_URL}/chatbot-responses`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ keyword, response: responseText })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error('❌ API error response:', response.status, errorText);
-            throw new Error(`Failed to save chatbot response: ${response.status} ${errorText}`);
-        }
-        
-        const result = await response.json();
-        console.log('✅ Chatbot response saved successfully:', result);
-        
+        const res = await apiRequest('chatbot-responses', { method: 'POST', body: { keyword, response: responseText } });
+        if (!res) return;
+        if (!res.ok) throw new Error('Salvare eșuată');
         await loadChatbotResponsesAdmin();
         closeChatbotResponseModal();
-    } catch (error) {
-        console.error('❌ Error saving chatbot response:', error);
-        alert(`Eroare la salvarea răspunsului: ${error.message || 'Te rugăm să încerci din nou.'}`);
+    } catch (e) {
+        alert('Eroare la salvarea răspunsului. Te rugăm să încerci din nou.');
     }
 }
 
@@ -3012,17 +2643,11 @@ async function deleteChatbotResponse(keyword) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/chatbot-responses?keyword=${encodeURIComponent(keyword)}`, {
-            method: 'DELETE'
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete chatbot response');
-        }
-        
+        const res = await apiRequest(`chatbot-responses?keyword=${encodeURIComponent(keyword)}`, { method: 'DELETE' });
+        if (!res) return;
+        if (!res.ok) throw new Error('Delete failed');
         await loadChatbotResponsesAdmin();
-    } catch (error) {
-        console.error('Error deleting chatbot response:', error);
+    } catch (e) {
         alert('Eroare la ștergerea răspunsului. Te rugăm să încerci din nou.');
     }
 }
