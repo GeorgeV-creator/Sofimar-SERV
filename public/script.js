@@ -418,11 +418,13 @@ async function loadTikTokVideos() {
             videoIds.forEach(id => carousel.innerHTML += createTikTokEmbed(id));
         }
         
-        // Load TikTok embed script if not already loaded
+        // Load TikTok embed script if not already loaded (async = non-blocking, won't block page)
         if (!document.querySelector('script[src*="tiktok.com/embed.js"]')) {
             const script = document.createElement('script');
             script.src = 'https://www.tiktok.com/embed.js';
             script.async = true;
+            script.defer = true;
+            script.onerror = () => console.warn('TikTok embed script failed to load');
             document.head.appendChild(script);
         }
         

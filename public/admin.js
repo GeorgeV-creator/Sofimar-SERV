@@ -2391,14 +2391,14 @@ async function openChatbotResponseModal(keyword = null) {
         const responses = await res.json().catch(() => ({}));
         if (responses && responses[keyword]) {
             title.textContent = 'Editează Răspuns Chatbot';
-            if (patternInput) { patternInput.value = keyword; patternInput.disabled = true; }
+            if (patternInput) { patternInput.value = keyword; patternInput.removeAttribute('readonly'); patternInput.removeAttribute('disabled'); }
             if (responseInput) responseInput.value = responses[keyword];
             if (editHidden) editHidden.value = keyword;
         }
     } else {
         title.textContent = 'Adaugă Răspuns Chatbot';
         form.reset();
-        if (patternInput) patternInput.disabled = false;
+        if (patternInput) { patternInput.removeAttribute('readonly'); patternInput.removeAttribute('disabled'); }
         if (editHidden) editHidden.value = '';
     }
     
@@ -2407,11 +2407,11 @@ async function openChatbotResponseModal(keyword = null) {
 
 function closeChatbotResponseModal() {
     const modal = document.getElementById('chatbotResponseModal');
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
     const form = document.getElementById('addChatbotResponseForm');
     if (form) form.reset();
     const patternInput = document.getElementById('chatbotPatternInput');
-    if (patternInput) patternInput.disabled = false;
+    if (patternInput) { patternInput.removeAttribute('readonly'); patternInput.removeAttribute('disabled'); }
     const editHidden = document.getElementById('chatbotEditKeyword');
     if (editHidden) editHidden.value = '';
 }
@@ -2462,14 +2462,21 @@ async function saveChatbotResponse() {
     closeChatbotResponseModal();
     
     const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const keywordChanged = isEdit && oldKeyword && keyword !== oldKeyword;
     
-    if (isEdit && oldKeyword) {
+    if (isEdit && oldKeyword && !keywordChanged) {
         const row = Array.from(list.querySelectorAll('[data-keyword]')).find(el => el.getAttribute('data-keyword') === oldKeyword);
         if (row) {
             const textEl = row.querySelector('.chatbot-response-text');
             if (textEl) textEl.textContent = responseText;
+            const kwEl = row.querySelector('.chatbot-response-keyword strong');
+            if (kwEl) kwEl.textContent = keyword;
         }
     } else {
+        if (isEdit && oldKeyword) {
+            const row = Array.from(list.querySelectorAll('[data-keyword]')).find(el => el.getAttribute('data-keyword') === oldKeyword);
+            if (row) row.remove();
+        }
         const wasEmpty = list.querySelector('.empty-state');
         const newRow = buildChatbotResponseRowHtml(keyword, responseText, attr);
         if (wasEmpty) list.innerHTML = newRow;
@@ -2477,11 +2484,15 @@ async function saveChatbotResponse() {
     }
     
     try {
-        const method = isEdit ? 'PUT' : 'POST';
-        const body = isEdit ? { keyword: oldKeyword, response: responseText } : { keyword, response: responseText };
+        if (keywordChanged && oldKeyword) {
+            await apiRequest(`chatbot-responses?keyword=${encodeURIComponent(oldKeyword)}`, { method: 'DELETE' });
+        }
+        const method = (isEdit && !keywordChanged) ? 'PUT' : 'POST';
+        const body = (isEdit && !keywordChanged) ? { keyword: oldKeyword, response: responseText } : { keyword, response: responseText };
         const res = await apiRequest('chatbot-responses', { method, body });
         if (!res || !res.ok) throw new Error('Salvare eșuată');
         if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
+        await loadChatbotResponsesAdmin();
     } catch (e) {
         await loadChatbotResponsesAdmin();
         alert('Eroare la salvarea răspunsului. Te rugăm să încerci din nou.');

@@ -257,7 +257,7 @@
     </div>
     <button class="chatbot-toggle" id="chatbotToggle"><span class="chatbot-icon">💬</span><span class="chatbot-badge">1</span></button>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
     <script is:inline>
         window.addEventListener('load', function() {
             if (typeof L === 'undefined') {
@@ -309,6 +309,6 @@
             start();
         };
     </script>
-    <script is:inline src="/script.js"></script>
+    <script is:inline src="/script.js" defer></script>
 </body>
 </html>
