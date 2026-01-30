@@ -1406,15 +1406,52 @@ function initReviewsNav() {
     const slider = document.getElementById('reviewsContainer');
     const prevBtn = document.getElementById('reviewsPrevBtn');
     const nextBtn = document.getElementById('reviewsNextBtn');
-    if (!slider || !prevBtn || !nextBtn) return;
+    const sliderWrap = document.querySelector('.reviews-slider-wrap');
+    if (!slider) return;
 
     const scrollAmount = 320;
-    prevBtn.addEventListener('click', () => {
+    if (prevBtn) prevBtn.addEventListener('click', () => {
         slider.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     });
-    nextBtn.addEventListener('click', () => {
+    if (nextBtn) nextBtn.addEventListener('click', () => {
         slider.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     });
+
+    let reviewsAutoPlayInterval = null;
+    const INTERVAL_MS = 3000;
+
+    function scrollToNextCard() {
+        const cards = slider.querySelectorAll('.review-card');
+        if (cards.length <= 1) return;
+        const maxScroll = slider.scrollWidth - slider.clientWidth;
+        if (maxScroll <= 0) return;
+        const nextPos = slider.scrollLeft + scrollAmount;
+        if (nextPos >= maxScroll) {
+            slider.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+            slider.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    }
+
+    function startAutoPlay() {
+        if (reviewsAutoPlayInterval) return;
+        reviewsAutoPlayInterval = setInterval(scrollToNextCard, INTERVAL_MS);
+    }
+
+    function stopAutoPlay() {
+        if (reviewsAutoPlayInterval) {
+            clearInterval(reviewsAutoPlayInterval);
+            reviewsAutoPlayInterval = null;
+        }
+    }
+
+    if (sliderWrap) {
+        sliderWrap.addEventListener('mouseenter', stopAutoPlay);
+        sliderWrap.addEventListener('mouseleave', startAutoPlay);
+        sliderWrap.addEventListener('touchstart', stopAutoPlay, { passive: true });
+        sliderWrap.addEventListener('touchend', () => setTimeout(startAutoPlay, 2000));
+    }
+    startAutoPlay();
 }
 
 function initReviewForm() {

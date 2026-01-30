@@ -1088,6 +1088,7 @@ body {
     padding: 20px 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    scroll-behavior: smooth;
 }
 
 .reviews-slider::-webkit-scrollbar {
