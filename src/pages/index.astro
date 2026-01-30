@@ -265,6 +265,50 @@
             }
         });
     </script>
+    <script is:inline>
+        window.initReviewsAutoplay = function() {
+            var slider = document.querySelector('.reviews-slider');
+            var wrap = document.querySelector('.reviews-slider-wrap');
+            if (!slider || !wrap) return;
+            var cards = slider.querySelectorAll('.review-card');
+            if (cards.length <= 1) return;
+
+            var intervalId = null;
+            var INTERVAL_MS = 3000;
+
+            function scrollToNext() {
+                var firstCard = slider.querySelector('.review-card');
+                if (!firstCard) return;
+                var cardWidth = firstCard.offsetWidth + 20;
+                var maxScroll = slider.scrollWidth - slider.clientWidth;
+                if (maxScroll <= 0) return;
+                var atEnd = slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 10;
+                if (atEnd) {
+                    slider.scrollLeft = 0;
+                } else {
+                    slider.scrollBy({ left: cardWidth, behavior: 'smooth' });
+                }
+            }
+
+            function start() {
+                if (intervalId) return;
+                intervalId = setInterval(scrollToNext, INTERVAL_MS);
+            }
+
+            function stop() {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            }
+
+            wrap.addEventListener('mouseenter', stop);
+            wrap.addEventListener('mouseleave', start);
+            wrap.addEventListener('touchstart', stop, { passive: true });
+            wrap.addEventListener('touchend', function() { setTimeout(start, 2000); });
+            start();
+        };
+    </script>
     <script is:inline src="/script.js"></script>
 </body>
 </html>

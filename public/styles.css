@@ -1083,12 +1083,12 @@ body {
 .reviews-slider {
     display: flex;
     overflow-x: auto;
-    scroll-snap-type: x mandatory;
     gap: 20px;
     padding: 20px 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
     scroll-behavior: smooth;
+    white-space: nowrap;
 }
 
 .reviews-slider::-webkit-scrollbar {
@@ -1145,7 +1145,6 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     transition: var(--transition);
     border: 1px solid rgba(26, 95, 63, 0.1);
-    scroll-snap-align: center;
 }
 
 .review-card:hover {
