@@ -1491,6 +1491,39 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
         
+        # PUT endpoints
+        elif method == 'PUT':
+            if not _require_auth():
+                return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+            try:
+                put_data = body_data if isinstance(body_data, dict) else json.loads(body_data) if body_data else {}
+            except json.JSONDecodeError:
+                return 400, headers, json.dumps({'error': 'Invalid JSON'}, ensure_ascii=False)
+            
+            if path == 'chatbot-responses':
+                try:
+                    keyword = (put_data.get('keyword') or '').strip().lower()
+                    response_text = (put_data.get('response') or '').strip()
+                    if not keyword or not response_text:
+                        return 400, headers, json.dumps({'error': 'Missing keyword or response'}, ensure_ascii=False)
+                    db = get_db_connection()
+                    _ensure_chatbot_responses_table(db)
+                    cur = get_cursor(db)
+                    timestamp = datetime.now().isoformat()
+                    if db['type'] == 'neon':
+                        cur.execute("UPDATE chatbot_responses SET response = %s, timestamp = %s WHERE keyword = %s", (response_text, timestamp, keyword))
+                    else:
+                        cur.execute("UPDATE chatbot_responses SET response = ?, timestamp = ? WHERE keyword = ?", (response_text, timestamp, keyword))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'success': True, 'keyword': keyword}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"❌ Error in PUT /chatbot-responses: {str(e)}\n{traceback.format_exc()}")
+                    return 500, headers, json.dumps({'error': str(e), 'success': False}, ensure_ascii=False)
+            
+            return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
+        
         # DELETE endpoints
         elif method == 'DELETE':
             if not _require_auth():
@@ -1618,6 +1651,9 @@ class handler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         self._handle_request('POST')
+    
+    def do_PUT(self):
+        self._handle_request('PUT')
     
     def do_DELETE(self):
         self._handle_request('DELETE')

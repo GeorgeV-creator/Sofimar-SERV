@@ -202,9 +202,10 @@
     <div id="chatbotResponseModal" class="modal">
         <div class="modal-content">
             <span class="modal-close">&times;</span><h2 id="chatbotResponseModalTitle">Adaugă Răspuns Chatbot</h2>
-            <form id="addChatbotResponseForm" onsubmit="event.preventDefault(); saveChatbotResponse();">
-                <div class="form-group"><label for="chatbotKeyword">Cuvânt Cheie *</label><input type="text" id="chatbotKeyword" placeholder="Ex: buna, salut, preturi" required /><small>Cuvânt sau expresie care activează acest răspuns (în lowercase)</small></div>
-                <div class="form-group"><label for="chatbotResponse">Răspuns *</label><textarea id="chatbotResponse" rows="5" placeholder="Scrie răspunsul automat aici..." required></textarea></div>
+            <form id="addChatbotResponseForm">
+                <input type="hidden" id="chatbotEditKeyword" value="" />
+                <div class="form-group"><label for="chatbotPatternInput">Cuvânt Cheie *</label><input type="text" id="chatbotPatternInput" placeholder="Ex: buna, salut, preturi" required /><small>Cuvânt sau expresie care activează acest răspuns (în lowercase)</small></div>
+                <div class="form-group"><label for="chatbotResponseInput">Răspuns *</label><textarea id="chatbotResponseInput" rows="5" placeholder="Scrie răspunsul automat aici..." required></textarea></div>
                 <button type="submit" class="btn btn-primary">Salvează</button>
             </form>
         </div>

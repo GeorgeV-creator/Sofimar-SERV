@@ -1385,14 +1385,14 @@ async function loadReviews() {
             } catch (e) {}
             return `
                 <div class="review-card">
-                    <div class="review-header">
+                    <div class="review-card-top">
                         <div class="review-avatar">${escapeHtml(initials)}</div>
-                        <div class="review-author">
+                        <div class="review-meta">
                             <h4 class="review-author-name">${escapeHtml(name)}</h4>
-                            <p class="review-date">${escapeHtml(formattedDate)}</p>
+                            <span class="review-rating">${stars}</span>
                         </div>
                     </div>
-                    <div class="review-rating">${stars}</div>
+                    <p class="review-date">${escapeHtml(formattedDate)}</p>
                     <p class="review-text">${escapeHtml(text)}</p>
                 </div>
             `;
@@ -1400,6 +1400,21 @@ async function loadReviews() {
     } catch (error) {
         reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
     }
+}
+
+function initReviewsNav() {
+    const slider = document.getElementById('reviewsContainer');
+    const prevBtn = document.getElementById('reviewsPrevBtn');
+    const nextBtn = document.getElementById('reviewsNextBtn');
+    if (!slider || !prevBtn || !nextBtn) return;
+
+    const scrollAmount = 320;
+    prevBtn.addEventListener('click', () => {
+        slider.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    });
+    nextBtn.addEventListener('click', () => {
+        slider.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    });
 }
 
 function initReviewForm() {
@@ -1458,15 +1473,16 @@ function initReviewForm() {
     });
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        loadReviews();
-        loadChatbotResponses();
-        initReviewForm();
-    });
-} else {
+function initPage() {
     loadReviews();
     loadChatbotResponses();
     initReviewForm();
+    initReviewsNav();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPage);
+} else {
+    initPage();
 }
 

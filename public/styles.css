@@ -1074,24 +1074,77 @@ body {
     background: linear-gradient(135deg, rgba(26, 95, 63, 0.05) 0%, rgba(15, 61, 40, 0.08) 100%);
 }
 
-.reviews-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+.reviews-slider-wrap {
+    position: relative;
     margin-top: 3rem;
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 0 1rem;
+    padding: 0 40px;
+}
+
+.reviews-slider {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 20px;
+    padding: 20px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.reviews-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.reviews-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: var(--transition);
+}
+
+.reviews-nav-btn:hover {
+    background: var(--primary-dark);
+}
+
+.reviews-nav-prev {
+    left: 0;
+}
+
+.reviews-nav-next {
+    right: 0;
+}
+
+.reviews-slider .reviews-loading {
+    flex: 1;
+    min-width: 100%;
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-light);
 }
 
 .review-card {
+    flex-shrink: 0;
+    min-width: 300px;
     background: white;
     border-radius: 16px;
     padding: 2rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     transition: var(--transition);
     border: 1px solid rgba(26, 95, 63, 0.1);
+    scroll-snap-align: center;
 }
 
 .review-card:hover {
@@ -1099,11 +1152,11 @@ body {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
-.review-header {
+.review-card-top {
     display: flex;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .review-avatar {
@@ -1120,27 +1173,32 @@ body {
     flex-shrink: 0;
 }
 
-.review-author {
+.review-meta {
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
 }
 
 .review-author-name {
     font-weight: 600;
     color: var(--text-dark);
-    margin: 0 0 0.25rem 0;
+    margin: 0;
     font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.review-rating {
+    flex-shrink: 0;
 }
 
 .review-date {
     font-size: 0.9rem;
     color: var(--text-light);
-    margin: 0;
-}
-
-.review-rating {
-    display: flex;
-    gap: 0.25rem;
-    margin-bottom: 1rem;
+    margin: 0 0 1rem 0;
 }
 
 .review-star {
@@ -1156,7 +1214,6 @@ body {
 }
 
 .reviews-loading {
-    grid-column: 1 / -1;
     text-align: center;
     padding: 3rem;
     color: var(--text-light);
@@ -1723,10 +1780,35 @@ body {
         padding: 3rem 0;
     }
 
-    .reviews-container {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
+    .reviews-slider-wrap {
         margin-top: 2rem;
+    }
+
+    .reviews-slider {
+        gap: 16px;
+        padding: 16px 0;
+    }
+
+    .review-card {
+        min-width: 280px;
+    }
+
+    .reviews-nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.5rem;
+    }
+
+    .reviews-slider-wrap {
+        padding: 0 36px;
+    }
+
+    .reviews-nav-prev {
+        left: 0;
+    }
+
+    .reviews-nav-next {
+        right: 0;
     }
 
     .hero-badges {
@@ -1824,13 +1906,13 @@ body {
         padding: 2rem 0;
     }
 
-    .reviews-container {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-        padding: 0 0.5rem;
+    .reviews-slider {
+        gap: 12px;
+        padding: 12px 0.5rem;
     }
 
     .review-card {
+        min-width: 260px;
         padding: 1.5rem;
     }
 
