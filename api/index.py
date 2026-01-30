@@ -41,6 +41,20 @@ def _verify_jwt(token):
     except Exception:
         return None
 
+def _get_client_ip(headers):
+    """Extract client IP from request headers (x-forwarded-for, x-real-ip, cf-connecting-ip)."""
+    if not headers or not hasattr(headers, 'get'):
+        return None
+    for key in ('x-forwarded-for', 'x-real-ip', 'cf-connecting-ip', 'X-Forwarded-For', 'X-Real-Ip', 'Cf-Connecting-Ip'):
+        val = headers.get(key)
+        if val:
+            s = str(val).strip()
+            if ',' in s:
+                s = s.split(',')[0].strip()
+            if s and s != '::1' and s != '127.0.0.1':
+                return s
+    return None
+
 def _get_bearer_token(headers):
     if headers is None:
         return None
@@ -61,6 +75,70 @@ def _check_password(raw, hashed):
 
 def _looks_like_hash(s):
     return isinstance(s, str) and ('scrypt:' in s or 'pbkdf2:' in s or ('$' in s and len(s) > 20))
+
+def _ensure_chatbot_responses_table(db):
+    """Create chatbot_responses table (keyword, response, timestamp) if not exists."""
+    cur = get_cursor(db)
+    try:
+        if db['type'] == 'neon':
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS chatbot_responses (
+                    keyword TEXT PRIMARY KEY,
+                    response TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+            """)
+        else:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS chatbot_responses (
+                    keyword TEXT PRIMARY KEY,
+                    response TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+            """)
+        db['conn'].commit()
+    except Exception:
+        pass
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+def _ensure_site_visits_table(db):
+    """Create site_visits table (id, ip_address, visit_date, visit_count) if not exists."""
+    cur = get_cursor(db)
+    try:
+        if db['type'] == 'neon':
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS site_visits (
+                    id SERIAL PRIMARY KEY,
+                    ip_address TEXT NOT NULL,
+                    visit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    visit_count INTEGER NOT NULL DEFAULT 1,
+                    UNIQUE(ip_address, visit_date)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date)")
+        else:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS site_visits (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_address TEXT NOT NULL,
+                    visit_date TEXT NOT NULL,
+                    visit_count INTEGER NOT NULL DEFAULT 1,
+                    UNIQUE(ip_address, visit_date)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date)")
+        db['conn'].commit()
+    except Exception:
+        pass
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 def _ensure_reviews_table(db):
     """Create reviews table (id, author, rating, comment, date, approved) if not exists."""
@@ -564,6 +642,35 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     'db_type': 'neon' if USE_NEON else 'sqlite'
                 }, ensure_ascii=False)
             
+            if path == 'track-visit':
+                try:
+                    client_ip = _get_client_ip(request_headers) or 'unknown'
+                    visit_date = datetime.now().strftime('%Y-%m-%d')
+                    db = get_db_connection()
+                    _ensure_site_visits_table(db)
+                    cur = get_cursor(db)
+                    if db['type'] == 'neon':
+                        cur.execute("""
+                            INSERT INTO site_visits (ip_address, visit_date, visit_count)
+                            VALUES (%s, %s, 1)
+                            ON CONFLICT (ip_address, visit_date)
+                            DO UPDATE SET visit_count = site_visits.visit_count + 1
+                        """, (client_ip, visit_date))
+                    else:
+                        cur.execute("""
+                            INSERT INTO site_visits (ip_address, visit_date, visit_count)
+                            VALUES (?, ?, 1)
+                            ON CONFLICT (ip_address, visit_date)
+                            DO UPDATE SET visit_count = visit_count + 1
+                        """, (client_ip, visit_date))
+                    db['conn'].commit()
+                    db['conn'].close()
+                    return 200, headers, json.dumps({'ok': True}, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in GET /track-visit: {str(e)}\n{traceback.format_exc()}")
+                    return 200, headers, json.dumps({'ok': False}, ensure_ascii=False)
+            
             if path == 'test' or path == 'health':
                 # Test database connection
                 db_status = {'connected': False, 'error': None, 'type': None}
@@ -596,12 +703,59 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
                 return 200, headers, json.dumps({'ok': True}, ensure_ascii=False)
             
+            elif path == 'admin/visitor-stats':
+                t = _get_bearer_token(request_headers)
+                if not t or not _verify_jwt(t):
+                    return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
+                try:
+                    db = get_db_connection()
+                    _ensure_site_visits_table(db)
+                    cur = get_cursor(db)
+                    is_neon = db['type'] == 'neon'
+                    cutoff = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                    if is_neon:
+                        cur.execute("""
+                            SELECT visit_date as date,
+                                   COUNT(DISTINCT ip_address) as unique_visitors,
+                                   COALESCE(SUM(visit_count), 0)::int as total_accesses
+                            FROM site_visits
+                            WHERE visit_date >= %s
+                            GROUP BY visit_date
+                            ORDER BY visit_date DESC
+                        """, (cutoff,))
+                    else:
+                        cur.execute("""
+                            SELECT visit_date as date,
+                                   COUNT(DISTINCT ip_address) as unique_visitors,
+                                   COALESCE(SUM(visit_count), 0) as total_accesses
+                            FROM site_visits
+                            WHERE visit_date >= ?
+                            GROUP BY visit_date
+                            ORDER BY visit_date DESC
+                        """, (cutoff,))
+                    rows = cur.fetchall()
+                    stats = []
+                    for row in rows:
+                        r = dict(row) if is_neon else {k: row[k] for k in row.keys()}
+                        stats.append({
+                            'date': str(r.get('date', ''))[:10],
+                            'unique_visitors': int(r.get('unique_visitors', 0)),
+                            'total_accesses': int(r.get('total_accesses', 0))
+                        })
+                    db['conn'].close()
+                    return 200, headers, json.dumps(stats, ensure_ascii=False)
+                except Exception as e:
+                    import traceback
+                    print(f"Error in GET /admin/visitor-stats: {str(e)}\n{traceback.format_exc()}")
+                    return 500, headers, json.dumps({'error': str(e)}, ensure_ascii=False)
+            
             elif path == 'stats':
                 t = _get_bearer_token(request_headers)
                 if not t or not _verify_jwt(t):
                     return 401, headers, json.dumps({'error': 'Unauthorized'}, ensure_ascii=False)
                 db = get_db_connection()
                 _ensure_reviews_table(db)
+                _ensure_chatbot_responses_table(db)
                 cur = get_cursor(db)
                 is_neon = db['type'] == 'neon'
                 counts = {}
@@ -698,10 +852,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                 db = get_db_connection()
                 _ensure_reviews_table(db)
                 cur = get_cursor(db)
-                if db['type'] == 'neon':
-                    cur.execute("SELECT id, author, rating, comment, date FROM reviews WHERE approved = true ORDER BY date DESC")
-                else:
-                    cur.execute("SELECT id, author, rating, comment, date FROM reviews WHERE approved = 1 ORDER BY date DESC")
+                cur.execute("SELECT id, author, rating, comment, date FROM reviews ORDER BY date DESC")
                 rows = cur.fetchall()
                 reviews = [dict(row) if db['type'] == 'neon' else {k: row[k] for k in row.keys()} for row in rows]
                 db['conn'].close()
@@ -727,6 +878,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             
             elif path == 'chatbot-responses':
                 db = get_db_connection()
+                _ensure_chatbot_responses_table(db)
                 cur = get_cursor(db)
                 cur.execute("SELECT keyword, response FROM chatbot_responses ORDER BY keyword")
                 rows = cur.fetchall()
@@ -791,32 +943,6 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     # Return empty object instead of 500 error
                     return 200, headers, json.dumps({}, ensure_ascii=False)
             
-            elif path == 'chatbot' or path == 'chatbot-messages':
-                # Get chatbot messages
-                try:
-                    db = get_db_connection()
-                    cur = get_cursor(db)
-                    
-                    # Clean up messages older than 5 days
-                    cleanup_old_messages(db, cur, days=5)
-                    
-                    cur.execute("SELECT id, data, timestamp FROM chatbot_messages ORDER BY timestamp ASC")
-                    rows = cur.fetchall()
-                    messages = []
-                    for row in rows:
-                        row_dict = dict(row) if db['type'] == 'neon' else row
-                        msg_data = json.loads(row_dict['data']) if isinstance(row_dict['data'], str) else row_dict['data']
-                        msg_data['id'] = row_dict['id']
-                        messages.append(msg_data)
-                    db['conn'].close()
-                    return 200, headers, json.dumps(messages, ensure_ascii=False)
-                except Exception as e:
-                    import traceback
-                    error_msg = str(e)
-                    print(f"Error in GET /chatbot: {error_msg}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    return 500, headers, json.dumps({'error': error_msg}, ensure_ascii=False)
-            
             else:
                 return 404, headers, json.dumps({'error': 'Not found'}, ensure_ascii=False)
         
@@ -868,12 +994,12 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     cur = get_cursor(db)
                     if db['type'] == 'neon':
                         cur.execute(
-                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, false)",
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (%s, %s, %s, %s, %s, true)",
                             (rid, author, r, comment, dt)
                         )
                     else:
                         cur.execute(
-                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, 0)",
+                            "INSERT INTO reviews (id, author, rating, comment, date, approved) VALUES (?, ?, ?, ?, ?, 1)",
                             (rid, author, r, comment, dt)
                         )
                     db['conn'].commit()
@@ -1208,6 +1334,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                         return 400, headers, json.dumps({'error': 'Missing keyword or response'}, ensure_ascii=False)
                     
                     db = get_db_connection()
+                    _ensure_chatbot_responses_table(db)
                     cur = get_cursor(db)
                     timestamp = datetime.now().isoformat()
                     
@@ -1384,23 +1511,12 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                         print(f"Traceback: {traceback.format_exc()}")
                         raise
                 
-                elif path == 'chatbot' or path == 'chatbot-messages':
-                    try:
-                        db = get_db_connection()
-                        cur = get_cursor(db)
-                        cur.execute("DELETE FROM chatbot_messages")
-                        db['conn'].commit()
-                        db['conn'].close()
-                        return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
-                    except Exception as e:
-                        import traceback
-                        print(f"Error in DELETE /chatbot?all=1: {str(e)}")
-                        print(f"Traceback: {traceback.format_exc()}")
-                        raise
-            
-            # Get ID from query parameter for individual deletion
             item_id = query.get('id')
-            if not item_id:
+            keyword_param = query.get('keyword')
+            if path == 'chatbot-responses':
+                if not keyword_param and not item_id:
+                    return 400, headers, json.dumps({'error': 'Missing keyword parameter'}, ensure_ascii=False)
+            elif not item_id:
                 return 400, headers, json.dumps({'error': 'Missing id parameter'}, ensure_ascii=False)
             
             if path == 'messages':
@@ -1464,32 +1580,11 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     print(f"Traceback: {traceback.format_exc()}")
                     raise
             
-            elif path == 'chatbot' or path == 'chatbot-messages':
-                # For chatbot-messages, 'id' is the message ID (integer)
-                try:
-                    db = get_db_connection()
-                    cur = get_cursor(db)
-                    sql = "DELETE FROM chatbot_messages WHERE id = %s" if db['type'] == 'neon' else "DELETE FROM chatbot_messages WHERE id = ?"
-                    # Convert id to int if possible, otherwise use as string
-                    try:
-                        msg_id = int(item_id)
-                    except ValueError:
-                        msg_id = item_id
-                    cur.execute(sql, (msg_id,))
-                    db['conn'].commit()
-                    db['conn'].close()
-                    return 200, headers, json.dumps({'success': True}, ensure_ascii=False)
-                except Exception as e:
-                    import traceback
-                    print(f"Error in DELETE /chatbot: {str(e)}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    raise
-            
             elif path == 'chatbot-responses':
-                # For chatbot-responses, 'id' is actually the keyword
-                keyword = item_id
+                keyword = keyword_param or item_id
                 try:
                     db = get_db_connection()
+                    _ensure_chatbot_responses_table(db)
                     cur = get_cursor(db)
                     sql = "DELETE FROM chatbot_responses WHERE keyword = %s" if db['type'] == 'neon' else "DELETE FROM chatbot_responses WHERE keyword = ?"
                     cur.execute(sql, (keyword,))

@@ -83,6 +83,16 @@ CREATE TABLE IF NOT EXISTS chatbot_responses (
     timestamp TEXT NOT NULL
 );
 
+-- Site visits table (IP-based visitor tracking)
+CREATE TABLE IF NOT EXISTS site_visits (
+    id SERIAL PRIMARY KEY,
+    ip_address TEXT NOT NULL,
+    visit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    visit_count INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(ip_address, visit_date)
+);
+CREATE INDEX IF NOT EXISTS idx_site_visits_date ON site_visits(visit_date);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_chatbot_messages_timestamp ON chatbot_messages(timestamp);

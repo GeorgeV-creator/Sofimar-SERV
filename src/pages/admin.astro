@@ -46,34 +46,30 @@
             <section class="stats-section">
                 <div class="stats-grid">
                     <div class="stat-card" data-tab="messages" style="cursor: pointer;" title="Click pentru a deschide Mesaje Contact"><div class="stat-icon">📧</div><div class="stat-info"><h3 id="totalMessages">0</h3><p>Mesaje Contact</p></div></div>
-                    <div class="stat-card" data-tab="chatbot" style="cursor: pointer;" title="Click pentru a deschide Mesaje Chatbot"><div class="stat-icon">💬</div><div class="stat-info"><h3 id="totalChatbotMessages">0</h3><p>Mesaje Chatbot</p></div></div>
                     <div class="stat-card" data-tab="locations" style="cursor: pointer;" title="Click pentru a deschide Locații"><div class="stat-icon">📍</div><div class="stat-info"><h3 id="totalLocations">0</h3><p>Locații</p></div></div>
                     <div class="stat-card" data-tab="tiktok" style="cursor: pointer;" title="Click pentru a deschide Video-uri TikTok"><div class="stat-icon">🎬</div><div class="stat-info"><h3 id="totalVideos">0</h3><p>Video-uri TikTok</p></div></div>
                     <div class="stat-card" data-tab="certificates" style="cursor: pointer;" title="Click pentru a deschide Certificate"><div class="stat-icon">📄</div><div class="stat-info"><h3 id="totalCertificates">0</h3><p>Certificate</p></div></div>
                     <div class="stat-card" data-tab="partners" style="cursor: pointer;" title="Click pentru a deschide Parteneri"><div class="stat-icon">🤝</div><div class="stat-info"><h3 id="totalPartners">0</h3><p>Parteneri</p></div></div>
                     <div class="stat-card" data-tab="reviews" style="cursor: pointer;" title="Click pentru a deschide Recenzii"><div class="stat-icon">⭐</div><div class="stat-info"><h3 id="totalReviews">0</h3><p>Recenzii</p></div></div>
                     <div class="stat-card" data-tab="chatbot-responses" style="cursor: pointer;" title="Click pentru a deschide Răspunsuri Chatbot"><div class="stat-icon">🤖</div><div class="stat-info"><h3 id="totalChatbotResponses">0</h3><p>Răspunsuri Chatbot</p></div></div>
+                    <div class="stat-card" data-tab="visitor-stats" style="cursor: pointer;" title="Click pentru Statistici Vizitatori"><div class="stat-icon">📊</div><div class="stat-info"><h3>-</h3><p>Statistici Vizitatori</p></div></div>
                     <div class="stat-card" data-tab="settings" style="cursor: pointer;" title="Click pentru a deschide Setări"><div class="stat-icon">⚙️</div><div class="stat-info"><h3>-</h3><p>Setări</p></div></div>
                 </div>
             </section>
             <div class="tabs-container">
                 <button class="tab-btn active" data-tab="messages">📧 Mesaje Contact</button>
-                <button class="tab-btn" data-tab="chatbot">💬 Mesaje Chatbot</button>
                 <button class="tab-btn" data-tab="locations">📍 Locații</button>
                 <button class="tab-btn" data-tab="tiktok">🎬 Video-uri TikTok</button>
                 <button class="tab-btn" data-tab="certificates">📄 Certificate</button>
                 <button class="tab-btn" data-tab="partners">🤝 Parteneri</button>
                 <button class="tab-btn" data-tab="reviews">⭐ Recenzii</button>
                 <button class="tab-btn" data-tab="chatbot-responses">🤖 Răspunsuri Chatbot</button>
+                <button class="tab-btn" data-tab="visitor-stats">📊 Statistici Vizitatori</button>
                 <button class="tab-btn" data-tab="settings">⚙️ Setări</button>
             </div>
             <div id="messagesTab" class="tab-content active">
                 <div class="tab-header"><h2>Mesaje de Contact</h2><div style="display: flex; gap: 1rem;"><button id="exportDataBtn" class="btn btn-secondary">📥 Exportă Excel</button><button id="clearMessagesBtn" class="btn btn-danger">Șterge Toate</button></div></div>
                 <div class="messages-list" id="messagesList"><p class="empty-state">Nu există mesaje.</p></div>
-            </div>
-            <div id="chatbotTab" class="tab-content">
-                <div class="tab-header"><h2>Mesaje Chatbot</h2><button id="clearChatbotMessagesBtn" class="btn btn-danger">Șterge Toate</button></div>
-                <div class="chatbot-conversations" id="chatbotConversations"><p class="empty-state">Nu există conversații.</p></div>
             </div>
             <div id="tiktokTab" class="tab-content">
                 <div class="tab-header"><h2>Gestionare Video-uri TikTok</h2><button id="addVideoBtn" class="btn btn-primary">+ Adaugă Video</button></div>
@@ -98,6 +94,19 @@
             <div id="chatbot-responsesTab" class="tab-content">
                 <div class="tab-header"><h2>Gestionare Răspunsuri Chatbot</h2><button id="addChatbotResponseBtn" class="btn btn-primary">+ Adaugă Răspuns</button></div>
                 <div class="chatbot-responses-list" id="chatbotResponsesList"></div>
+            </div>
+            <div id="visitor-statsTab" class="tab-content">
+                <div class="tab-header"><h2>Statistici Vizitatori</h2><button id="refreshVisitorStatsBtn" type="button" class="btn btn-secondary">🔄 Reîmprospătează</button></div>
+                <div class="visitor-stats-container">
+                    <table class="visitor-stats-table">
+                        <thead>
+                            <tr><th>Data</th><th>Vizitatori Unici</th><th>Total Accesări</th></tr>
+                        </thead>
+                        <tbody id="visitorStatsBody">
+                            <tr><td colspan="3" class="empty-state">Se încarcă...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div id="settingsTab" class="tab-content">
                 <div class="tab-header"><h2>Setări</h2></div>
@@ -208,7 +217,6 @@
                 <div class="form-group"><label for="adminReviewName">Nume *</label><input type="text" id="adminReviewName" placeholder="Ex: Maria P." required /></div>
                 <div class="form-group"><label for="adminReviewRating">Rating (1–5) *</label><input type="number" id="adminReviewRating" min="1" max="5" value="5" required /></div>
                 <div class="form-group"><label for="adminReviewComment">Mesaj *</label><textarea id="adminReviewComment" rows="4" placeholder="Recenzie (ex. de pe Facebook/Google)..." required></textarea></div>
-                <div class="form-group"><label><input type="checkbox" id="adminReviewApproved" /> Aprobat (vizibil pe site)</label></div>
                 <button type="submit" class="btn btn-primary">Salvează</button>
             </form>
         </div>

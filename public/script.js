@@ -466,28 +466,11 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Track page visits
+// Track page visits (IP-based via server)
 function trackPageVisit() {
-    const today = new Date();
-    const dateKey = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-    
     try {
-        // Try to save to API server first
-        fetch(`${API_BASE_URL}/visits`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                date: dateKey,
-                timestamp: today.toISOString()
-            })
-        }).catch(error => {
-            console.error('API server not available, visit not saved:', error);
-        });
-    } catch (error) {
-        console.error('API server not available, visit not saved:', error);
-    }
+        fetch(`${API_BASE_URL}/track-visit`, { method: 'GET' }).catch(() => {});
+    } catch (e) {}
 }
 
 // TikTok Embed Loader with Autoplay
@@ -1367,7 +1350,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Custom reviews (GET /api/reviews – approved only)
+// Custom reviews (GET /api/reviews)
 async function loadReviews() {
     const reviewsContainer = document.getElementById('reviewsContainer');
     if (!reviewsContainer) return;
@@ -1461,7 +1444,7 @@ function initReviewForm() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                if (msgEl) { msgEl.textContent = 'Mulțumim! Recenzia a fost trimisă și va apărea după aprobare.'; msgEl.style.color = 'var(--primary-color, #1a5f3f)'; }
+                if (msgEl) { msgEl.textContent = 'Mulțumim! Recenzia a fost trimisă.'; msgEl.style.color = 'var(--primary-color, #1a5f3f)'; }
                 form.reset();
                 reviewRating.value = '5';
                 currentRating = 5;

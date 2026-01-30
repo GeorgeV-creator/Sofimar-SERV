@@ -8,7 +8,6 @@ const API_BASE_URL = window.location.hostname.includes('vercel.app') || window.l
 // Storage keys
 const STORAGE_KEY_TOKEN = 'sofimar_admin_token';
 const STORAGE_KEY_MESSAGES = 'sofimar_contact_messages';
-const STORAGE_KEY_CHATBOT_MESSAGES = 'sofimar_chatbot_messages';
 const STORAGE_KEY_VIDEOS = 'sofimar_tiktok_videos';
 const STORAGE_KEY_CERTIFICATES = 'sofimar_certificates';
 const STORAGE_KEY_PARTNERS = 'sofimar_partners';
@@ -153,16 +152,6 @@ function initializeEventListeners() {
         clearMessagesBtn.addEventListener('click', () => {
             if (confirm('Ești sigur că vrei să ștergi toate mesajele?')) {
                 clearMessages();
-            }
-        });
-    }
-
-    // Clear chatbot messages button
-    const clearChatbotMessagesBtn = document.getElementById('clearChatbotMessagesBtn');
-    if (clearChatbotMessagesBtn) {
-        clearChatbotMessagesBtn.addEventListener('click', () => {
-            if (confirm('Ești sigur că vrei să ștergi toate conversațiile chatbot-ului?')) {
-                clearChatbotMessages();
             }
         });
     }
@@ -344,6 +333,11 @@ function initializeEventListeners() {
         exportDataBtn.addEventListener('click', exportMessages);
     }
 
+    const refreshVisitorStatsBtn = document.getElementById('refreshVisitorStatsBtn');
+    if (refreshVisitorStatsBtn) {
+        refreshVisitorStatsBtn.addEventListener('click', () => loadVisitorStats());
+    }
+
     // Partner form
     const addPartnerForm = document.getElementById('addPartnerForm');
     if (addPartnerForm) {
@@ -471,13 +465,13 @@ async function switchTab(tabName) {
 
     const loads = {
         messages: () => loadMessages(),
-        chatbot: () => loadChatbotMessages(),
         locations: () => loadLocations(),
         tiktok: () => loadTikTokVideos(),
         certificates: () => loadCertificates(),
         partners: () => loadPartners(),
         reviews: () => loadReviewsAdmin(),
-        'chatbot-responses': () => loadChatbotResponsesAdmin()
+        'chatbot-responses': () => loadChatbotResponsesAdmin(),
+        'visitor-stats': () => loadVisitorStats()
     };
     const load = loads[tabName];
     if (load) {
@@ -497,7 +491,6 @@ async function loadData() {
     console.log('Loading all data...');
     try {
         await loadMessages();
-        await loadChatbotMessages();
         loadLocations();
         loadTikTokVideos();
         await loadCertificates();
@@ -604,141 +597,36 @@ async function deleteMessage(btnOrId) {
     }
 }
 
-// Chatbot Messages Management
-async function loadChatbotMessages() {
-    const messages = await getChatbotMessages();
-    const conversationsDiv = document.getElementById('chatbotConversations');
-    
-    if (!conversationsDiv) {
-        console.error('chatbotConversations element not found');
-        return;
-    }
-    
-    console.log('Loading chatbot messages:', messages.length);
-    
-    if (messages.length === 0) {
-        conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații.</p>';
-        return;
-    }
-
-    // Group messages into conversations (user message + bot response)
-    const conversations = [];
-    for (let i = 0; i < messages.length; i++) {
-        if (messages[i].type === 'user') {
-            const conversation = {
-                userMessage: messages[i],
-                botMessage: messages[i + 1] && messages[i + 1].type === 'bot' ? messages[i + 1] : null,
-                timestamp: messages[i].timestamp
-            };
-            conversations.push(conversation);
-            if (messages[i + 1] && messages[i + 1].type === 'bot') {
-                i++; // Skip bot message as it's already included
-            }
-        } else if (messages[i].type === 'bot' && i === 0) {
-            // Handle case where first message is a bot message (shouldn't happen, but just in case)
-            continue;
-        }
-    }
-
-    console.log('Grouped conversations:', conversations.length);
-
-    if (conversations.length === 0) {
-        conversationsDiv.innerHTML = '<p class="empty-state">Nu există conversații. Mesajele pot fi doar de tip bot sau nu sunt grupate corect.</p>';
-        return;
-    }
-
-    // Sort by timestamp (newest first)
-    conversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    // Hide tabs container
-    const tabsContainer = document.getElementById('chatbotTabsContainer');
-    if (tabsContainer) tabsContainer.style.display = 'none';
-    
-    const escId = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    const idsAttr = (arr) => arr.filter(Boolean).map(escId).join(',');
-    conversationsDiv.style.display = 'block';
-    conversationsDiv.innerHTML = conversations.map((conv) => {
-        const ids = [conv.userMessage?.id, conv.botMessage?.id].filter(Boolean);
-        if (ids.length === 0) return '';
-        const idsStr = idsAttr(ids);
-        const date = new Date(conv.timestamp);
-        const dateStr = date.toLocaleString('ro-RO', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        return `
-            <div class="conversation-item" data-chatbot-ids="${idsStr}">
-                <div class="conversation-header">
-                    <div class="conversation-date">📅 ${dateStr}</div>
-                    <button type="button" class="conversation-delete" onclick="deleteChatbotConversation(this)">Șterge</button>
-                </div>
-                <div class="conversation-messages">
-                    <div class="chatbot-message user">
-                        <div class="message-label">👤 Utilizator:</div>
-                        <div class="message-text">${escapeHtml(conv.userMessage.message)}</div>
-                    </div>
-                    ${conv.botMessage ? `
-                    <div class="chatbot-message bot">
-                        <div class="message-label">🤖 Bot:</div>
-                        <div class="message-text">${escapeHtml(conv.botMessage.message)}</div>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }).filter(Boolean).join('');
-}
-
-async function getChatbotMessages() {
-    const res = await apiRequest('chatbot');
-    if (!res || !res.ok) return [];
-    const messages = await res.json().catch(() => []);
-    return Array.isArray(messages) ? messages : [];
-}
-
-async function clearChatbotMessages() {
-    if (!confirm('Ești sigur că vrei să ștergi toate conversațiile chatbot-ului?')) return;
-    const res = await apiRequest('chatbot?all=1', { method: 'DELETE' });
-    if (!res) return;
-    if (!res.ok) { alert('Eroare: conversațiile nu au fost șterse.'); return; }
-    await loadChatbotMessages();
-    updateStatistics();
-    alert('Toate conversațiile au fost șterse cu succes!');
-}
-
-async function deleteChatbotConversation(btn) {
-    const card = btn && btn.nodeType === 1 ? btn.closest('.conversation-item') : null;
-    const idsRaw = card ? card.getAttribute('data-chatbot-ids') : '';
-    const idsToDelete = idsRaw ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-    if (idsToDelete.length === 0) {
-        alert('Eroare: nu pot șterge conversația (lipsește ID-ul).');
-        return;
-    }
-    if (!confirm('Ștergi această conversație?')) return;
-
-    const parent = card.parentElement;
-    const next = card.nextElementSibling;
-    const backup = card.cloneNode(true);
-
-    card.remove();
-
-    const rollback = () => {
-        if (next) parent.insertBefore(backup, next);
-        else parent.appendChild(backup);
-        alert('Eroare: conversația nu a putut fi ștearsă. Încearcă din nou.');
-    };
-
+// Visitor Statistics
+async function loadVisitorStats() {
+    const tbody = document.getElementById('visitorStatsBody');
+    if (!tbody) return;
     try {
-        for (const id of idsToDelete) {
-            const res = await apiRequest(`chatbot?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-            if (!res || !res.ok) throw new Error('Delete failed');
+        const res = await apiRequest('admin/visitor-stats');
+        if (!res || !res.ok) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Eroare la încărcarea statisticilor.</td></tr>';
+            return;
         }
-        if (typeof updateStatistics === 'function') updateStatistics();
-    } catch (_) {
-        rollback();
+        const stats = await res.json().catch(() => []);
+        if (!Array.isArray(stats) || stats.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Nu există date pentru ultimele 7 zile.</td></tr>';
+            return;
+        }
+        const fmt = (d) => {
+            try {
+                const x = new Date(d);
+                return isNaN(x) ? d : x.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
+            } catch (_) { return d; }
+        };
+        tbody.innerHTML = stats.map(s => `
+            <tr>
+                <td>${escapeHtml(fmt(s.date))}</td>
+                <td>${escapeHtml(String(s.unique_visitors ?? 0))}</td>
+                <td>${escapeHtml(String(s.total_accesses ?? 0))}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Eroare la încărcare.</td></tr>';
     }
 }
 
@@ -1399,7 +1287,6 @@ async function updateStatistics() {
     set('totalMessages', c.messages ?? 0);
     set('totalVideos', c.tiktok ?? 0);
     set('totalCertificates', c.certificates ?? 0);
-    set('totalChatbotMessages', c.chatbot_messages ?? 0);
     set('totalLocations', c.locations ?? 0);
     set('totalPartners', c.partners ?? 0);
     set('totalReviews', c.reviews ?? 0);
@@ -2234,7 +2121,6 @@ function escapeHtml(text) {
 
 // Make functions available globally for onclick handlers
 window.deleteMessage = deleteMessage;
-window.deleteChatbotConversation = deleteChatbotConversation;
 window.editLocation = editLocation;
 window.deleteLocation = deleteLocation;
 window.deleteTikTokVideo = deleteTikTokVideo;
@@ -2254,43 +2140,16 @@ if (typeof Storage !== 'undefined') {
             if (e.key === STORAGE_KEY_MESSAGES) {
                 loadMessages();
                 updateStatistics();
-            } else if (e.key === STORAGE_KEY_CHATBOT_MESSAGES) {
-                loadChatbotMessages();
-                updateStatistics();
             }
         }
     });
 
-    // Also listen for custom events (for same-window updates)
-    window.addEventListener('chatbotMessageAdded', () => {
-        if (document.getElementById('adminDashboard') && 
-            document.getElementById('adminDashboard').style.display !== 'none') {
-        // Check if chatbot tab is active
-        const chatbotTab = document.getElementById('chatbotTab');
-        if (chatbotTab && chatbotTab.classList.contains('active')) {
-            loadChatbotMessages();
-        }
-        updateStatistics();
-        
-        // Check if messages tab is active
-        const messagesTab = document.getElementById('messagesTab');
-        if (messagesTab && messagesTab.classList.contains('active')) {
-            loadMessages();
-        }
-        }
-    });
 }
 
 // Add periodic refresh for messages when tabs are active
 setInterval(() => {
     if (document.getElementById('adminDashboard') && 
         document.getElementById('adminDashboard').style.display !== 'none') {
-        const chatbotTab = document.getElementById('chatbotTab');
-        if (chatbotTab && chatbotTab.classList.contains('active')) {
-            loadChatbotMessages();
-            updateStatistics();
-        }
-        
         const messagesTab = document.getElementById('messagesTab');
         if (messagesTab && messagesTab.classList.contains('active')) {
             loadMessages();
@@ -2326,9 +2185,7 @@ function openReviewModal() {
     title.textContent = 'Adaugă recenzie';
     form.reset();
     const r = document.getElementById('adminReviewRating');
-    const chk = document.getElementById('adminReviewApproved');
     if (r) r.value = 5;
-    if (chk) chk.checked = true;
     modal.classList.add('active');
 }
 
@@ -2347,14 +2204,13 @@ function buildReviewRowHtml(r, attr) {
     const raw = (r.comment || '').toString();
     const comment = (raw.slice(0, 300) + (raw.length > 300 ? '…' : '')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const date = (r.date || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const approved = r.approved ? ' ✓ Aprobat' : ' (în așteptare)';
     const esc = attr || (x => String(x ?? '').replace(/"/g, '&quot;').replace(/'/g, "\\'"));
     const aid = esc(id);
     return `<div class="review-item-admin" data-id="review-${aid}" ${r._temp ? 'data-temp="1"' : ''}>
         <div class="review-header-admin">
             <div>
                 <div class="review-author-admin">${author}</div>
-                <div class="review-date-admin">📅 ${date}${approved}</div>
+                <div class="review-date-admin">📅 ${date}</div>
                 <div class="review-rating-admin">${stars}</div>
             </div>
             <div class="review-actions-admin">
@@ -2369,7 +2225,7 @@ async function saveReview() {
     const author = (document.getElementById('adminReviewName')?.value || '').trim();
     const comment = (document.getElementById('adminReviewComment')?.value || '').trim();
     const rating = Math.min(5, Math.max(1, parseInt(document.getElementById('adminReviewRating')?.value, 10) || 5));
-    const approved = !!document.getElementById('adminReviewApproved')?.checked;
+    const approved = true;
     if (!author || !comment) {
         alert('Completează numele și mesajul.');
         return;
@@ -2494,16 +2350,18 @@ async function loadChatbotResponsesAdmin() {
             return;
         }
         
+        const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
         responsesList.innerHTML = Object.entries(responses).map(([keyword, responseText]) => {
+            const kwAttr = attr(keyword);
             return `
-                <div class="chatbot-response-item">
+                <div class="chatbot-response-item" data-keyword="${kwAttr}">
                     <div class="chatbot-response-header">
                         <div>
                             <div class="chatbot-response-keyword">🔑 <strong>${escapeHtml(keyword)}</strong></div>
                         </div>
                         <div class="chatbot-response-actions">
-                            <button class="btn btn-secondary" onclick="editChatbotResponse('${escapeHtml(keyword)}')">Editează</button>
-                            <button class="btn btn-danger" onclick="deleteChatbotResponse('${escapeHtml(keyword)}')">Șterge</button>
+                            <button type="button" class="btn btn-secondary" onclick="editChatbotResponse(this.closest('[data-keyword]').getAttribute('data-keyword'))">Editează</button>
+                            <button type="button" class="btn btn-danger" onclick="deleteChatbotResponse(this)">Șterge</button>
                         </div>
                     </div>
                     <div class="chatbot-response-text">${escapeHtml(responseText)}</div>
@@ -2519,28 +2377,27 @@ async function loadChatbotResponsesAdmin() {
     }
 }
 
-function openChatbotResponseModal(keyword = null) {
+async function openChatbotResponseModal(keyword = null) {
     const modal = document.getElementById('chatbotResponseModal');
     const form = document.getElementById('addChatbotResponseForm');
     const title = document.getElementById('chatbotResponseModalTitle');
     
     if (keyword) {
-        (async () => {
-            const res = await apiRequest('chatbot-responses');
-            if (!res || !res.ok) return;
-            const responses = await res.json().catch(() => ({}));
-            if (responses && responses[keyword]) {
-                title.textContent = 'Editează Răspuns Chatbot';
-                const kw = document.getElementById('chatbotKeyword');
-                const r = document.getElementById('chatbotResponse');
-                if (kw) { kw.value = keyword; kw.disabled = true; }
-                if (r) r.value = responses[keyword];
-            }
-        })();
+        const res = await apiRequest('chatbot-responses');
+        if (!res || !res.ok) return;
+        const responses = await res.json().catch(() => ({}));
+        if (responses && responses[keyword]) {
+            title.textContent = 'Editează Răspuns Chatbot';
+            const kw = document.getElementById('chatbotKeyword');
+            const r = document.getElementById('chatbotResponse');
+            if (kw) { kw.value = keyword; kw.disabled = true; kw.dataset.editKeyword = keyword; }
+            if (r) r.value = responses[keyword];
+        }
     } else {
         title.textContent = 'Adaugă Răspuns Chatbot';
         form.reset();
-        document.getElementById('chatbotKeyword').disabled = false;
+        const kw = document.getElementById('chatbotKeyword');
+        if (kw) { kw.disabled = false; kw.removeAttribute('data-edit-keyword'); }
     }
     
     modal.classList.add('active');
@@ -2550,45 +2407,103 @@ function closeChatbotResponseModal() {
     const modal = document.getElementById('chatbotResponseModal');
     modal.classList.remove('active');
     document.getElementById('addChatbotResponseForm').reset();
-    document.getElementById('chatbotKeyword').disabled = false;
+    const kw = document.getElementById('chatbotKeyword');
+    if (kw) { kw.disabled = false; kw.removeAttribute('data-edit-keyword'); }
+}
+
+function buildChatbotResponseRowHtml(keyword, responseText, attr) {
+    const esc = attr || (s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;'));
+    const kwAttr = esc(keyword);
+    return `<div class="chatbot-response-item" data-keyword="${kwAttr}">
+        <div class="chatbot-response-header">
+            <div><div class="chatbot-response-keyword">🔑 <strong>${escapeHtml(keyword)}</strong></div></div>
+            <div class="chatbot-response-actions">
+                <button type="button" class="btn btn-secondary" onclick="editChatbotResponse(this.closest('[data-keyword]').getAttribute('data-keyword'))">Editează</button>
+                <button type="button" class="btn btn-danger" onclick="deleteChatbotResponse(this)">Șterge</button>
+            </div>
+        </div>
+        <div class="chatbot-response-text">${escapeHtml(responseText)}</div>
+    </div>`;
 }
 
 async function saveChatbotResponse() {
-    const keyword = document.getElementById('chatbotKeyword').value.trim().toLowerCase();
-    const responseText = document.getElementById('chatbotResponse').value.trim();
+    const kwEl = document.getElementById('chatbotKeyword');
+    const rEl = document.getElementById('chatbotResponse');
+    const keyword = (kwEl?.value || '').trim().toLowerCase();
+    const responseText = (rEl?.value || '').trim();
     
     if (!keyword || !responseText) {
         alert('Te rugăm să completezi toate câmpurile!');
         return;
     }
     
+    const list = document.getElementById('chatbotResponsesList');
+    if (!list) return;
+    const isEdit = kwEl?.dataset?.editKeyword;
+    const oldKeyword = isEdit ? (kwEl.dataset.editKeyword || '').trim().toLowerCase() : null;
+    
+    closeChatbotResponseModal();
+    
+    const attr = s => (s ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    
+    if (isEdit && oldKeyword) {
+        const row = Array.from(list.querySelectorAll('[data-keyword]')).find(el => el.getAttribute('data-keyword') === oldKeyword);
+        if (row) {
+            const textEl = row.querySelector('.chatbot-response-text');
+            if (textEl) textEl.textContent = responseText;
+        }
+    } else {
+        const wasEmpty = list.querySelector('.empty-state');
+        const newRow = buildChatbotResponseRowHtml(keyword, responseText, attr);
+        if (wasEmpty) list.innerHTML = newRow;
+        else list.insertAdjacentHTML('beforeend', newRow);
+    }
+    
     try {
         const res = await apiRequest('chatbot-responses', { method: 'POST', body: { keyword, response: responseText } });
-        if (!res) return;
-        if (!res.ok) throw new Error('Salvare eșuată');
-        await loadChatbotResponsesAdmin();
-        closeChatbotResponseModal();
+        if (!res || !res.ok) throw new Error('Salvare eșuată');
+        if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
     } catch (e) {
+        await loadChatbotResponsesAdmin();
         alert('Eroare la salvarea răspunsului. Te rugăm să încerci din nou.');
     }
 }
 
-async function deleteChatbotResponse(keyword) {
-    if (!confirm(`Ești sigur că vrei să ștergi răspunsul pentru cuvântul cheie "${keyword}"?`)) {
-        return;
+function deleteChatbotResponse(btn) {
+    const row = btn && btn.nodeType === 1 ? btn.closest('.chatbot-response-item') : null;
+    const keyword = row ? row.getAttribute('data-keyword') : null;
+    if (!keyword) return;
+    if (!confirm(`Ștergi răspunsul pentru "${keyword}"?`)) return;
+    
+    const list = document.getElementById('chatbotResponsesList');
+    const parent = row?.parentElement;
+    const next = row?.nextElementSibling;
+    const backup = row?.cloneNode(true);
+    
+    row?.remove();
+    if (list && list.querySelectorAll('.chatbot-response-item').length === 0) {
+        list.innerHTML = '<p class="empty-state">Nu există răspunsuri configurate. Folosește butonul "Adaugă Răspuns" pentru a adăuga unul nou.</p>';
     }
     
-    try {
-        const res = await apiRequest(`chatbot-responses?keyword=${encodeURIComponent(keyword)}`, { method: 'DELETE' });
-        if (!res) return;
-        if (!res.ok) throw new Error('Delete failed');
-        await loadChatbotResponsesAdmin();
-    } catch (e) {
-        alert('Eroare la ștergerea răspunsului. Te rugăm să încerci din nou.');
-    }
+    const rollback = () => {
+        if (parent && backup) {
+            const empty = parent.querySelector('.empty-state');
+            if (empty) empty.remove();
+            parent.insertBefore(backup, next);
+        }
+        alert('Eroare la ștergere. Încearcă din nou.');
+    };
+    
+    apiRequest(`chatbot-responses?keyword=${encodeURIComponent(keyword)}`, { method: 'DELETE' })
+        .then(res => {
+            if (!res || !res.ok) throw new Error();
+            if (typeof updateStatistics === 'function') updateStatistics().catch(() => {});
+        })
+        .catch(() => { rollback(); });
 }
 
 function editChatbotResponse(keyword) {
     openChatbotResponseModal(keyword);
 }
+
 
