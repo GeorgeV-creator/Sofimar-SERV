@@ -1044,8 +1044,8 @@ body {
 
 .partners-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
     margin-top: 2rem;
     max-width: 1200px;
     margin-left: auto;
@@ -1310,8 +1310,8 @@ body {
 }
 
 .partner-item img {
-    width: 5cm;
-    height: 5cm;
+    width: 100%;
+    height: auto;
     object-fit: contain;
     pointer-events: none;
     -webkit-user-drag: none;
@@ -1864,19 +1864,13 @@ body {
     }
 
     .partners-grid {
-        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
         margin-top: 1.5rem;
     }
 
     .partner-item {
-        min-width: 100px;
         padding: 0.75rem;
-    }
-
-    .partner-item img {
-        width: 3cm;
-        height: 3cm;
     }
 
     .certificates-two-columns {
@@ -1913,8 +1907,8 @@ body {
     }
 
     .partners-grid {
-        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-        gap: 0.75rem;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
         margin-top: 1rem;
     }
 
@@ -1944,13 +1938,7 @@ body {
     }
 
     .partner-item {
-        min-width: 80px;
         padding: 0.5rem;
-    }
-
-    .partner-item img {
-        width: 2.5cm;
-        height: 2.5cm;
     }
 
     .service-card,

@@ -1352,13 +1352,13 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Custom reviews (GET /api/reviews)
+// Custom reviews (GET /api/reviews) - client-side fetch, always fresh from DB
 async function loadReviews() {
     const reviewsContainer = document.getElementById('reviewsContainer');
     if (!reviewsContainer) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/reviews`);
+        const response = await fetch('/api/reviews');
         if (!response.ok) {
             reviewsContainer.innerHTML = '<div class="reviews-loading"><p>Nu există recenzii disponibile momentan.</p></div>';
             return;
