@@ -1219,15 +1219,18 @@ body {
 
 .review-text {
     color: var(--text-dark);
-    line-height: 1.5;
+    line-height: 1.55;
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    padding: 1rem;
+    -webkit-overflow-scrolling: touch;
 }
 
 .reviews-loading {
