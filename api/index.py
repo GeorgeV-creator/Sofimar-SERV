@@ -189,6 +189,20 @@ def cleanup_old_messages(db, cur, days=5):
         print(f"Error cleaning up old messages: {str(e)}")
         # Don't raise - cleanup failure shouldn't break the request
 
+def cleanup_old_contact_messages(db, cur, days=90):
+    """Delete contact messages older than specified days (default 90)"""
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+        sql = "DELETE FROM messages WHERE timestamp < %s" if db['type'] == 'neon' else "DELETE FROM messages WHERE timestamp < ?"
+        cur.execute(sql, (cutoff_date,))
+        deleted_count = cur.rowcount if db['type'] == 'neon' else cur.rowcount
+        db['conn'].commit()
+        if deleted_count > 0:
+            print(f"Cleaned up {deleted_count} old contact messages (older than {days} days)")
+    except Exception as e:
+        print(f"Error cleaning up old contact messages: {str(e)}")
+        # Don't raise - cleanup failure shouldn't break the request
+
 # Database configuration
 # Try multiple environment variable names (Neon integration might use different names)
 NEON_DB_URL = (
@@ -784,6 +798,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
             elif path == 'messages':
                 db = get_db_connection()
                 cur = get_cursor(db)
+                cleanup_old_contact_messages(db, cur, days=90)
                 cur.execute("SELECT id, data, timestamp FROM messages ORDER BY timestamp DESC")
                 rows = cur.fetchall()
                 is_neon = db['type'] == 'neon'
@@ -969,6 +984,7 @@ def handle_api_request(path, method, query, body_data, request_headers=None):
                     sql = "INSERT INTO messages (id, data, timestamp) VALUES (%s, %s, %s)" if db['type'] == 'neon' else "INSERT INTO messages (id, data, timestamp) VALUES (?, ?, ?)"
                     cur.execute(sql, (data['id'], json.dumps(data, ensure_ascii=False), data['timestamp']))
                     db['conn'].commit()
+                    cleanup_old_contact_messages(db, cur, days=90)
                     db['conn'].close()
                     return 200, headers, json.dumps({'success': True, 'id': data['id']}, ensure_ascii=False)
                 except Exception as e:
